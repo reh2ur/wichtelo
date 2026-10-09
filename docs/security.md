@@ -1,0 +1,28 @@
+# Security + hardening decisions
+
+## Bots + link previews
+
+`proxy.ts` returns 403 to all bots (except `/robots.txt`). Side effect: WhatsApp/Slack/facebookexternalhit get 403 → shared invite links show no preview. **Deliberate.** Invite token = bearer credential; preview fetchers would hit + cache + log token URLs on third-party servers. Do not allowlist preview bots without new decision.
+
+Private paths (`/gruppen/*`, `/einladung/*`) also send `X-Robots-Tag: noindex, nofollow` (`next.config.ts`) as backup to `robots.txt` + proxy block.
+
+## Headers
+
+- `poweredByHeader: false` → no `X-Powered-By`.
+- Auth OTP lifetime 900s (15 min) in `supabase/config.toml`; mail templates say "15 Minuten". Change one → change other, `supabase config push`.
+
+## Observability
+
+- `instrumentation.ts` `onRequestError` → structured pino error (`request.unhandled_error`): serialized error, method, `routePath`, `routeType`. No request path/headers (invite token in path, cookies in headers).
+- Console patch (prod only) forwards to pino only — no double log.
+- Log errors via `serializeError(err)` (`lib/serialize-error.ts`), never `String(err)` (`[object Object]`).
+- `GET /api/health` → 200 `{status:"ok"}` / 503. DB ping w/ publishable key, no secrets. Bot UA allowed in `proxy.ts`. Point external uptime monitor (e.g. UptimeRobot, free) at it — ops step, not in repo.
+- No third-party error tracker yet: needs vendor choice (EU-hosted), Datenschutz disclosure. Logs → Vercel only; watch them or add log drain.
+
+## Identifier guard
+
+CI job `pii-guard` (`scripts/check-no-pii.mts`, local: `pnpm check:pii`) scans all tracked files, fails w/ `file:line` + rule name (never matched text — logs may be public).
+
+- Generic rules committed in `scripts/pii-scan.mts`: secret shapes (Resend, Stripe-style, Supabase token, Sentry token/DSN, JWT, private key), concrete `*-projects.vercel.app` team slug.
+- Private terms (real name, address, old slugs/domains) NEVER committed. Source: repo variable `PII_DENYLIST` (Settings → Secrets and variables → Actions → Variables; one term per line, `#` comments) and/or gitignored `.pii-denylist` locally. Case-insensitive literal match. Unset → only generic rules run (notice in log). Fork PRs get no repo variables → generic only.
+- Extend: add generic regex to `genericRules` + case in `scripts/pii-scan.test.ts`; add private term to variable. Scanner files + `pnpm-lock.yaml` excluded.

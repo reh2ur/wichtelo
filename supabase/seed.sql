@@ -1,0 +1,2 @@
+-- Seed data for local development.
+-- Add development fixtures here (e.g. test users, groups).

@@ -1,0 +1,625 @@
+{
+  "common": {
+    "loading": "Lädt…"
+  },
+  "app": {
+    "name": "Wichtelo",
+    "hero": {
+      "title": "Eure Wichtel-Runde, organisiert.",
+      "subtitle": "Gruppe anlegen, Einladungslink teilen, Los auslösen. Wichtelo übernimmt die Zuteilung – fair und geheim.",
+      "cta": "Jetzt starten",
+      "ctaHint": "Kostenlos. Keine Werbung, kein Tracking."
+    },
+    "inviteOnly": {
+      "title": "Nur auf Einladung",
+      "description": "Wichtelo hat keine offene Registrierung. Mitmachen kann nur, wer einen Einladungslink von einem Gruppen-Admin erhält."
+    }
+  },
+  "signIn": {
+    "title": "Anmelden",
+    "description": "Gib deine E-Mail-Adresse ein. Wir schicken dir einen Anmeldelink oder Code.",
+    "email": {
+      "label": "E-Mail-Adresse",
+      "placeholder": "du@beispiel.de",
+      "submit": "Link oder Code anfordern",
+      "sending": "Wird gesendet…"
+    },
+    "otp": {
+      "sentPrefix": "Wir haben dir einen Code an",
+      "sentSuffix": "gesendet. Gib ihn hier ein oder klicke auf den Link in der E-Mail.",
+      "label": "Einmal-Code",
+      "submit": "Anmelden",
+      "back": "Andere E-Mail-Adresse verwenden",
+      "verifying": "Wird überprüft…",
+      "resend": "Code erneut senden",
+      "resent": "Wir haben dir einen neuen Code geschickt.",
+      "devMode": "Dev-Modus · OTP wird automatisch ausgefüllt, falls vorhanden"
+    },
+    "errors": {
+      "generic": "Etwas ist schiefgelaufen. Bitte versuche es erneut.",
+      "invalidOtp": "Der Code ist ungültig oder abgelaufen.",
+      "invalidEmail": "Bitte gib eine gültige E-Mail-Adresse ein.",
+      "rateLimited": "Zu viele Versuche. Bitte warte einen Moment und versuche es erneut."
+    }
+  },
+  "groups": {
+    "title": "Meine Gruppen",
+    "createNew": "Neue Gruppe",
+    "activeTitle": "Aktive Gruppen",
+    "pastTitle": "Vergangene Gruppen",
+    "noGroups": "Du bist noch in keiner Gruppe.",
+    "noActiveGroups": "Noch keine aktiven Gruppen.",
+    "stateOpen": "Offen",
+    "stateDrawn": "Ausgelost",
+    "gaveTo": "Du hast {name} beschenkt",
+    "adminBadge": "Admin"
+  },
+  "createGroup": {
+    "title": "Neue Gruppe",
+    "profile": {
+      "section": "Dein Name",
+      "hint": "Damit andere Teilnehmer dich erkennen.",
+      "firstNameLabel": "Vorname",
+      "firstNamePlaceholder": "Max",
+      "lastNameLabel": "Nachname",
+      "lastNamePlaceholder": "Mustermann"
+    },
+    "nameLabel": "Gruppenname",
+    "namePlaceholder": "z. B. Familie Müller",
+    "yearLabel": "Jahr",
+    "budgetLabel": "Budget-Hinweis",
+    "budgetPlaceholder": "z. B. 25 €",
+    "noteLabel": "Notiz",
+    "notePlaceholder": "z. B. Bitte praktische Geschenke",
+    "submit": "Gruppe erstellen",
+    "submitting": "Wird erstellt…",
+    "errors": {
+      "missingName": "Bitte gib einen Gruppennamen ein.",
+      "missingYear": "Bitte wähle ein Jahr.",
+      "profileRequired": "Bitte gib deinen Vor- und Nachnamen ein.",
+      "tooLong": "Maximal {max} Zeichen.",
+      "generic": "Etwas ist schiefgelaufen. Bitte versuche es erneut.",
+      "rateLimited": "Zu viele Gruppen erstellt. Bitte warte einen Moment und versuche es erneut."
+    }
+  },
+  "groupDetail": {
+    "backToGroups": "Meine Gruppen",
+    "participants": "Teilnehmer",
+    "budget": "Budget-Hinweis",
+    "note": "Notiz",
+    "stateOpen": "Offen",
+    "stateDrawn": "Ausgelost",
+    "adminBadge": "Admin",
+    "settings": "Einstellungen",
+    "youGiveTo": "Du beschenkst",
+    "adminAssignmentsTitle": "Auslosung",
+    "adminLookupNotice": "Hinweis: Der Admin dieser Gruppe kann bei Bedarf einzelne Zuordnungen einsehen, z. B. für Rückfragen.",
+    "inviteLink": {
+      "copy": "Link kopieren",
+      "copied": "Kopiert!"
+    },
+    "leave": {
+      "button": "Gruppe verlassen",
+      "confirmTitle": "Gruppe wirklich verlassen?",
+      "confirmMessage": "Du wirst aus der Gruppe entfernt.",
+      "confirm": "Verlassen",
+      "cancel": "Abbrechen",
+      "leaving": "Wird verlassen…",
+      "drawnBlocked": "Nach der Auslosung kannst du die Gruppe nicht mehr verlassen. Bitte wende dich an den Admin."
+    },
+    "errors": {
+      "lastAdmin": "Du bist der einzige Admin. Befördere zuerst eine andere Person zum Admin.",
+      "generic": "Etwas ist schiefgelaufen. Bitte versuche es erneut.",
+      "rateLimited": "Zu viele Versuche. Bitte warte einen Moment und versuche es erneut."
+    }
+  },
+  "draw": {
+    "start": "Auslosung starten",
+    "starting": "Wird ausgelost…",
+    "emailFailure": "{failed} von {total} E-Mails konnten nicht zugestellt werden – Teilnehmer können ihre Zuteilung jederzeit in der App sehen.",
+    "notEnoughMembersHint": "Es werden mindestens 3 Teilnehmer benötigt, um eine Auslosung zu starten.",
+    "errors": {
+      "notAdmin": "Nur Admins können die Auslosung starten.",
+      "groupNotFound": "Diese Gruppe wurde nicht gefunden.",
+      "alreadyDrawn": "Die Auslosung wurde bereits durchgeführt.",
+      "notEnoughMembers": "Es werden mindestens 3 Teilnehmer benötigt.",
+      "ghostMembers": "Die Gruppe enthält Teilnehmer mit gelöschtem Konto. Bitte entferne diese in den Einstellungen, bevor du auslost.",
+      "unsolvable": "Die Auslosung ist mit den aktuellen Ausschlüssen nicht möglich. Bitte passe die Ausschlüsse an.",
+      "generic": "Etwas ist schiefgelaufen. Bitte versuche es erneut.",
+      "rateLimited": "Zu viele Versuche. Bitte warte einen Moment und versuche es erneut."
+    }
+  },
+  "groupSettings": {
+    "title": "Einstellungen",
+    "backToGroup": "Zur Gruppe",
+    "groupInfo": {
+      "section": "Gruppendetails",
+      "nameLabel": "Gruppenname",
+      "budgetLabel": "Budget-Hinweis",
+      "budgetPlaceholder": "z. B. 25 €",
+      "noteLabel": "Notiz",
+      "notePlaceholder": "z. B. Bitte praktische Geschenke",
+      "save": "Speichern",
+      "saving": "Wird gespeichert…",
+      "saveSuccess": "Gespeichert."
+    },
+    "exclusions": {
+      "section": "Ausschlüsse",
+      "hint": "Diese Personen werden bei der Auslosung nicht einander zugewiesen.",
+      "empty": "Keine Ausschlüsse festgelegt.",
+      "selectMember": "Person",
+      "add": "Ausschluss hinzufügen",
+      "adding": "Wird hinzugefügt…",
+      "remove": "Entfernen",
+      "removing": "Wird entfernt…",
+      "effectAfterRedraw": "Wirkt erst bei erneuter Auslosung.",
+      "unsolvableWarning": "Mit diesen Ausschlüssen ist keine Auslosung mehr möglich. Bitte entferne einen Ausschluss."
+    },
+    "participants": {
+      "section": "Teilnehmer",
+      "promoteToAdmin": "Zum Admin machen",
+      "promoting": "Wird befördert…",
+      "deletedAccount": "Konto gelöscht",
+      "remove": "Entfernen",
+      "removing": "Wird entfernt…",
+      "confirmTitle": "Teilnehmer wirklich entfernen?",
+      "confirmMessage": "Die Person wird aus der Gruppe entfernt.",
+      "confirm": "Endgültig entfernen",
+      "cancel": "Abbrechen"
+    },
+    "inviteLink": {
+      "section": "Einladungslink",
+      "hint": "Wurde der Link weitergegeben oder wurde jemand entfernt, kannst du einen neuen Link erzeugen. Der alte Link funktioniert danach nicht mehr.",
+      "regenerate": "Einladungslink erneuern",
+      "confirmTitle": "Einladungslink wirklich erneuern?",
+      "confirmMessage": "Der bisherige Link wird ungültig. Teile den neuen Link auf der Gruppenseite mit allen, die noch beitreten sollen.",
+      "confirm": "Link erneuern",
+      "regenerating": "Wird erneuert…",
+      "cancel": "Abbrechen",
+      "success": "Einladungslink erneuert. Der alte Link ist nicht mehr gültig."
+    },
+    "danger": {
+      "section": "Gefahrenzone",
+      "delete": "Gruppe löschen",
+      "confirmTitle": "Gruppe wirklich löschen?",
+      "confirmMessage": "Alle Teilnehmer werden benachrichtigt.",
+      "confirm": "Endgültig löschen",
+      "cancel": "Abbrechen",
+      "deleting": "Wird gelöscht…"
+    },
+    "errors": {
+      "lastAdmin": "Dieser Teilnehmer ist der letzte Admin. Befördere zuerst eine andere Person.",
+      "drawn": "Nach der Auslosung können keine Teilnehmer mehr entfernt werden.",
+      "notAdmin": "Nur Admins können die Einstellungen ändern.",
+      "groupNotFound": "Diese Gruppe wurde nicht gefunden.",
+      "missingName": "Bitte gib einen Gruppennamen ein.",
+      "tooLong": "Maximal {max} Zeichen.",
+      "sameMember": "Bitte wähle zwei verschiedene Personen.",
+      "invalidMember": "Bitte wähle zwei Teilnehmer dieser Gruppe.",
+      "exclusionExists": "Dieser Ausschluss existiert bereits.",
+      "generic": "Etwas ist schiefgelaufen. Bitte versuche es erneut.",
+      "rateLimited": "Zu viele Versuche. Bitte warte einen Moment und versuche es erneut."
+    }
+  },
+  "redraw": {
+    "start": "Neu auslosen",
+    "starting": "Wird ausgelost…",
+    "emailFailure": "{failed} von {total} E-Mails konnten nicht zugestellt werden – Teilnehmer können ihre Zuteilung jederzeit in der App sehen.",
+    "dismissWarning": "Ausblenden",
+    "confirm": {
+      "title": "Auslosung wirklich wiederholen?",
+      "message": "Alle bisherigen Zuweisungen werden überschrieben.",
+      "button": "Wiederholen",
+      "cancel": "Abbrechen"
+    },
+    "errors": {
+      "unsolvable": "Die Auslosung ist mit den aktuellen Ausschlüssen nicht möglich. Bitte passe die Ausschlüsse an.",
+      "notAdmin": "Nur Admins können die Auslosung wiederholen.",
+      "groupNotFound": "Diese Gruppe wurde nicht gefunden.",
+      "generic": "Etwas ist schiefgelaufen. Bitte versuche es erneut.",
+      "rateLimited": "Zu viele Versuche. Bitte warte einen Moment und versuche es erneut."
+    }
+  },
+  "oracle": {
+    "title": "Zuweisung nachschlagen",
+    "selectPrompt": "Wen beschenkt …?",
+    "lookup": "Nachschlagen",
+    "confirm": {
+      "title": "Zuweisung wirklich anzeigen?",
+      "message": "Möchtest du wirklich sehen, wen {name} beschenkt?",
+      "button": "Anzeigen",
+      "cancel": "Abbrechen"
+    },
+    "result": "{giver} beschenkt: {receiver}",
+    "reset": "Neue Suche",
+    "errors": {
+      "notAdmin": "Nur Admins können Zuweisungen nachschlagen.",
+      "notFound": "Zuweisung nicht gefunden.",
+      "generic": "Etwas ist schiefgelaufen. Bitte versuche es erneut."
+    }
+  },
+  "account": {
+    "title": "Mein Konto",
+    "backToGroups": "Meine Gruppen",
+    "profile": {
+      "section": "Profil",
+      "firstNameLabel": "Vorname",
+      "lastNameLabel": "Nachname",
+      "emailLabel": "E-Mail-Adresse",
+      "emailNote": "Die E-Mail-Adresse ist dein Anmelde-Identifikator und kann nicht geändert werden.",
+      "save": "Speichern",
+      "saving": "Wird gespeichert…",
+      "saveSuccess": "Gespeichert."
+    },
+    "danger": {
+      "section": "Gefahrenzone",
+      "delete": "Konto löschen",
+      "confirmTitle": "Konto wirklich löschen?",
+      "confirmMessage": "Du erhältst eine Bestätigungs-E-Mail. Erst nach dem Klick auf den Link wird dein Konto endgültig gelöscht. Dein Name bleibt in bestehenden Gruppen sichtbar.",
+      "confirm": "Bestätigungs-E-Mail senden",
+      "cancel": "Abbrechen",
+      "deleting": "Wird gesendet…",
+      "sentTitle": "Bestätigungs-E-Mail gesendet",
+      "sentMessage": "Prüfe dein Postfach und klicke auf den Link, um dein Konto endgültig zu löschen. Der Link ist 24 Stunden gültig."
+    },
+    "errors": {
+      "missingName": "Bitte gib Vor- und Nachnamen ein.",
+      "tooLong": "Maximal {max} Zeichen.",
+      "soleAdmin": "Du bist der einzige Admin von: {groups}. Befördere zuerst eine andere Person zum Admin oder lösche die Gruppe.",
+      "generic": "Etwas ist schiefgelaufen. Bitte versuche es erneut.",
+      "rateLimited": "Zu viele Versuche. Bitte warte einen Moment und versuche es erneut.",
+      "emailFailed": "Die Bestätigungs-E-Mail konnte nicht gesendet werden. Bitte versuche es in einem Moment erneut."
+    }
+  },
+  "accountDeletion": {
+    "title": "Konto endgültig löschen?",
+    "message": "Dein Konto und deine persönlichen Daten werden unwiderruflich gelöscht. Erst mit Klick auf den Button wird gelöscht.",
+    "confirm": "Konto endgültig löschen",
+    "cancel": "Abbrechen",
+    "home": "Zur Startseite",
+    "toAccount": "Zu meinem Konto",
+    "invalidTitle": "Link ungültig",
+    "invalidMessage": "Dieser Löschlink ist ungültig, abgelaufen oder wurde bereits verwendet. Fordere in deinem Konto einen neuen Link an.",
+    "wrongAccountTitle": "Falsches Konto angemeldet",
+    "wrongAccountMessage": "Du bist mit einem anderen Konto angemeldet als dem, das gelöscht werden soll. Melde dich ab und öffne den Link erneut.",
+    "errors": {
+      "sole_admin": "Du bist der einzige Admin einer Gruppe. Befördere zuerst eine andere Person zum Admin oder lösche die Gruppe.",
+      "generic": "Etwas ist schiefgelaufen. Bitte versuche es erneut.",
+      "invalid": "Dieser Löschlink ist ungültig, abgelaufen oder wurde bereits verwendet.",
+      "wrong_account": "Du bist mit einem anderen Konto angemeldet."
+    }
+  },
+  "invite": {
+    "groupLabel": "Gruppe",
+    "tagline": "Du wurdest zu einer Wichtel-Gruppe eingeladen.",
+    "explanation": "Beim Wichteln zieht jeder eine Person und schenkt ihr ein Geschenk. Die Auslosung erfolgt zufällig.",
+    "budgetHint": "Budget",
+    "noteLabel": "Hinweis",
+    "notFoundTitle": "Ungültiger Einladungslink",
+    "notFoundMessage": "Dieser Einladungslink ist ungültig oder abgelaufen.",
+    "deadEnd": {
+      "title": "Auslosung bereits erfolgt",
+      "message": "Du kannst dieser Gruppe nicht mehr beitreten. Die Auslosung hat bereits stattgefunden.",
+      "contact": "Wende dich an {adminName}, falls du Fragen hast."
+    },
+    "auth": {
+      "joinTitle": "Mitmachen",
+      "emailLabel": "E-Mail-Adresse",
+      "submitWeiter": "Weiter",
+      "submitting": "Wird gesendet…",
+      "otpTitle": "Code eingeben",
+      "otpDescription": "Wir haben dir einen Code an {email} gesendet.",
+      "otpLabel": "Einmal-Code",
+      "submitOtp": "Bestätigen",
+      "verifying": "Wird überprüft…",
+      "backToForm": "Andere E-Mail-Adresse",
+      "resend": "Code erneut senden",
+      "resent": "Wir haben dir einen neuen Code geschickt.",
+      "devMode": "Dev-Modus · OTP automatisch ausgefüllt"
+    },
+    "accept": {
+      "title": "Gruppe beitreten",
+      "firstNameLabel": "Vorname",
+      "lastNameLabel": "Nachname",
+      "lastNameNote": "Dein Nachname wird nur abgekürzt angezeigt, damit alle Teilnehmer erkannt werden.",
+      "submitJoin": "Beitreten",
+      "accepting": "Bitte warten…"
+    },
+    "errors": {
+      "generic": "Etwas ist schiefgelaufen. Bitte versuche es erneut.",
+      "invalidEmail": "Bitte gib eine gültige E-Mail-Adresse ein.",
+      "invalidOtp": "Der Code ist ungültig oder abgelaufen.",
+      "drawn": "Diese Gruppe hat bereits ausgelost. Du kannst nicht mehr beitreten.",
+      "missingName": "Bitte gib Vor- und Nachnamen ein.",
+      "rateLimited": "Zu viele Versuche. Bitte warte einen Moment und versuche es erneut."
+    },
+    "signedInAs": "Angemeldet als {name} ({email})",
+    "notYou": "Nicht du? Abmelden"
+  },
+  "nav": {
+    "menu": "Menü öffnen",
+    "account": "Konto",
+    "logout": "Abmelden"
+  },
+  "adminUsers": {
+    "title": "Benutzer",
+    "backToAdmin": "Zur Übersicht",
+    "table": {
+      "email": "E-Mail",
+      "name": "Name",
+      "createdAt": "Erstellt am",
+      "groupCount": "Gruppen",
+      "lastSignIn": "Letzte Anmeldung",
+      "status": "Status",
+      "statusActive": "Aktiv",
+      "statusBanned": "Gesperrt",
+      "never": "Nie",
+      "filterPlaceholder": "Nach E-Mail oder Name filtern…",
+      "empty": "Keine Benutzer gefunden.",
+      "pageInfo": "Seite {current} von {total}",
+      "previous": "Zurück",
+      "next": "Weiter"
+    },
+    "detail": {
+      "backToUsers": "Zu allen Benutzern",
+      "profileSection": "Profil",
+      "emailLabel": "E-Mail",
+      "nameLabel": "Name",
+      "createdAtLabel": "Erstellt am",
+      "lastSignInLabel": "Letzte Anmeldung",
+      "statusLabel": "Status",
+      "groupsSection": "Gruppen",
+      "groupsEmpty": "Ist in keiner Gruppe Mitglied.",
+      "groupName": "Name",
+      "groupRole": "Rolle",
+      "groupJoinedAt": "Beigetreten am",
+      "roleAdmin": "Admin",
+      "roleParticipant": "Teilnehmer",
+      "actionsSection": "Aktionen"
+    },
+    "actions": {
+      "ban": "Sperren",
+      "banning": "Wird gesperrt…",
+      "banConfirmTitle": "Benutzer wirklich sperren?",
+      "banConfirmMessage": "Der Benutzer kann sich danach nicht mehr anmelden.",
+      "unban": "Entsperren",
+      "unbanning": "Wird entsperrt…",
+      "delete": "Benutzer löschen",
+      "deleting": "Wird gelöscht…",
+      "deleteConfirmTitle": "Benutzer wirklich löschen?",
+      "deleteConfirmMessage": "Löscht das Konto, entfernt profile_id aus Mitgliedschaften, behält name_snapshot.",
+      "confirm": "Bestätigen",
+      "cancel": "Abbrechen"
+    },
+    "errors": {
+      "notAdmin": "Nur der Super-Admin kann diese Aktion ausführen.",
+      "userNotFound": "Dieser Benutzer wurde nicht gefunden.",
+      "generic": "Etwas ist schiefgelaufen. Bitte versuche es erneut."
+    }
+  },
+  "adminGroups": {
+    "title": "Gruppen",
+    "backToAdmin": "Zur Übersicht",
+    "table": {
+      "name": "Name",
+      "slug": "Slug",
+      "state": "Status",
+      "stateOpen": "Offen",
+      "stateDrawn": "Ausgelost",
+      "memberCount": "Mitglieder",
+      "createdBy": "Erstellt von",
+      "createdAt": "Erstellt am",
+      "filterPlaceholder": "Nach Name oder Slug filtern…",
+      "empty": "Keine Gruppen gefunden.",
+      "pageInfo": "Seite {current} von {total}",
+      "previous": "Zurück",
+      "next": "Weiter",
+      "copySlug": "Slug kopieren",
+      "copied": "Kopiert!"
+    },
+    "detail": {
+      "backToGroups": "Zu allen Gruppen",
+      "groupInfoSection": "Gruppeninfo",
+      "nameLabel": "Name",
+      "slugLabel": "Slug",
+      "stateLabel": "Status",
+      "yearLabel": "Jahr",
+      "budgetHintLabel": "Budget-Hinweis",
+      "noteLabel": "Notiz",
+      "createdByLabel": "Erstellt von",
+      "createdAtLabel": "Erstellt am",
+      "inviteTokenLabel": "Einladungs-Token",
+      "membersSection": "Mitglieder",
+      "membersEmpty": "Keine Mitglieder.",
+      "roleAdmin": "Admin",
+      "roleParticipant": "Teilnehmer",
+      "assignmentsSection": "Zuordnungen",
+      "assignmentsEmpty": "Keine Zuordnungen.",
+      "exclusionsSection": "Ausschlüsse",
+      "exclusionsEmpty": "Keine Ausschlüsse.",
+      "actionsSection": "Aktionen"
+    },
+    "actions": {
+      "reopen": "Gruppe wieder öffnen",
+      "reopening": "Wird geöffnet…",
+      "reopenConfirmTitle": "Gruppe wirklich wieder öffnen?",
+      "reopenConfirmMessage": "Setzt den Status auf „offen“ zurück. Zuordnungen bleiben erhalten.",
+      "delete": "Gruppe löschen",
+      "deleting": "Wird gelöscht…",
+      "deleteConfirmTitle": "Gruppe wirklich löschen?",
+      "deleteConfirmMessage": "Löscht die Gruppe unwiderruflich inkl. aller Mitgliedschaften, Zuordnungen und Ausschlüsse.",
+      "confirm": "Bestätigen",
+      "cancel": "Abbrechen"
+    },
+    "errors": {
+      "notAdmin": "Nur der Super-Admin kann diese Aktion ausführen.",
+      "groupNotFound": "Diese Gruppe wurde nicht gefunden.",
+      "generic": "Etwas ist schiefgelaufen. Bitte versuche es erneut."
+    }
+  },
+  "admin": {
+    "title": "Admin",
+    "nav": {
+      "overview": "Übersicht",
+      "users": "Benutzer",
+      "groups": "Gruppen",
+      "auditLog": "Audit-Log"
+    },
+    "stats": {
+      "totalUsers": "Benutzer gesamt",
+      "totalGroups": "Gruppen gesamt",
+      "openGroups": "Offene Gruppen",
+      "drawnGroups": "Ausgeloste Gruppen"
+    },
+    "recentActivity": {
+      "title": "Letzte Aktivitäten",
+      "viewAll": "Alle anzeigen →",
+      "empty": "Noch keine Aktivitäten.",
+      "columnTimestamp": "Zeitpunkt",
+      "columnAction": "Aktion",
+      "columnTarget": "Ziel"
+    }
+  },
+  "adminAuditLog": {
+    "title": "Audit-Log",
+    "backToAdmin": "Zur Übersicht",
+    "table": {
+      "timestamp": "Zeitpunkt",
+      "actor": "Akteur",
+      "action": "Aktion",
+      "targetType": "Zieltyp",
+      "targetId": "Ziel-ID",
+      "metadata": "Details",
+      "metadataShow": "Details anzeigen",
+      "metadataNone": "—",
+      "targetTypeUser": "Benutzer",
+      "targetTypeGroup": "Gruppe",
+      "actionFilterLabel": "Nach Aktion filtern",
+      "actionFilterAll": "Alle Aktionen",
+      "empty": "Keine Einträge gefunden.",
+      "pageInfo": "Seite {current} von {total}",
+      "previous": "Zurück",
+      "next": "Weiter"
+    },
+    "actions": {
+      "ban_user": "Benutzer gesperrt",
+      "unban_user": "Sperre aufgehoben",
+      "delete_user": "Benutzer gelöscht",
+      "delete_group": "Gruppe gelöscht",
+      "reopen_group": "Gruppe wieder geöffnet"
+    }
+  },
+  "footer": {
+    "impressum": "Impressum",
+    "datenschutz": "Datenschutz"
+  },
+  "impressum": {
+    "title": "Impressum",
+    "intro": "Angaben gemäß § 5 DDG",
+    "operatorSection": "Diensteanbieter",
+    "operatorName": "{name}",
+    "operatorAddress1": "{line}",
+    "operatorAddress2": "{line}",
+    "operatorCountry": "Deutschland",
+    "contactSection": "Kontakt",
+    "contactEmail": "{email}",
+    "contactResponseTime": "Wir sind bemüht, Anfragen innerhalb von 48 Stunden zu beantworten.",
+    "responsibleSection": "Verantwortlich für den Inhalt nach § 18 Abs. 2 MStV",
+    "responsibleName": "{name}"
+  },
+  "datenschutz": {
+    "title": "Datenschutzerklärung",
+    "controller": {
+      "heading": "Verantwortlicher",
+      "body": "Verantwortlich für die Datenverarbeitung auf dieser Plattform ist der unter „Kontakt“ genannte Diensteanbieter (siehe Impressum)."
+    },
+    "dataCollected": {
+      "heading": "Erhobene Daten",
+      "body": "Bei der Registrierung und Nutzung der Plattform werden folgende personenbezogene Daten verarbeitet: E-Mail-Adresse, Vorname und Nachname; Gruppeninhalte (Gruppenname, Jahr, Hinweistext, Budget-Hinweis, Mitgliedschaften und Rollen); Ausschlüsse (Paare, die nicht gegenseitig gelost werden sollen) und Auslosungsergebnisse (wer wen beschenkt). Beim Aufruf und bei der Anmeldung fallen zudem technisch bedingt IP-Adressen an (Ratenbegrenzung bei Upstash sowie Anfrage-Protokolle bei Vercel und Supabase). Der Nachname wird ausschließlich zur eindeutigen Anzeige innerhalb einer Gruppe erhoben und, falls nicht zur Unterscheidung nötig, anderen Teilnehmenden nicht angezeigt."
+    },
+    "purpose": {
+      "heading": "Zweck der Verarbeitung",
+      "body": "Die Daten werden verwendet, um Nutzerkonten zu verwalten, Gruppenmitgliedschaften zuzuordnen, die Wichtel-Auslosung durchzuführen und Benachrichtigungs-E-Mails zu versenden."
+    },
+    "legalBasis": {
+      "heading": "Rechtsgrundlagen",
+      "body": "Die Verarbeitung erfolgt auf Grundlage von Art. 6 Abs. 1 lit. b DSGVO (Erfüllung eines Vertrags bzw. vorvertraglicher Maßnahmen) sowie Art. 6 Abs. 1 lit. f DSGVO (berechtigtes Interesse am sicheren und zuverlässigen Betrieb der Plattform)."
+    },
+    "processors": {
+      "heading": "Auftragsverarbeiter",
+      "intro": "Zur Bereitstellung des Dienstes werden folgende Auftragsverarbeiter eingesetzt:",
+      "supabase": "Supabase (Datenbank in Frankfurt, EU; Anbieter ist Supabase Inc., USA) — Datenbank und Authentifizierung.",
+      "resend": "Resend (USA) — Versand von Transaktions-E-Mails (Anmeldelinks, Benachrichtigungen).",
+      "vercel": "Vercel (USA) — Hosting und Auslieferung der Anwendung.",
+      "speedInsights": "Vercel Speed Insights — Performance-Messung der Anwendung.",
+      "redis": "Upstash (USA) — Redis-basierte Ratenbegrenzung (Rate Limiting) zum Schutz vor Missbrauch, verarbeitet IP-Adressen."
+    },
+    "transferSafeguard": {
+      "heading": "Datenübermittlung in die USA",
+      "body": "Resend, Vercel und Upstash verarbeiten Daten (auch) in den USA. Auch bei Supabase werden die Daten zwar in Frankfurt gespeichert, der Anbieter Supabase Inc. hat seinen Sitz jedoch in den USA, sodass ein Zugriff aus einem Drittland nicht ausgeschlossen werden kann. Wir gehen davon aus, dass alle vier Anbieter nach dem EU-US Data Privacy Framework (DPF) zertifiziert sind, das von der EU-Kommission als angemessenes Datenschutzniveau anerkannt ist (Art. 45 DSGVO). Zusätzlich sind Standardvertragsklauseln (Art. 46 DSGVO) vertraglich vereinbart."
+    },
+    "speedInsights": {
+      "heading": "Performance-Messung (Vercel Speed Insights)",
+      "body": "Zur Überwachung der Ladezeiten und technischen Performance setzen wir Vercel Speed Insights ein. Dabei werden Seitenaufrufe, Performance-Kennzahlen (z. B. Ladezeiten) und die ungefähre Position anhand der IP-Adresse verarbeitet. Es handelt sich um technische Leistungsmessung, keine personenbezogene Nutzerverfolgung — es werden keine Cookies gesetzt und kein individuelles Nutzerprofil erstellt. Rechtsgrundlage ist Art. 6 Abs. 1 lit. f DSGVO (berechtigtes Interesse an einer performanten und zuverlässigen Plattform). Verarbeitung erfolgt durch Vercel gemäß dessen Auftragsverarbeitungsvertrag."
+    },
+    "operatorAccess": {
+      "heading": "Zugriff durch den Plattformbetreiber",
+      "body": "Der Plattformbetreiber hat im Rahmen des Betriebs und der Wartung der Plattform Zugriff auf alle gespeicherten Nutzerdaten, einschließlich Name, E-Mail-Adresse, Gruppenmitgliedschaften und Auslosungsergebnisse. Dieser Zugriff erfolgt ausschließlich zu betrieblichen Zwecken (z. B. technischer Support, Missbrauchsprävention, Erfüllung gesetzlicher Pflichten) und auf Grundlage von Art. 6 Abs. 1 lit. b DSGVO (Vertragserfüllung) sowie Art. 6 Abs. 1 lit. f DSGVO (berechtigtes Interesse)."
+    },
+    "retentionActive": {
+      "heading": "Speicherdauer",
+      "body": "Daten werden gespeichert, solange das Konto bzw. die Gruppe besteht. Eine automatische Löschung nach Ablauf einer festen Frist erfolgt nicht."
+    },
+    "retentionAfterDeletion": {
+      "heading": "Speicherung nach Kontolöschung",
+      "body": "Wird ein Konto gelöscht, wird der Nutzer-Account entfernt. In Gruppen, die noch nicht ausgelost wurden, wird die Mitgliedschaft vollständig gelöscht; die Gruppen-Admins werden benachrichtigt. In bereits ausgelosten Gruppen wird die Zuordnung zum Nutzerkonto aufgehoben. Der zum Zeitpunkt der Löschung gespeicherte Name (name_snapshot) bleibt dort jedoch innerhalb bestehender Gruppen und Auslosungsergebnisse sichtbar, damit die Wichtel-Historie für andere Gruppenmitglieder nachvollziehbar bleibt. Eine erneute Zuordnung zu einem Nutzerkonto findet nach der Löschung nicht mehr statt."
+    },
+    "cookies": {
+      "heading": "Cookies",
+      "body": "Wir setzen ausschließlich ein technisch notwendiges Cookie zur Aufrechterhaltung der Anmelde-Sitzung (Supabase Auth) ein. Dieses Cookie ist gemäß § 25 Abs. 2 Nr. 2 TDDDG von der Einwilligungspflicht ausgenommen, da es zur Bereitstellung des von dir ausdrücklich gewünschten Dienstes erforderlich ist. Ein Cookie-Consent-Banner ist daher nicht erforderlich."
+    },
+    "minors": {
+      "heading": "Hinweis zu Minderjährigen",
+      "body": "Die Plattform sieht keine Altersprüfung vor. Minderjährige können sich selbst mit einer eigenen E-Mail-Adresse registrieren und Gruppen beitreten. Gruppen-Admins können keine Personen ohne eigenes Konto hinzufügen. Die Plattform richtet sich nicht gezielt an Kinder; wir empfehlen, dass Minderjährige sie nur mit Wissen und Zustimmung ihrer Erziehungsberechtigten nutzen. Die Verarbeitung erfolgt im Rahmen eines geschlossenen, privaten Freundes- oder Familienkreises auf Grundlage von Art. 6 Abs. 1 lit. b und f DSGVO."
+    },
+    "oracleAccess": {
+      "heading": "Einsicht durch Gruppen-Admins",
+      "body": "Der Admin einer Gruppe kann für einzelne Teilnehmende die zugeloste Empfängerin bzw. den zugelosten Empfänger einsehen. Diese Funktion dient der Unterstützung bei Rückfragen und wird ausschließlich auf gezielte Auswahl der Teilnehmenden hin ausgeführt."
+    },
+    "rights": {
+      "heading": "Rechte der Nutzer",
+      "intro": "Nutzerinnen und Nutzer haben nach der DSGVO folgende Rechte:",
+      "access": "Auskunft über die gespeicherten Daten (Art. 15 DSGVO)",
+      "rectification": "Berichtigung unrichtiger Daten (Art. 16 DSGVO)",
+      "erasure": "Löschung der Daten (Art. 17 DSGVO)",
+      "restriction": "Einschränkung der Verarbeitung (Art. 18 DSGVO)",
+      "portability": "Datenübertragbarkeit (Art. 20 DSGVO)",
+      "objection": "Widerspruch gegen die Verarbeitung (Art. 21 DSGVO)",
+      "complaint": "Beschwerde bei einer Aufsichtsbehörde (Art. 77 DSGVO)"
+    },
+    "contact": {
+      "heading": "Kontakt",
+      "body": "Für Anfragen zum Datenschutz wende dich an die im Impressum genannte Kontakt-E-Mail-Adresse."
+    },
+    "serverLogs": {
+      "heading": "Server-Protokolle",
+      "body": "Beim Betrieb fallen bei Vercel und Supabase Anfrage-Protokolle (Server-Logs) an, die u. a. IP-Adressen enthalten können. Diese dienen der Sicherheit und Fehleranalyse (Art. 6 Abs. 1 lit. f DSGVO) und werden von den Anbietern nach deren jeweiligen Aufbewahrungsfristen gespeichert; wir können darauf keine eigene feste Löschfrist anwenden."
+    },
+    "memberVisibility": {
+      "heading": "Sichtbarkeit innerhalb einer Gruppe",
+      "body": "Mitglieder einer Gruppe sehen den Gruppennamen, den Hinweis- und Budgettext, die Teilnehmerliste (Vornamen, bei Bedarf mit abgekürztem Nachnamen) sowie ihre eigene Zuweisung. In den E-Mails zur Auslosung und zur Löschung einer Gruppe werden Name und E-Mail-Adresse des Gruppen-Admins angegeben, damit Teilnehmende ihn bei Rückfragen kontaktieren können. Gruppen-Admins sehen die vollständigen Namen der Teilnehmenden."
+    },
+    "auditLog": {
+      "heading": "Protokoll von Administrationsvorgängen",
+      "body": "Sperrt oder löscht der Plattformbetreiber ein Konto, wird dies in einem Protokoll (admin_audit_log) festgehalten. Dieses Protokoll enthält u. a. die E-Mail-Adresse des betroffenen Kontos. Es wird derzeit nicht automatisch gelöscht, sodass die E-Mail-Adresse auch nach einer Kontolöschung dort erhalten bleiben kann. Rechtsgrundlage ist Art. 6 Abs. 1 lit. f DSGVO (Nachweis- und Missbrauchsprävention). Du kannst die Löschung entsprechender Einträge über die unter „Kontakt“ genannte Adresse verlangen."
+    }
+  },
+  "errorPage": {
+    "title": "Etwas ist schiefgelaufen",
+    "message": "Beim Laden der Seite ist ein Fehler aufgetreten. Bitte versuche es erneut.",
+    "retry": "Erneut versuchen",
+    "home": "Zur Startseite",
+    "notFoundTitle": "Seite nicht gefunden",
+    "notFoundMessage": "Diese Seite existiert nicht oder du hast keinen Zugriff darauf."
+  }
+}

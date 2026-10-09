@@ -1,0 +1,32 @@
+name: Supabase keep-alive
+
+on:
+  schedule:
+    - cron: "17 6 * * *" # daily, well under Supabase's 7-day pause threshold
+  workflow_dispatch:
+
+# Publishable key only — never put service-role key in CI for a ping.
+permissions: {}
+
+jobs:
+  ping:
+    name: Ping ${{ matrix.env }} Supabase project
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        env: [staging, production]
+      fail-fast: false
+    steps:
+      - name: Hit PostgREST root to reset Supabase inactivity timer
+        env:
+          SUPABASE_URL: ${{ matrix.env == 'staging' && vars.SUPABASE_URL_STAGING || vars.SUPABASE_URL_PROD }}
+          SUPABASE_KEY: ${{ matrix.env == 'staging' && vars.SUPABASE_PUBLISHABLE_KEY_STAGING || vars.SUPABASE_PUBLISHABLE_KEY_PROD }}
+        run: |
+          status=$(curl -s -o /dev/null -w "%{http_code}" \
+            -H "apikey: $SUPABASE_KEY" \
+            "$SUPABASE_URL/rest/v1/")
+          echo "Response status: $status"
+          if [ "$status" -lt 200 ] || [ "$status" -ge 300 ]; then
+            echo "Keep-alive ping failed for ${{ matrix.env }} (HTTP $status)"
+            exit 1
+          fi

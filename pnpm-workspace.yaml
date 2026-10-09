@@ -1,0 +1,22 @@
+overrides:
+  sharp: ">=0.35.5"
+  source-map-js: ">=1.2.2"
+  baseline-browser-mapping: ">=2.11.0"
+  browserslist: ">=4.28.7"
+  "@babel/core": ">=7.29.1"
+
+allowBuilds:
+  "@parcel/watcher": false
+  "@swc/core": false
+  esbuild: true
+  msw: false
+  sharp: true
+  supabase: true
+  unrs-resolver: false
+
+ignoredBuiltDependencies:
+  - unrs-resolver
+
+onlyBuiltDependencies:
+  - supabase
+  - esbuild

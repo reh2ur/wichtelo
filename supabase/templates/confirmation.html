@@ -1,0 +1,180 @@
+<!doctype html>
+<html lang="de">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+  </head>
+  <body
+    style="
+      background-color: #e3eef8;
+      font-family:
+        &quot;Manrope&quot;, &quot;Helvetica Neue&quot;, Helvetica, Arial,
+        sans-serif;
+      padding: 24px 0;
+      margin: 0;
+    "
+  >
+    <table
+      role="presentation"
+      width="100%"
+      cellpadding="0"
+      cellspacing="0"
+      style="background-color: #e3eef8"
+    >
+      <tr>
+        <td align="center">
+          <table
+            role="presentation"
+            width="480"
+            cellpadding="0"
+            cellspacing="0"
+            style="
+              background-color: #ffffff;
+              border-radius: 16px;
+              max-width: 480px;
+              overflow: hidden;
+              border: 1px solid #c9dcee;
+            "
+          >
+            <tr>
+              <td style="background-color: #16283f; padding: 20px 32px">
+                <p
+                  style="
+                    color: #ffffff;
+                    font-size: 22px;
+                    font-weight: 800;
+                    margin: 0;
+                  "
+                >
+                  ❄️ Wichtelo
+                </p>
+              </td>
+            </tr>
+            <tr>
+              <td style="padding: 28px 32px">
+                <h1
+                  style="
+                    color: #16283f;
+                    font-size: 20px;
+                    font-weight: 800;
+                    margin: 0 0 16px;
+                  "
+                >
+                  Willkommen bei Wichtelo 🎄
+                </h1>
+                <p
+                  style="
+                    color: #16283f;
+                    font-size: 15px;
+                    line-height: 22px;
+                    margin: 0 0 12px;
+                  "
+                >
+                  Bestätige deine E-Mail-Adresse mit diesem Code:
+                </p>
+                <table
+                  role="presentation"
+                  width="100%"
+                  cellpadding="0"
+                  cellspacing="0"
+                  style="
+                    background-color: #e3eef8;
+                    border: 1px solid #c9dcee;
+                    border-radius: 12px;
+                    margin: 0 0 20px;
+                  "
+                >
+                  <tr>
+                    <td style="padding: 16px 20px">
+                      <p
+                        style="
+                          color: #5d7793;
+                          font-size: 13px;
+                          line-height: 20px;
+                          margin: 0;
+                        "
+                      >
+                        Bestätigungscode
+                      </p>
+                      <p
+                        style="
+                          color: #16283f;
+                          font-size: 28px;
+                          font-weight: 800;
+                          letter-spacing: 4px;
+                          margin: 4px 0 0;
+                        "
+                      >
+                        {{ .Token }}
+                      </p>
+                    </td>
+                  </tr>
+                </table>
+                <p
+                  style="
+                    color: #16283f;
+                    font-size: 15px;
+                    line-height: 22px;
+                    margin: 0 0 20px;
+                  "
+                >
+                  Der Code ist 15 Minuten gültig. Alternativ direkt bestätigen:
+                </p>
+                <table
+                  role="presentation"
+                  cellpadding="0"
+                  cellspacing="0"
+                  style="margin: 0 0 20px"
+                >
+                  <tr>
+                    <td style="background-color: #df4a5e; border-radius: 20px">
+                      <a
+                        href="{{ .ConfirmationURL }}"
+                        style="
+                          display: inline-block;
+                          padding: 10px 24px;
+                          color: #fffaf9;
+                          font-size: 15px;
+                          font-weight: 800;
+                          text-decoration: none;
+                        "
+                      >
+                        Konto bestätigen
+                      </a>
+                    </td>
+                  </tr>
+                </table>
+                <p
+                  style="
+                    color: #5d7793;
+                    font-size: 13px;
+                    line-height: 20px;
+                    margin: 0;
+                  "
+                >
+                  Kein Konto erstellt? Dann kannst du diese E-Mail ignorieren.
+                </p>
+              </td>
+            </tr>
+            <tr>
+              <td style="border-top: 1px solid #c9dcee; padding: 16px 32px">
+                <p style="color: #5d7793; font-size: 12px; margin: 0">
+                  Diese E-Mail wurde automatisch von Wichtelo versendet.
+                </p>
+                <p style="color: #5d7793; font-size: 12px; margin: 8px 0 0">
+                  <a href="{{ .SiteURL }}/impressum" style="color: #5d7793"
+                    >Impressum</a
+                  >
+                  &middot;
+                  <a href="{{ .SiteURL }}/datenschutz" style="color: #5d7793"
+                    >Datenschutz</a
+                  >
+                </p>
+              </td>
+            </tr>
+          </table>
+        </td>
+      </tr>
+    </table>
+  </body>
+</html>

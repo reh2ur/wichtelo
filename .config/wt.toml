@@ -1,0 +1,8 @@
+# Project config for worktrunk. See https://worktrunk.dev/hook/ for docs.
+
+[pre-start]
+env = "cp {{ primary_worktree_path }}/.env.local {{ worktree_path }}/.env.local"
+install = "pnpm install"
+
+[aliases]
+dev = "pnpm dev -p {{ branch | hash_port }}"
