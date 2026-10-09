@@ -82,7 +82,7 @@ Full design spec (palette, tokens, components, icon rules) in **`docs/design.md`
 
 `updateTag` only valid in Server Actions, not route handlers — keep mutations as actions (account-deletion confirm already is one).
 
-**Real 404 status.** `notFound()` inside Suspense = HTTP 200 (stream already started). Invite page, group detail, settings do existence/membership check in page shell above `<Suspense>`, export `instant = false` (blocking route; else cacheComponents build error). Pass resolved data down to Suspense child. New dynamic-slug pages needing real 404 follow same pattern.
+**Real 404 status.** `notFound()` after streaming starts = HTTP 200 (status already fixed). Root layout's `Nav` suspends every request (session cookie read) — its fallback flush races any page-shell check and wins, so a page-level `if (!found) notFound()` above `<Suspense>` is NOT enough to guarantee 404. Fix: do the existence/membership check in `generateMetadata` instead — it always resolves before any streaming (fills `<head>` first), so `notFound()` there can't be raced. Invite page, group detail, settings all duplicate their lookup into `generateMetadata` for this reason (cheap: `use cache`-backed data fetch is deduped, membership check is a fast single query). `export const instant = false` stays alongside this — it only silences the dev-only "instant navigation" validation warning for routes that intentionally block on cookies/DB above `<Suspense>`; it has no effect on runtime streaming or status codes. New dynamic-slug pages needing real 404 follow the `generateMetadata` pattern, not just a page-shell check.
 
 **`/gruppen` list page fully dynamic** — reads cookies via `createClient()`, renders fresh per request. No `use cache`, no tag, no invalidation needed.
 

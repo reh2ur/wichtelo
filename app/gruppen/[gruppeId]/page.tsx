@@ -81,6 +81,22 @@ function StateBadge({
 // unknown groups and non-members get a real 404 status.
 export const instant = false;
 
+// generateMetadata always resolves before any UI streams (it fills the
+// <head>), so a notFound() thrown here can't be raced by an ancestor
+// Suspense (e.g. Nav's session read) that flushes the response first and
+// locks the status at 200. See docs/architecture notes on real 404s.
+export async function generateMetadata(
+  props: PageProps<"/gruppen/[gruppeId]">,
+) {
+  const { gruppeId } = await props.params;
+  const user = (await getUser())!;
+  const data = await fetchGroupData(gruppeId);
+  if (!data) notFound();
+  const myMembership = data.members.find((m) => m.profile_id === user.id);
+  if (!myMembership) notFound();
+  return {};
+}
+
 export default async function GruppeDetailPage(
   props: PageProps<"/gruppen/[gruppeId]">,
 ) {

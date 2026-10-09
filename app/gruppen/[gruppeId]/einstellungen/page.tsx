@@ -21,6 +21,23 @@ import { SettingsSkeleton } from "./settings-skeleton";
 // get a real 404 and non-admins a real redirect.
 export const instant = false;
 
+// generateMetadata resolves before any UI streams, so notFound() here can't
+// be raced by an ancestor Suspense (Nav's session read) that would otherwise
+// flush the response and lock the status at 200.
+export async function generateMetadata(
+  props: PageProps<"/gruppen/[gruppeId]/einstellungen">,
+) {
+  const { gruppeId } = await props.params;
+  const admin = createAdminClient();
+  const { data: group } = await admin
+    .from("groups")
+    .select("id")
+    .eq("slug", gruppeId)
+    .single();
+  if (!group) notFound();
+  return {};
+}
+
 export default async function EinstellungenPage(
   props: PageProps<"/gruppen/[gruppeId]/einstellungen">,
 ) {

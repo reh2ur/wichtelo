@@ -13,6 +13,16 @@ import { InviteSkeleton } from "./invite-skeleton";
 // Blocking route: token check runs before streaming so invalid tokens get a real 404.
 export const instant = false;
 
+// generateMetadata resolves before any UI streams, so notFound() here can't
+// be raced by an ancestor Suspense (Nav's session read) that would otherwise
+// flush the response and lock the status at 200.
+export async function generateMetadata(props: PageProps<"/einladung/[token]">) {
+  const { token } = await props.params;
+  const resolved = await resolveToken(token);
+  if (!resolved) notFound();
+  return {};
+}
+
 export default async function EinladungPage(
   props: PageProps<"/einladung/[token]">,
 ) {
