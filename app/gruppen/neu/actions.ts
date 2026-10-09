@@ -1,11 +1,9 @@
 "use server";
 
-import { randomUUID } from "crypto";
 import { redirect } from "next/navigation";
 import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
 import { slugCandidate } from "@/lib/slug";
-import { createAdminClient } from "@/lib/supabase/admin";
 import { logger } from "@/lib/logger";
 import { checkRateLimit, groupCreateLimiter } from "@/lib/rate-limit";
 
@@ -96,13 +94,9 @@ export async function createGroup(
   // Ensure a profile exists — create one on first group creation if needed.
   const { data: profile } = await supabase
     .from("profiles")
-    .select("id, first_name, last_name")
+    .select("id")
     .eq("id", user.id)
     .single();
-
-  let nameSnapshot: string;
-  let firstNameSnapshot: string;
-  let lastNameSnapshot: string;
 
   if (!profile) {
     if (!firstName || !lastName) {
@@ -118,76 +112,32 @@ export async function createGroup(
       );
       return fail("generic");
     }
-    nameSnapshot = `${firstName} ${lastName}`;
-    firstNameSnapshot = firstName;
-    lastNameSnapshot = lastName;
-  } else {
-    nameSnapshot = `${profile.first_name} ${profile.last_name}`;
-    firstNameSnapshot = profile.first_name;
-    lastNameSnapshot = profile.last_name;
   }
 
-  // Pre-generate UUID so we never need SELECT-after-INSERT.
-  // (SELECT policy is is_member(id) which is false until membership exists — causes
-  //  PostgREST to reject INSERT...RETURNING as an RLS violation.)
-  const groupId = randomUUID();
+  // One transaction: group + admin membership + invite token. Slug conflicts
+  // (23505) are retried inside the RPC over these candidates (sequential
+  // suffixes first, then random ones so popular names never run out).
   const MAX_SLUG_ATTEMPTS = 30;
-  let slugAttempt = 0;
-  let slug = slugCandidate(name, slugAttempt);
+  const slugs = Array.from({ length: MAX_SLUG_ATTEMPTS }, (_, i) =>
+    slugCandidate(name, i),
+  );
 
-  while (true) {
-    const { error } = await supabase.from("groups").insert({
-      id: groupId,
-      name,
-      year,
-      state: "open",
-      budget_hint: budgetHint,
-      note,
-      created_by: user.id,
-      slug,
-    });
+  const { data, error } = await supabase
+    .rpc("create_group", {
+      p_name: name,
+      p_year: year,
+      p_budget_hint: budgetHint,
+      p_note: note,
+      p_slugs: slugs,
+    })
+    .single<{ group_id: string; slug: string; invite_token: string }>();
 
-    if (!error) break;
-
-    // Unique constraint violation on slug — try next candidate (sequential
-    // suffixes first, then random ones so popular names never run out).
-    if (error.code === "23505" && slugAttempt + 1 < MAX_SLUG_ATTEMPTS) {
-      slug = slugCandidate(name, ++slugAttempt);
-      continue;
-    }
-
-    console.error("[createGroup] group insert failed:", error.message);
+  if (error || !data) {
+    console.error("[createGroup] create_group rpc failed:", error?.message);
     return fail("generic");
   }
 
-  const { error: membershipError } = await supabase.from("memberships").insert({
-    group_id: groupId,
-    profile_id: user.id,
-    name_snapshot: nameSnapshot,
-    first_name_snapshot: firstNameSnapshot,
-    last_name_snapshot: lastNameSnapshot,
-    role: "admin",
-  });
-
-  if (membershipError) {
-    console.error(
-      "[createGroup] membership insert failed:",
-      membershipError.message,
-    );
-    // No admin membership -> the group would be an orphan holding the slug.
-    // Roll back with the service role (the creator has no rights without a
-    // membership).
-    const { error: cleanupError } = await createAdminClient()
-      .from("groups")
-      .delete()
-      .eq("id", groupId);
-    if (cleanupError) {
-      logger
-        .withMetadata({ groupId, reason: cleanupError.message })
-        .error("group.orphan_cleanup_failed");
-    }
-    return fail("generic");
-  }
+  const { group_id: groupId, slug } = data;
 
   logger.withMetadata({ groupId, name, slug }).info("group.created");
 
