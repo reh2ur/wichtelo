@@ -17,26 +17,14 @@ import {
 } from "./settings-forms";
 import { SettingsSkeleton } from "./settings-skeleton";
 
-export default function EinstellungenPage(
+// Blocking route: group + admin checks run before streaming so unknown groups
+// get a real 404 and non-admins a real redirect.
+export const instant = false;
+
+export default async function EinstellungenPage(
   props: PageProps<"/gruppen/[gruppeId]/einstellungen">,
 ) {
-  return (
-    <main className="mx-auto w-full max-w-2xl px-4 py-8">
-      <Suspense fallback={<SettingsSkeleton />}>
-        <EinstellungenContent params={props.params} />
-      </Suspense>
-    </main>
-  );
-}
-
-async function EinstellungenContent({
-  params,
-}: {
-  params: Promise<{ gruppeId: string }>;
-}) {
-  const { gruppeId } = await params;
-  const t = await getTranslations("groupSettings");
-  const messages = await getMessages();
+  const { gruppeId } = await props.params;
   const user = (await getUser())!;
 
   const admin = createAdminClient();
@@ -62,6 +50,39 @@ async function EinstellungenContent({
     redirect(`/gruppen/${gruppeId}`);
   }
 
+  return (
+    <main className="mx-auto w-full max-w-2xl px-4 py-8">
+      <Suspense fallback={<SettingsSkeleton />}>
+        <EinstellungenContent
+          group={group}
+          members={members}
+          myMembership={myMembership}
+        />
+      </Suspense>
+    </main>
+  );
+}
+
+async function EinstellungenContent({
+  group,
+  members,
+  myMembership,
+}: {
+  group: {
+    id: string;
+    slug: string;
+    name: string;
+    state: "open" | "drawn";
+    budget_hint: string | null;
+    note: string | null;
+  };
+  members: Member[];
+  myMembership: Member;
+}) {
+  const t = await getTranslations("groupSettings");
+  const messages = await getMessages();
+  const admin = createAdminClient();
+
   const { data: exclusionsRaw } = await admin
     .from("exclusions")
     .select("id, member_a, member_b")
@@ -83,14 +104,7 @@ async function EinstellungenContent({
     memberBName: memberMap.get(ex.member_b) ?? "—",
   }));
 
-  const g = group as {
-    id: string;
-    slug: string;
-    name: string;
-    state: "open" | "drawn";
-    budget_hint: string | null;
-    note: string | null;
-  };
+  const g = group;
 
   return (
     <>

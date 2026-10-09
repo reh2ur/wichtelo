@@ -82,6 +82,8 @@ Full design spec (palette, tokens, components, icon rules) in **`docs/design.md`
 
 `updateTag` only valid in Server Actions, not route handlers — keep mutations as actions (account-deletion confirm already is one).
 
+**Real 404 status.** `notFound()` inside Suspense = HTTP 200 (stream already started). Invite page, group detail, settings do existence/membership check in page shell above `<Suspense>`, export `instant = false` (blocking route; else cacheComponents build error). Pass resolved data down to Suspense child. New dynamic-slug pages needing real 404 follow same pattern.
+
 **`/gruppen` list page fully dynamic** — reads cookies via `createClient()`, renders fresh per request. No `use cache`, no tag, no invalidation needed.
 
 **Assignments never cached** — fetched dynamically via user-scoped `createClient()` so RLS restricts each user to own row.
