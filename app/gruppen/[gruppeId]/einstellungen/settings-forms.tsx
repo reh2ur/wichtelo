@@ -420,31 +420,27 @@ export function ExclusionsSection({
   );
 }
 
+// state/action/pending come from the parent's useActionState: removing a
+// member makes this panel's own <li> disappear in the same update that
+// delivers a "success" status, so a hook owned here would unmount before its
+// effect ever observes that status. ParticipantsSection outlives the removal
+// and owns the hook instead.
 function RemoveMemberConfirmPanel({
   slug,
   member,
+  state,
+  action,
+  pending,
   onCancel,
-  onRemoved,
 }: {
   slug: string;
   member: Member;
+  state: RemoveMemberState;
+  action: (formData: FormData) => void;
+  pending: boolean;
   onCancel: () => void;
-  onRemoved: () => void;
 }) {
   const t = useGroupSettingsT();
-  const router = useRouter();
-  const [state, action, pending] = useActionState<RemoveMemberState, FormData>(
-    removeMember,
-    { status: "idle" },
-  );
-
-  useEffect(() => {
-    if (state.status === "success") {
-      router.refresh();
-      onRemoved();
-      onCancel();
-    }
-  }, [state.status, router, onCancel, onRemoved]);
 
   const errorMsg =
     state.status === "error"
@@ -497,13 +493,22 @@ export function ParticipantsSection({
   currentMembershipId: string;
 }) {
   const t = useGroupSettingsT();
+  const router = useRouter();
   const [confirmingId, setConfirmingId] = useState<string | null>(null);
-  const removedHintKey = `removed-invite-hint:${slug}`;
-  const [removedHint, setRemovedHint] = useState(
-    () =>
-      typeof window !== "undefined" &&
-      sessionStorage.getItem(removedHintKey) === "1",
-  );
+  const [removeState, removeAction, removePending] = useActionState<
+    RemoveMemberState,
+    FormData
+  >(removeMember, { status: "idle" });
+  // Derived, not stored: once a removal succeeds the removed member's <li>
+  // (and its confirm panel) disappears from `members` on its own, and the
+  // hint should stay up for the rest of this success status regardless.
+  const removedHint = removeState.status === "success";
+
+  useEffect(() => {
+    if (removeState.status === "success") {
+      router.refresh();
+    }
+  }, [removeState.status, router]);
 
   return (
     <section className="mb-8">
@@ -548,11 +553,10 @@ export function ParticipantsSection({
               <RemoveMemberConfirmPanel
                 slug={slug}
                 member={m}
+                state={removeState}
+                action={removeAction}
+                pending={removePending}
                 onCancel={() => setConfirmingId(null)}
-                onRemoved={() => {
-                  sessionStorage.setItem(removedHintKey, "1");
-                  setRemovedHint(true);
-                }}
               />
             )}
           </li>
