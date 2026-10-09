@@ -28,3 +28,4 @@ No PR if any fail.
 4. **Run pre-PR checklist** (above), fix all failures before opening PR.
 5. **Open PR** with `Closes #<issue-number>` (or `Fixes #<issue-number>`) in body so issue auto-closes on merge.
 6. **Keep issue checkboxes current.** Tick off as items implemented and pushed.
+7. **Check Vercel preview.** PR gets preview deployment check; none appear → check Vercel project git connection.
