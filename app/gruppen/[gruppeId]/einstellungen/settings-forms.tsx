@@ -424,10 +424,12 @@ function RemoveMemberConfirmPanel({
   slug,
   member,
   onCancel,
+  onRemoved,
 }: {
   slug: string;
   member: Member;
   onCancel: () => void;
+  onRemoved: () => void;
 }) {
   const t = useGroupSettingsT();
   const router = useRouter();
@@ -439,9 +441,10 @@ function RemoveMemberConfirmPanel({
   useEffect(() => {
     if (state.status === "success") {
       router.refresh();
+      onRemoved();
       onCancel();
     }
-  }, [state.status, router, onCancel]);
+  }, [state.status, router, onCancel, onRemoved]);
 
   const errorMsg =
     state.status === "error"
@@ -495,10 +498,20 @@ export function ParticipantsSection({
 }) {
   const t = useGroupSettingsT();
   const [confirmingId, setConfirmingId] = useState<string | null>(null);
+  const [removedHint, setRemovedHint] = useState(false);
 
   return (
     <section className="mb-8">
       <SectionHeader>{t("participants.section")}</SectionHeader>
+      {removedHint && (
+        <p
+          role="status"
+          data-testid="removed-invite-hint"
+          className="border-border bg-muted/30 mb-3 rounded-lg border p-3 text-sm"
+        >
+          {t("participants.removedInviteHint")}
+        </p>
+      )}
       <ul className="border-border bg-card divide-y rounded-lg border">
         {members.map((m) => (
           <li key={m.id} className="px-4 py-3 text-sm">
@@ -531,6 +544,7 @@ export function ParticipantsSection({
                 slug={slug}
                 member={m}
                 onCancel={() => setConfirmingId(null)}
+                onRemoved={() => setRemovedHint(true)}
               />
             )}
           </li>

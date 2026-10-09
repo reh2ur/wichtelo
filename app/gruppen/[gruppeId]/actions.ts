@@ -165,6 +165,8 @@ interface MembershipRow {
   role: "participant" | "admin";
   profile_id: string | null;
   name_snapshot: string;
+  first_name_snapshot: string | null;
+  last_name_snapshot: string | null;
 }
 
 interface ExclusionRow {
@@ -226,7 +228,12 @@ async function buildDrawAssignmentRecipients(
 
   const memberById = new Map(memberRows.map((m) => [m.id, m]));
   const recipients: DrawAssignmentRecipient[] = [];
-  for (const [giverId, receiverId] of assignment.entries()) {
+  // Sorted by giver: payload (and thus Resend idempotency chunks) must be
+  // identical on resend, independent of Map insertion order.
+  const sortedPairs = Array.from(assignment.entries()).sort(([a], [b]) =>
+    a < b ? -1 : a > b ? 1 : 0,
+  );
+  for (const [giverId, receiverId] of sortedPairs) {
     const to = emailByMembershipId.get(giverId);
     const receiverDisplayName = receiverDisplayById.get(receiverId);
     if (!to || !receiverDisplayName) continue;
@@ -290,7 +297,9 @@ export async function triggerDraw(
 
   const { data: memberships } = await admin
     .from("memberships")
-    .select("id, role, profile_id, name_snapshot")
+    .select(
+      "id, role, profile_id, name_snapshot, first_name_snapshot, last_name_snapshot",
+    )
     .eq("group_id", groupId);
 
   const memberRows: MembershipRow[] = (memberships ?? []) as MembershipRow[];
@@ -468,7 +477,9 @@ export async function retriggerDraw(
 
   const { data: memberships } = await admin
     .from("memberships")
-    .select("id, role, profile_id, name_snapshot")
+    .select(
+      "id, role, profile_id, name_snapshot, first_name_snapshot, last_name_snapshot",
+    )
     .eq("group_id", groupId);
 
   const memberRows: MembershipRow[] = (memberships ?? []) as MembershipRow[];
@@ -656,4 +667,118 @@ export async function lookupAssignment(
     .info("admin.oracle_lookup");
 
   return { status: "success", giverId: membershipId, receiverName };
+}
+
+export type ResendDrawEmailsState =
+  | { status: "idle" }
+  | { status: "success"; emailsFailed: number; emailsTotal: number }
+  | {
+      status: "error";
+      error:
+        | "not_authenticated"
+        | "not_admin"
+        | "not_drawn"
+        | "generic"
+        | "rate_limited";
+    };
+
+/**
+ * Re-sends draw emails for the current draw after a partial failure. Uses the
+ * same idempotency keys as the original send (group + draw_version + chunk),
+ * so Resend returns the stored result for chunks already delivered (within its
+ * 24h key window) and only genuinely failed chunks go out again.
+ */
+export async function resendDrawEmails(
+  _prev: ResendDrawEmailsState,
+  formData: FormData,
+): Promise<ResendDrawEmailsState> {
+  const slug = (formData.get("slug") as string | null)?.trim() ?? "";
+  if (!slug) return { status: "error", error: "generic" };
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { status: "error", error: "not_authenticated" };
+
+  const admin = createAdminClient();
+
+  const { data: group } = await admin
+    .from("groups")
+    .select("id, state, draw_version, name, year")
+    .eq("slug", slug)
+    .single();
+  // Same error as "not an admin" so slug existence isn't revealed (#181).
+  if (!group) return { status: "error", error: "not_admin" };
+
+  const groupId = group.id as string;
+
+  const { data: callerMembership } = await admin
+    .from("memberships")
+    .select("id, role")
+    .eq("group_id", groupId)
+    .eq("profile_id", user.id)
+    .single();
+  if (!callerMembership || callerMembership.role !== "admin") {
+    return { status: "error", error: "not_admin" };
+  }
+
+  if (!(await checkRateLimit(drawTriggerLimiter, `${slug}:${user.id}`))) {
+    return { status: "error", error: "rate_limited" };
+  }
+
+  if (group.state !== "drawn") {
+    return { status: "error", error: "not_drawn" };
+  }
+
+  const [{ data: memberships }, { data: assignmentRows }] = await Promise.all([
+    admin
+      .from("memberships")
+      .select(
+        "id, role, profile_id, name_snapshot, first_name_snapshot, last_name_snapshot",
+      )
+      .eq("group_id", groupId),
+    admin
+      .from("assignments")
+      .select("giver_id, receiver_id")
+      .eq("group_id", groupId),
+  ]);
+
+  const assignment: Assignment = new Map(
+    ((assignmentRows ?? []) as { giver_id: string; receiver_id: string }[]).map(
+      (a) => [a.giver_id, a.receiver_id],
+    ),
+  );
+
+  const contact = await resolveGroupContact(admin, groupId, user.id);
+  const assignments = await buildDrawAssignmentRecipients(
+    admin,
+    (memberships ?? []) as MembershipRow[],
+    assignment,
+  );
+  const emailResult: NotifyResult = await notify({
+    type: "draw.completed",
+    groupId,
+    groupSlug: slug,
+    drawKey: String(group.draw_version),
+    groupName: group.name as string,
+    year: group.year as number,
+    adminName: contact?.name ?? null,
+    adminEmail: contact?.email ?? null,
+    assignments,
+  });
+
+  logger
+    .withMetadata({
+      groupId,
+      sent: emailResult.sent,
+      failed: emailResult.failed,
+    })
+    .info("draw.emails_resent");
+
+  return {
+    status: "success",
+    emailsFailed: emailResult.failed,
+    emailsTotal: emailResult.sent + emailResult.failed,
+  };
 }
