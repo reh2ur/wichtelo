@@ -51,7 +51,7 @@ describe("getSiteUrl / buildInviteUrl", () => {
   it("production invite URL uses canonical origin, not the request host", async () => {
     vi.stubEnv("NODE_ENV", "production");
     vi.stubEnv("VERCEL_ENV", "production");
-    vi.stubEnv("NEXT_PUBLIC_SITE_URL", "https://wichtelo.de");
+    vi.stubEnv("NEXT_PUBLIC_SITE_URL", "https://wichtelo.example");
     vi.doMock("next/headers", () => ({
       headers: async () =>
         new Headers({
@@ -62,7 +62,7 @@ describe("getSiteUrl / buildInviteUrl", () => {
     }));
     const { getSiteUrl, buildInviteUrl } = await import("./site-url");
     expect(buildInviteUrl(await getSiteUrl(), "tok")).toBe(
-      "https://wichtelo.de/einladung/tok",
+      "https://wichtelo.example/einladung/tok",
     );
   });
 });
