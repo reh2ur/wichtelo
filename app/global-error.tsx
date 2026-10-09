@@ -1,12 +1,24 @@
 "use client";
 
+import * as Sentry from "@sentry/nextjs";
 import Link from "next/link";
+import { useEffect } from "react";
 import "./globals.css";
 import messages from "@/messages/de.json";
 
 const t = messages.errorPage;
 
-export default function GlobalError({ reset }: { reset: () => void }) {
+export default function GlobalError({
+  error,
+  reset,
+}: {
+  error: Error;
+  reset: () => void;
+}) {
+  useEffect(() => {
+    Sentry.captureException(error);
+  }, [error]);
+
   return (
     <html lang="de">
       <body className="bg-background text-foreground flex min-h-dvh items-center justify-center font-sans">
