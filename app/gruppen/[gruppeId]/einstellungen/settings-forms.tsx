@@ -498,7 +498,12 @@ export function ParticipantsSection({
 }) {
   const t = useGroupSettingsT();
   const [confirmingId, setConfirmingId] = useState<string | null>(null);
-  const [removedHint, setRemovedHint] = useState(false);
+  const removedHintKey = `removed-invite-hint:${slug}`;
+  const [removedHint, setRemovedHint] = useState(
+    () =>
+      typeof window !== "undefined" &&
+      sessionStorage.getItem(removedHintKey) === "1",
+  );
 
   return (
     <section className="mb-8">
@@ -544,7 +549,10 @@ export function ParticipantsSection({
                 slug={slug}
                 member={m}
                 onCancel={() => setConfirmingId(null)}
-                onRemoved={() => setRemovedHint(true)}
+                onRemoved={() => {
+                  sessionStorage.setItem(removedHintKey, "1");
+                  setRemovedHint(true);
+                }}
               />
             )}
           </li>
