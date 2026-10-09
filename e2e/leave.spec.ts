@@ -196,6 +196,9 @@ test.describe("admin remove participant", () => {
     await expect(
       authedPage.locator("li").filter({ hasText: /Rolf/ }),
     ).not.toBeVisible({ timeout: 10_000 });
+
+    // Admin is nudged to renew the invite link (#187)
+    await expect(authedPage.getByTestId("removed-invite-hint")).toBeVisible();
   });
 
   test("remove button is hidden post-draw", async ({ authedPage, browser }) => {

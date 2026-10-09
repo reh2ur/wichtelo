@@ -164,6 +164,7 @@
       "removing": "Wird entfernt…",
       "confirmTitle": "Teilnehmer wirklich entfernen?",
       "confirmMessage": "Die Person wird aus der Gruppe entfernt.",
+      "removedInviteHint": "Teilnehmer entfernt. Hat die Person den Einladungslink weitergegeben, erneuere ihn unten unter „Einladungslink“.",
       "confirm": "Endgültig entfernen",
       "cancel": "Abbrechen"
     },
@@ -206,6 +207,13 @@
     "starting": "Wird ausgelost…",
     "emailFailure": "{failed} von {total} E-Mails konnten nicht zugestellt werden – Teilnehmer können ihre Zuteilung jederzeit in der App sehen.",
     "dismissWarning": "Ausblenden",
+    "resend": "Fehlgeschlagene E-Mails erneut senden",
+    "resending": "Wird gesendet…",
+    "resendDone": "Alle E-Mails wurden zugestellt.",
+    "resendErrors": {
+      "generic": "Das erneute Senden ist fehlgeschlagen. Bitte versuche es erneut.",
+      "rateLimited": "Zu viele Versuche. Bitte warte einen Moment und versuche es erneut."
+    },
     "confirm": {
       "title": "Auslosung wirklich wiederholen?",
       "message": "Alle bisherigen Zuweisungen werden überschrieben.",

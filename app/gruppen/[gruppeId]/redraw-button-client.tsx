@@ -3,8 +3,17 @@
 import { useActionState, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
-import { retriggerDraw, type RetriggerDrawState } from "./actions";
-import { clearEmailWarning, useStoredEmailWarning } from "./email-warning";
+import {
+  resendDrawEmails,
+  retriggerDraw,
+  type ResendDrawEmailsState,
+  type RetriggerDrawState,
+} from "./actions";
+import {
+  clearEmailWarning,
+  setEmailWarning,
+  useStoredEmailWarning,
+} from "./email-warning";
 import { createIntlContext } from "@/lib/create-intl-context";
 
 const { Provider: RedrawProvider, useT: useRedrawT } =
@@ -21,11 +30,41 @@ export function RedrawButtonClient({ slug }: { slug: string }) {
     { status: "idle" },
   );
 
+  const [resendState, resendAction, resending] = useActionState<
+    ResendDrawEmailsState,
+    FormData
+  >(
+    async (prev, formData) => {
+      const next = await resendDrawEmails(prev, formData);
+      if (next.status === "success") {
+        if (next.emailsFailed > 0) {
+          setEmailWarning(slug, next.emailsFailed, next.emailsTotal);
+        } else {
+          clearEmailWarning(slug);
+        }
+      }
+      return next;
+    },
+    { status: "idle" },
+  );
+
   const stored = useStoredEmailWarning(slug);
   const warning =
-    state.status === "success" && state.emailsFailed > 0
-      ? { failed: state.emailsFailed, total: state.emailsTotal }
-      : stored;
+    resendState.status === "success"
+      ? resendState.emailsFailed > 0
+        ? { failed: resendState.emailsFailed, total: resendState.emailsTotal }
+        : null
+      : state.status === "success" && state.emailsFailed > 0
+        ? { failed: state.emailsFailed, total: state.emailsTotal }
+        : stored;
+  const resendDone =
+    resendState.status === "success" && resendState.emailsFailed === 0;
+  const resendError =
+    resendState.status === "error"
+      ? resendState.error === "rate_limited"
+        ? t("resendErrors.rateLimited")
+        : t("resendErrors.generic")
+      : null;
 
   useEffect(() => {
     if (state.status === "success") router.refresh();
@@ -60,6 +99,29 @@ export function RedrawButtonClient({ slug }: { slug: string }) {
             >
               {t("dismissWarning")}
             </button>
+          </p>
+        )}
+        {warning && (
+          <form action={resendAction}>
+            <input type="hidden" name="slug" value={slug} />
+            <Button
+              type="submit"
+              variant="outline"
+              size="sm"
+              disabled={resending}
+            >
+              {resending ? t("resending") : t("resend")}
+            </Button>
+          </form>
+        )}
+        {resendError && (
+          <p role="alert" className="text-destructive text-sm">
+            {resendError}
+          </p>
+        )}
+        {resendDone && !warning && (
+          <p role="status" className="text-sm">
+            {t("resendDone")}
           </p>
         )}
         <Button

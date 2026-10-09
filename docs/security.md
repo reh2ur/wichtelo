@@ -4,6 +4,8 @@
 
 `proxy.ts` returns 403 to all bots (except `/robots.txt`). Side effect: WhatsApp/Slack/facebookexternalhit get 403 → shared invite links show no preview. **Deliberate.** Invite token = bearer credential; preview fetchers would hit + cache + log token URLs on third-party servers. Do not allowlist preview bots without new decision.
 
+**Decision (#198, #243): keep 403, no allowlist.** Preview bot must GET full invite URL → token leaves our server to WhatsApp/Slack/Meta infra, cached + logged there. Allowlisting UA no help: UA spoofable, token exposure inherent to fetch. Serving generic OG card at `/einladung/*` same problem — fetch itself leaks token. No safe way w/o putting token out of URL (breaks link-sharing UX). Cost accepted: invite link shows bare URL in chat apps. Revisit only if invite scheme changes (e.g. token in fragment, which bots never send).
+
 Private paths (`/gruppen/*`, `/einladung/*`) also send `X-Robots-Tag: noindex, nofollow` (`next.config.ts`) as backup to `robots.txt` + proxy block.
 
 ## Headers

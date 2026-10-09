@@ -242,6 +242,112 @@ test.describe("draw trigger", () => {
     );
   });
 
+  test("admin can resend draw emails after a reported partial failure", async ({
+    authedPage,
+    browser,
+  }) => {
+    const { slug, inviteUrl } = await setupGroup(authedPage, "Resend Test");
+
+    const ctxB = await browser.newContext(guestContextOptions());
+    const ctxC = await browser.newContext(guestContextOptions());
+    try {
+      await joinViaInvite(ctxB, inviteUrl, slug, {
+        firstName: "Bernd",
+        lastName: "Becker",
+        email: `e2e+resend-b-${Date.now()}@example.com`,
+      });
+      await joinViaInvite(ctxC, inviteUrl, slug, {
+        firstName: "Clara",
+        lastName: "Conrad",
+        email: `e2e+resend-c-${Date.now()}@example.com`,
+      });
+    } finally {
+      await ctxB.close();
+      await ctxC.close();
+    }
+
+    await authedPage.goto(`/gruppen/${slug}`);
+    await authedPage.locator('button:has-text("Auslosung starten")').click();
+    await expect(authedPage.locator("text=Zuweisung nachschlagen")).toBeVisible(
+      { timeout: 15_000 },
+    );
+
+    // No failure reported yet: no resend button.
+    await expect(
+      authedPage.locator('button:has-text("erneut senden")'),
+    ).toHaveCount(0);
+
+    // Real provider failures can't be forced; simulate the stored warning the
+    // draw button sets after a partial failure, then reload.
+    await authedPage.evaluate((s) => {
+      sessionStorage.setItem(
+        `draw-email-warning:${s}`,
+        JSON.stringify({ failed: 1, total: 3 }),
+      );
+    }, slug);
+    await authedPage.reload();
+
+    await expect(
+      authedPage.locator("text=1 von 3 E-Mails konnten nicht zugestellt"),
+    ).toBeVisible({ timeout: 15_000 });
+    await authedPage
+      .locator('button:has-text("Fehlgeschlagene E-Mails erneut senden")')
+      .click();
+
+    await expect(
+      authedPage.locator("text=Alle E-Mails wurden zugestellt."),
+    ).toBeVisible({ timeout: 15_000 });
+    await expect(
+      authedPage.locator("text=1 von 3 E-Mails konnten nicht zugestellt"),
+    ).toHaveCount(0);
+  });
+
+  test("participant does not see the resend button", async ({
+    authedPage,
+    browser,
+  }) => {
+    const { slug, inviteUrl } = await setupGroup(
+      authedPage,
+      "Resend Guard Test",
+    );
+    const ctxB = await browser.newContext(guestContextOptions());
+    const ctxC = await browser.newContext(guestContextOptions());
+    let pageB: Page;
+    try {
+      pageB = await joinViaInvite(ctxB, inviteUrl, slug, {
+        firstName: "Bernd",
+        lastName: "Becker",
+        email: `e2e+resendg-b-${Date.now()}@example.com`,
+      });
+      await joinViaInvite(ctxC, inviteUrl, slug, {
+        firstName: "Clara",
+        lastName: "Conrad",
+        email: `e2e+resendg-c-${Date.now()}@example.com`,
+      });
+
+      await authedPage.goto(`/gruppen/${slug}`);
+      await authedPage.locator('button:has-text("Auslosung starten")').click();
+      await expect(
+        authedPage.locator("text=Zuweisung nachschlagen"),
+      ).toBeVisible({ timeout: 15_000 });
+
+      await pageB.evaluate((s) => {
+        sessionStorage.setItem(
+          `draw-email-warning:${s}`,
+          JSON.stringify({ failed: 1, total: 3 }),
+        );
+      }, slug);
+      await pageB.reload();
+      await expect(pageB.locator("h1")).toBeVisible();
+      await expect(
+        pageB.locator('button:has-text("erneut senden")'),
+      ).toHaveCount(0);
+    } finally {
+      await ctxB.close();
+      await ctxC.close();
+    }
+  });
+
   test("admin oracle: lookup single assignment with confirmation", async ({
     authedPage,
     browser,

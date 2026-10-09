@@ -420,28 +420,27 @@ export function ExclusionsSection({
   );
 }
 
+// state/action/pending come from the parent's useActionState: removing a
+// member makes this panel's own <li> disappear in the same update that
+// delivers a "success" status, so a hook owned here would unmount before its
+// effect ever observes that status. ParticipantsSection outlives the removal
+// and owns the hook instead.
 function RemoveMemberConfirmPanel({
   slug,
   member,
+  state,
+  action,
+  pending,
   onCancel,
 }: {
   slug: string;
   member: Member;
+  state: RemoveMemberState;
+  action: (formData: FormData) => void;
+  pending: boolean;
   onCancel: () => void;
 }) {
   const t = useGroupSettingsT();
-  const router = useRouter();
-  const [state, action, pending] = useActionState<RemoveMemberState, FormData>(
-    removeMember,
-    { status: "idle" },
-  );
-
-  useEffect(() => {
-    if (state.status === "success") {
-      router.refresh();
-      onCancel();
-    }
-  }, [state.status, router, onCancel]);
 
   const errorMsg =
     state.status === "error"
@@ -494,11 +493,35 @@ export function ParticipantsSection({
   currentMembershipId: string;
 }) {
   const t = useGroupSettingsT();
+  const router = useRouter();
   const [confirmingId, setConfirmingId] = useState<string | null>(null);
+  const [removeState, removeAction, removePending] = useActionState<
+    RemoveMemberState,
+    FormData
+  >(removeMember, { status: "idle" });
+  // Derived, not stored: once a removal succeeds the removed member's <li>
+  // (and its confirm panel) disappears from `members` on its own, and the
+  // hint should stay up for the rest of this success status regardless.
+  const removedHint = removeState.status === "success";
+
+  useEffect(() => {
+    if (removeState.status === "success") {
+      router.refresh();
+    }
+  }, [removeState.status, router]);
 
   return (
     <section className="mb-8">
       <SectionHeader>{t("participants.section")}</SectionHeader>
+      {removedHint && (
+        <p
+          role="status"
+          data-testid="removed-invite-hint"
+          className="border-border bg-muted/30 mb-3 rounded-lg border p-3 text-sm"
+        >
+          {t("participants.removedInviteHint")}
+        </p>
+      )}
       <ul className="border-border bg-card divide-y rounded-lg border">
         {members.map((m) => (
           <li key={m.id} className="px-4 py-3 text-sm">
@@ -530,6 +553,9 @@ export function ParticipantsSection({
               <RemoveMemberConfirmPanel
                 slug={slug}
                 member={m}
+                state={removeState}
+                action={removeAction}
+                pending={removePending}
                 onCancel={() => setConfirmingId(null)}
               />
             )}
