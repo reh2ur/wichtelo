@@ -2,13 +2,15 @@ import type { Route } from "next";
 
 type Access = "protected" | "public" | "guest-only";
 
-// Keep only bare page paths — strip search/hash variants and API/auth handler routes.
+// Keep only bare page paths — strip search/hash variants, API/auth handler
+// routes, and /einladung (manages its own access, see NON_PAGE_PREFIXES).
 type PageRoute = Exclude<
   Extract<Route, `/${string}`>,
   | `${string}?${string}`
   | `${string}#${string}`
   | `/api${string}`
   | `/auth${string}`
+  | `/einladung${string}`
 >;
 
 // Helper generic forces distributive evaluation over each union member.

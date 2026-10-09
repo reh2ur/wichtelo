@@ -10,18 +10,11 @@ import {
 } from "./invite-form";
 import { InviteSkeleton } from "./invite-skeleton";
 
-// Blocking route: token check runs before streaming so invalid tokens get a real 404.
+// Blocking route: token check runs before streaming so invalid tokens get a
+// real 404. The actual real-404 guarantee comes from proxy.ts, which
+// rewrites invalid tokens to /einladung/ungueltig before any rendering
+// starts — this check is defense in depth for direct hits that bypass that.
 export const instant = false;
-
-// generateMetadata resolves before any UI streams, so notFound() here can't
-// be raced by an ancestor Suspense (Nav's session read) that would otherwise
-// flush the response and lock the status at 200.
-export async function generateMetadata(props: PageProps<"/einladung/[token]">) {
-  const { token } = await props.params;
-  const resolved = await resolveToken(token);
-  if (!resolved) notFound();
-  return {};
-}
 
 export default async function EinladungPage(
   props: PageProps<"/einladung/[token]">,

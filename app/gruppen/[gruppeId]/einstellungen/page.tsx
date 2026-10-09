@@ -18,25 +18,11 @@ import {
 import { SettingsSkeleton } from "./settings-skeleton";
 
 // Blocking route: group + admin checks run before streaming so unknown groups
-// get a real 404 and non-admins a real redirect.
+// get a real 404 and non-admins a real redirect. The actual real-404
+// guarantee for unknown slugs comes from proxy.ts, which rewrites them
+// before any rendering starts — this check is defense in depth for direct
+// hits that bypass that.
 export const instant = false;
-
-// generateMetadata resolves before any UI streams, so notFound() here can't
-// be raced by an ancestor Suspense (Nav's session read) that would otherwise
-// flush the response and lock the status at 200.
-export async function generateMetadata(
-  props: PageProps<"/gruppen/[gruppeId]/einstellungen">,
-) {
-  const { gruppeId } = await props.params;
-  const admin = createAdminClient();
-  const { data: group } = await admin
-    .from("groups")
-    .select("id")
-    .eq("slug", gruppeId)
-    .single();
-  if (!group) notFound();
-  return {};
-}
 
 export default async function EinstellungenPage(
   props: PageProps<"/gruppen/[gruppeId]/einstellungen">,
