@@ -54,3 +54,6 @@ supabase/snippets/
 
 # private PII denylist for scripts/check-no-pii.mts
 .pii-denylist
+
+# Sentry Config File
+.env.sentry-build-plugin

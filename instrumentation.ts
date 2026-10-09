@@ -1,6 +1,15 @@
 import type { Instrumentation } from "next";
+import * as Sentry from "@sentry/nextjs";
 
 export async function register() {
+  if (process.env.NEXT_RUNTIME === "nodejs") {
+    await import("./sentry.server.config");
+  }
+
+  if (process.env.NEXT_RUNTIME === "edge") {
+    await import("./sentry.edge.config");
+  }
+
   // Fail fast on a misconfigured deployment instead of at first request.
   if (process.env.NEXT_RUNTIME === "nodejs") {
     const { validateEnv } = await import("@/lib/env");
@@ -54,6 +63,8 @@ export const onRequestError: Instrumentation.onRequestError = async (
   request,
   context,
 ) => {
+  Sentry.captureRequestError(err, request, context);
+
   if (process.env.NEXT_RUNTIME !== "nodejs") return;
   const { logger } = await import("@/lib/logger");
   const { serializeError } = await import("@/lib/serialize-error");
