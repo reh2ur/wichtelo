@@ -29,6 +29,10 @@ export function resolveSiteUrl(input: SiteUrlInput): string {
   return `${proto}://${host.replace("127.0.0.1", "localhost")}`;
 }
 
+export function buildInviteUrl(siteUrl: string, token: string): string {
+  return `${siteUrl}/einladung/${token}`;
+}
+
 export async function getSiteUrl(): Promise<string> {
   const production = isProductionDeploy();
   const configured = process.env.NEXT_PUBLIC_SITE_URL;

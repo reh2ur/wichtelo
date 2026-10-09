@@ -120,6 +120,8 @@ Full design spec (palette, tokens, components, icon rules) in **`docs/design.md`
 
 **Account deletion:** drawn groups: `profile_id` on memberships set to null; `name_snapshot` preserved, assignment rows left intact, admins notified + see "Konto gelöscht" badge in settings. Open groups: membership deleted outright BEFORE `deleteUser` (cascades exclusions; cleanup failure aborts deletion), admins notified — deleted account never drawn. Confirm link = GET page + POST Server Action (`app/konto/delete/confirm`), public route (HMAC token auth), token single-use via `app_metadata.deletion_nonce`. Disclosed in Datenschutzerklärung.
 
+**Group creation atomic.** `createGroup` calls RPC `create_group(name, year, budget_hint, note, slugs[])` (security definer, `search_path = ''`, caller = `auth.uid()`, profile must exist) — one txn: group + admin membership + invite token. Slug `23505` retried inside RPC over candidate list; none free → raises `23505`. No service-role cleanup path.
+
 **Draw atomic.** `triggerDraw`/`retriggerDraw` call RPC `perform_draw(group_id, pairs, expected_state, expected_version)` — one txn, row lock on group, delete+insert assignments, set `drawn`, bump `groups.draw_version`. Returns `ok|state_changed|ghost_members|membership_changed|group_not_found`. `ghost_members` = open group has `profile_id` null row; `triggerDraw` pre-checks via `hasGhostMembers` (`lib/draw`), German admin error. Only `ok` caller sends emails. Trigger on `memberships` rejects insert once group `drawn`. Member delete after draw not guarded yet (leave-after-draw separate issue).
 
 ## Deep modules (pure logic, independently testable)
