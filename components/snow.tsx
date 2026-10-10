@@ -21,7 +21,7 @@ export function Snow() {
   return (
     <div
       aria-hidden="true"
-      className="pointer-events-none fixed inset-0 overflow-hidden"
+      className="snow pointer-events-none fixed inset-0 overflow-hidden motion-reduce:hidden"
       style={{ zIndex: 0 }}
     >
       {FLAKES.map((f, i) => (

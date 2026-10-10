@@ -51,6 +51,8 @@
   --color-navy-soft: var(--navy-soft);
   --color-crimson: var(--crimson);
   --color-success: var(--success);
+  --color-danger-text: var(--danger-text);
+  --color-success-text: var(--success-text);
   --color-ice: var(--ice);
 }
 
@@ -94,6 +96,9 @@
   --navy-soft: #3d5872;
   --crimson: #df4a5e;
   --success: #1e8a5f;
+  /* AA text variants (>=4.5:1 on white and --ice) */
+  --danger-text: #b83247;
+  --success-text: #17704d;
   --ice: #e3eef8;
 }
 
@@ -221,6 +226,12 @@ body::after {
    Both stops kept dark enough for white text to clear 4.5:1 contrast (AA). */
 .bg-primary {
   background-image: linear-gradient(135deg, #c23e52, #a8344a);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .snow {
+    display: none;
+  }
 }
 
 @keyframes fall {

@@ -120,7 +120,7 @@ export function InviteAuthForm({ token }: { token: string }) {
         </div>
 
         {requestError && (
-          <p className="text-destructive text-sm">{requestError}</p>
+          <p className="text-danger-text text-sm">{requestError}</p>
         )}
 
         <Button type="submit" className="w-full" disabled={requestPending}>
@@ -217,7 +217,7 @@ export function InviteAcceptForm({
           </div>
         )}
 
-        {errorMsg && <p className="text-destructive text-sm">{errorMsg}</p>}
+        {errorMsg && <p className="text-danger-text text-sm">{errorMsg}</p>}
 
         <Button type="submit" className="w-full" disabled={acceptPending}>
           {acceptPending ? t("accept.accepting") : t("accept.submitJoin")}

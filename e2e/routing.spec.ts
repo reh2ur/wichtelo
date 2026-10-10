@@ -127,6 +127,7 @@ test.describe("group routing", () => {
 
       await authedPage.goto(`/gruppen/${slug}`);
       await authedPage.locator('button:has-text("Auslosung starten")').click();
+      await authedPage.locator('button:has-text("Jetzt auslosen")').click();
       await expect(
         authedPage.locator("text=Zuweisung nachschlagen"),
       ).toBeVisible({ timeout: 15_000 });
