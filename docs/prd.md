@@ -99,7 +99,7 @@ Secret Santa is a German-language web app that lets a group admin create a Grupp
 - **Email:** Resend (transactional delivery) + React Email (template rendering)
 - **i18n:** next-intl, German only, no locale prefix in URLs, server-side only (`getTranslations()` — no `NextIntlClientProvider`)
 - **Styling:** Tailwind CSS, shadcn/ui components built on Base UI primitives
-- **Font:** Nunito via `next/font/google`
+- **Font:** Manrope via `next/font/google`
 - **Testing:** Vitest (unit + integration against Supabase local stack) + Playwright (E2E)
 
 ### Architecture Principles
@@ -148,7 +148,7 @@ RLS rules: participants read only their own assignment row; admins read all assi
 
 Seven independently testable modules encapsulate all complex logic:
 
-1. **Draw Engine** — pure function: `computeDraw(members, exclusions) → assignment | null`. Produces a valid derangement with no mutual pairs and all exclusion constraints respected. Uses rejection sampling (Fisher-Yates with retry). Returns `null` after 1,000 failed attempts (unsolvable constraints).
+1. **Draw Engine** — pure function: `computeDraw(members, exclusions) → assignment | null`. Produces a valid derangement with no mutual pairs and all exclusion constraints respected. Two-stage: rejection sampling (Fisher-Yates, 200 attempts), then exhaustive randomized backtracking. Returns `null` iff no valid assignment exists (unsolvable constraints).
 
 2. **Slug Generator** — `generateSlug(name, existingSlugs) → string`. Transliterates German characters, lowercases, replaces spaces with hyphens, appends suffix on collision.
 
@@ -221,7 +221,6 @@ On confirmation, the user's `auth.users` record and `profiles` record are delete
 - **Open registration** — the site is invite-only; strangers cannot sign up without a group invite link
 - **Wishlists or gift idea fields per participant** — out of scope to keep the data model simple and personal data minimal
 - **Draw scheduling** — admins trigger draws manually; no date-based automation
-- **Back-office / superadmin panel** — not needed; having any account grants the ability to create groups
 - **Multi-language support** — German only for the foreseeable future
 - **Analytics or usage tracking** — excluded for privacy/compliance; Vercel Speed Insights (performance monitoring only, no cookies/profiles) not covered by this exclusion, see Legal section
 - **Gift budget enforcement** — the budget hint is informational text only, not validated or tracked
@@ -232,7 +231,8 @@ On confirmation, the user's `auth.users` record and `profiles` record are delete
 ## Further Notes
 
 - The app is operated from Germany. All GDPR and TMG obligations apply. The Datenschutzerklärung must be reviewed by the operator before public launch and updated whenever processors change.
-- Email deliverability depends on Resend's free tier (3,000 emails/month). This is sufficient for a hobby-scale project.
+- Email deliverability depends on Resend's free tier: 3,000 emails/month AND 100/day, shared with Supabase Auth SMTP (OTP/magic link). Supabase `email_sent` = 100/h. Size for December peak (draw mails burst) or upgrade plan.
+- Super-admin back-office exists (`/admin`, `SUPER_ADMIN_EMAIL`, audit log) — see `docs/admin-dashboard.md`.
 - Supabase's EU (Frankfurt) region ensures personal data does not leave the EU, simplifying the GDPR transfer assessment.
 - The `name_snapshot` field in memberships means the draw history is self-contained and does not break if users delete their accounts — but this must be clearly disclosed in the privacy policy before any data is collected.
 - The admin oracle feature (individual assignment lookup) must be disclosed in the Datenschutzerklärung as it constitutes access to personal data by a third party (the admin).

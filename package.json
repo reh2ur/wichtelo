@@ -4,6 +4,9 @@
   "private": true,
   "license": "AGPL-3.0-only",
   "packageManager": "pnpm@11.0.9",
+  "engines": {
+    "node": "22.x"
+  },
   "scripts": {
     "dev": "next dev --turbopack --experimental-https",
     "build": "next build  --turbopack",

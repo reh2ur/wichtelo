@@ -1,6 +1,6 @@
 import { type BrowserContext, type Page } from "@playwright/test";
 import { expect, test } from "./fixtures";
-import { BASE_URL, testApiHeaders, browserExtraHeaders } from "./helpers";
+import { BASE_URL, browserExtraHeaders } from "./helpers";
 
 function guestContextOptions() {
   return {
@@ -157,7 +157,6 @@ test.describe("draw trigger", () => {
     const emailC = `e2e+golden-c-${Date.now()}@example.com`;
 
     let pageB: Page;
-    let pageC: Page;
 
     try {
       pageB = await joinViaInvite(ctxB, inviteUrl, slug, {
@@ -165,7 +164,7 @@ test.describe("draw trigger", () => {
         lastName: "Becker",
         email: emailB,
       });
-      pageC = await joinViaInvite(ctxC, inviteUrl, slug, {
+      await joinViaInvite(ctxC, inviteUrl, slug, {
         firstName: "Clara",
         lastName: "Conrad",
         email: emailC,
