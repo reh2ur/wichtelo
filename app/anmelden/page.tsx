@@ -18,7 +18,9 @@ export default async function AnmeldenPage(props: PageProps<"/anmelden">) {
           <Suspense fallback={null}>
             <LinkError searchParams={props.searchParams} />
           </Suspense>
-          <AuthForm />
+          <Suspense>
+            <AuthForm searchParams={props.searchParams} />
+          </Suspense>
         </div>
       </div>
     </main>

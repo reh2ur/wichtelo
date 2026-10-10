@@ -84,15 +84,17 @@ Full design spec (palette, tokens, components, icon rules) in **`docs/design.md`
 
 **Real 404 status.** `notFound()` after streaming starts = HTTP 200 (status already fixed), `noindex` tag only. Root layout's `Nav` suspends every request (uncached session cookie read) — under `cacheComponents`, its Suspense fallback flush starts the response and fixes status 200 before ANY page-level check gets a turn, no matter where that check sits (page body, `generateMetadata` — tried both, verified both fail in a real `next build && next start`; `next dev` hides this, don't trust it for this class of bug). `generateMetadata`'s per-request data does NOT get special before-streaming treatment here: under `cacheComponents` it just joins the same deferred/streamed bucket as the rest of the page (confirmed in Next's own docs: "If other parts also defer to request time: ... metadata streams in with other deferred content").
 
-Fix lives in **`proxy.ts` / `lib/supabase/proxy.ts`**, which runs before any React rendering, so there's no Suspense to race: `/einladung/[token]` checks `resolveToken` and rewrites bad tokens to the fully-static `/einladung/ungueltig` page (shares `app/einladung/not-found.tsx`'s "Ungültiger Einladungslink" copy via `notFound()` bubbling); `/gruppen/[slug]` and `.../einstellungen` check group existence + (detail page only) membership and rewrite to `/__not_found__` (matches no route → Next's own generic 404 takes over, same as a truly unmatched URL). Page-level `notFound()` checks (`export const instant = false` above `<Suspense>`) stay as defense in depth, not as the actual guarantee. New dynamic-slug pages needing a real 404 must add their check in proxy, not just the page.
+Fix lives in **`proxy.ts` / `lib/supabase/proxy.ts`**, which runs before any React rendering, so there's no Suspense to race: `/einladung/[token]` checks `resolveToken` and rewrites bad tokens to `/__not_found__` too; `/gruppen/[slug]` and `.../einstellungen` check group existence + membership (settings: admin role required, non-admin member = same 404 as unknown slug, no slug-existence oracle) and rewrite to `/__not_found__` (matches no route → Next's own generic 404 takes over, same as a truly unmatched URL, fully SSR'd: status 404, h1, lang, stylesheet). Invite 404 shows generic "Seite nicht gefunden" copy — invite-specific copy dropped. Do NOT rewrite to prerendered page that calls `notFound()` (e.g. old `/einladung/ungueltig`): status 404 but body = empty `__next_error__` shell, copy only in RSC payload. `NextResponse.rewrite(..., {status})` ignored — no way to set status on rewrite. **Errors ≠ not-found:** `resolveToken` throws on DB error (only no-rows → `null`); proxy lets request through on lookup error (page throws → `error.tsx`); `fetchGroupData` throws on error so failure never cached. Proxy redirects/rewrites copy `supabaseResponse` cookies (refreshed session tokens) via `withSessionCookies`. Page-level `notFound()` checks (`export const instant = false` above `<Suspense>`) stay as defense in depth, not as the actual guarantee. New dynamic-slug pages needing a real 404 must add their check in proxy, not just the page.
 
-**`/gruppen` list page fully dynamic** — reads cookies via `createClient()`, renders fresh per request. No `use cache`, no tag, no invalidation needed.
+**Return-to after login.** `redirectToLogin` (proxy) appends `?next=<path>`; `lib/safe-next.ts` `safeNext()` only accepts same-origin relative paths (`/x`, not `//`, no backslash/control chars) else null → `/gruppen`. Used in `/anmelden` form (hidden field → `verifyOtp` redirect), `requestOtp` (stores `wichtelo_next` cookie, path `/auth`, since `emailRedirectTo` must match Supabase allowlist exactly → no query) and `app/auth/callback`. Always revalidate via `safeNext`, never trust hidden field.
+
+**`/gruppen` list page fully dynamic** — reads cookies via `createClient()`, renders fresh per request. Active = `year >= currentYear || state === "open"`, rest = past. No `use cache`, no tag, no invalidation needed.
 
 **Assignments never cached** — fetched dynamically via user-scoped `createClient()` so RLS restricts each user to own row.
 
 **Translations.** Server-first: call `getTranslations()` in every Server Component. Client Components that must use `'use client'` and need translations: use `createIntlContext` factory (`lib/create-intl-context.tsx`). Pattern — Server wrapper calls `getTranslations(namespace)`, passes messages to factory-produced `Provider`; client impl uses `useT()` hook from same factory. Never pass full message bundle or mount `NextIntlClientProvider` manually. All German copy in `messages/de.json`.
 
-**No analytics, no tracking, no non-essential cookies.** No cookie banner needed. Exception: Vercel Speed Insights active — cookie-less perf telemetry, disclosed in Datenschutz, Art. 6(1)(f) basis, not covered by "no analytics" claim.
+**No analytics, no tracking, no non-essential cookies.** No cookie banner needed. Exception: Vercel Speed Insights active — cookie-less perf telemetry, disclosed in Datenschutz, Art. 6(1)(f) basis, not covered by "no analytics" claim. Sentry error monitoring also active (EU org, no Session Replay, no cookies/storage, invite tokens scrubbed via `lib/sentry-scrub.ts`, disclosed in Datenschutz, Art. 6(1)(f)) — error telemetry only, not analytics.
 
 ## Routes (German slugs, no locale prefix)
 
@@ -134,7 +136,7 @@ Extract all complex business logic into pure or near-pure modules. Do not embed 
 
 | Module                       | Signature                                                                |
 | ---------------------------- | ------------------------------------------------------------------------ |
-| **Draw Engine**              | `computeDraw(members, exclusions) → assignment \| null`                  |
+| **Draw Engine**              | `computeDraw(members, exclusions) → assignment \| null \| TOO_COMPLEX`   |
 | **Slug Generator**           | `generateSlug(name, existingSlugs) → string`                             |
 | **Name Abbreviator**         | `abbreviateNames(members[]) → DisplayName[]`                             |
 | **Invite Token**             | `createToken(groupId)`, `resolveToken(token) → {group,state} \| 'drawn'` |
@@ -144,7 +146,7 @@ Extract all complex business logic into pure or near-pure modules. Do not embed 
 
 ## Draw algorithm
 
-`computeDraw` must produce **derangement** (no self-assignment) with **no mutual pairs** (if A→B then B cannot→A) and all **exclusion pairs** respected (bidirectional). Two-stage: fast path = rejection sampling (Fisher-Yates + retry, 200 attempts), fallback = exhaustive randomized backtracking (MRV-ordered, prunes self/mutual/exclusion conflicts) — proves true infeasibility, not just retry exhaustion. Returns `null` **iff** no valid assignment exists — draw blocked, admin sees German error. Minimum 3 participants enforced before draw triggers.
+`computeDraw` must produce **derangement** (no self-assignment) with **no mutual pairs** (if A→B then B cannot→A) and all **exclusion pairs** respected (bidirectional). Two-stage: fast path = rejection sampling (Fisher-Yates + retry, 200 attempts), fallback = exhaustive randomized backtracking (MRV-ordered, prunes self/mutual/exclusion conflicts) — proves true infeasibility, not just retry exhaustion. Pre-stage: bipartite perfect-matching check (Kuhn) on allowed giver→receiver graph — no match → `null` instantly (catches household/Hall cases). Mutual-pair rule not matchable → matching = necessary condition only. Backtracking has node budget (`MAX_BACKTRACK_NODES`); exhausted → distinct `TOO_COMPLEX` (`"too_complex"`), NOT `null`. Returns `null` **iff** no valid assignment exists — draw blocked, admin sees German error. `TOO_COMPLEX` → separate German admin msg (`errors.tooComplex`, `exclusions.tooComplexWarning`) at draw, re-draw, addExclusion warning; every `computeDraw` call site must handle it. Minimum 3 participants enforced before draw triggers.
 
 ## Name display
 
@@ -152,7 +154,7 @@ Last names abbreviated to minimum chars needed for unique display names within G
 
 ## Slug generation
 
-Gruppe slugs auto-generated at creation from group name. Umlaut transliteration: ä→ae, ö→oe, ü→ue, ß→ss. Collisions resolved by numeric suffix (first 5 tries), then random 4-char base36 suffix (`slugCandidate`) — popular names never exhaust. Slugs never change after creation (rename does not change slug).
+Gruppe slugs auto-generated at creation from group name. Umlaut transliteration: ä→ae, ö→oe, ü→ue, ß→ss. Collisions resolved by numeric suffix (first 5 tries), then random 4-char base36 suffix (`slugCandidate`) — popular names never exhaust. Reserved slugs (`neu`, static `/gruppen/*` children; list in `lib/slug`) get `-gruppe` suffix — else static route shadows group. Add new static child → add to list. Slugs never change after creation (rename does not change slug).
 
 ## Testing
 

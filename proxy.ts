@@ -22,10 +22,20 @@ export async function proxy(request: NextRequest) {
   // starts streaming the response (fixing the status at 200) before the
   // page's own notFound() for an invalid token ever gets a chance to run.
   const inviteTokenMatch = INVITE_TOKEN_RE.exec(request.nextUrl.pathname);
-  if (inviteTokenMatch && inviteTokenMatch[1] !== "ungueltig") {
-    const resolved = await resolveToken(inviteTokenMatch[1]);
-    if (!resolved) {
-      return NextResponse.rewrite(new URL("/einladung/ungueltig", request.url));
+  if (inviteTokenMatch) {
+    let resolved: Awaited<ReturnType<typeof resolveToken>> | undefined;
+    try {
+      resolved = await resolveToken(inviteTokenMatch[1]);
+    } catch {
+      // DB error is not "not found": let the page decide (it throws → 500).
+      resolved = undefined;
+    }
+    if (resolved === null) {
+      // Same unmatched-path rewrite as unknown groups: Next's own fully
+      // SSR'd 404 (real status, h1, lang, stylesheet). A rewrite to a
+      // prerendered page that calls notFound() yields 404 but an empty
+      // `__next_error__` HTML shell; a rewrite status option is ignored.
+      return NextResponse.rewrite(new URL("/__not_found__", request.url));
     }
   }
 
@@ -52,6 +62,6 @@ export async function proxy(request: NextRequest) {
 
 export const config = {
   matcher: [
-    "/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)",
+    "/((?!_next/static|_next/image|monitoring(?:/|$)|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)",
   ],
 };

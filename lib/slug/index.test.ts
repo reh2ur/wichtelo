@@ -94,3 +94,16 @@ describe("slugCandidate (#175)", () => {
     }
   });
 });
+
+describe("reserved slugs", () => {
+  it("never yields a reserved slug", () => {
+    expect(generateSlug("Neu", [])).toBe("neu-gruppe");
+    expect(generateSlug("  NEU! ", [])).toBe("neu-gruppe");
+    expect(generateSlug("Neu", ["neu-gruppe"])).toBe("neu-gruppe-2");
+    expect(slugCandidate("Neu", 0)).toBe("neu-gruppe");
+  });
+
+  it("leaves names merely starting with a reserved word alone", () => {
+    expect(generateSlug("Neu Jahr", [])).toBe("neu-jahr");
+  });
+});

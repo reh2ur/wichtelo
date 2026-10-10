@@ -52,6 +52,7 @@ export default async function DatenschutzPage() {
             <li>{t("processors.resend")}</li>
             <li>{t("processors.vercel")}</li>
             <li>{t("processors.speedInsights")}</li>
+            <li>{t("processors.sentry")}</li>
             <li>{t("processors.redis")}</li>
           </ul>
         </section>

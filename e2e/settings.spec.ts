@@ -77,7 +77,7 @@ test.describe("admin settings page access", () => {
     ).toBeVisible();
   });
 
-  test("participant navigating to settings URL is redirected to group detail", async ({
+  test("participant navigating to settings URL gets a 404", async ({
     authedPage,
     browser,
   }) => {
@@ -94,10 +94,8 @@ test.describe("admin settings page access", () => {
         email: `e2e+settings-guest-${Date.now()}@example.com`,
       });
 
-      await guestPage.goto(`/gruppen/${slug}/einstellungen`);
-      await expect(guestPage).toHaveURL(new RegExp(`/gruppen/${slug}$`), {
-        timeout: 10_000,
-      });
+      const response = await guestPage.goto(`/gruppen/${slug}/einstellungen`);
+      expect(response?.status()).toBe(404);
     } finally {
       await guestCtx.close();
     }
@@ -445,9 +443,7 @@ test.describe("invite link rotation", () => {
       // Old link: dead end
       const oldPage = await guestCtx.newPage();
       await oldPage.goto(oldUrl);
-      await expect(oldPage.locator("h1")).toContainText(
-        "Ungültiger Einladungslink",
-      );
+      await expect(oldPage.locator("h1")).toContainText("Seite nicht gefunden");
 
       // New link: join works
       await joinViaInvite(guestCtx, newUrl, slug, {
@@ -475,10 +471,8 @@ test.describe("invite link rotation", () => {
         lastName: "Gast",
         email: `e2e+rotation-guest-${Date.now()}@example.com`,
       });
-      await guestPage.goto(`/gruppen/${slug}/einstellungen`);
-      await expect(guestPage).toHaveURL(new RegExp(`/gruppen/${slug}$`), {
-        timeout: 10_000,
-      });
+      const response = await guestPage.goto(`/gruppen/${slug}/einstellungen`);
+      expect(response?.status()).toBe(404);
       await expect(guestPage.getByTestId("invite-link-section")).toHaveCount(0);
     } finally {
       await guestCtx.close();
