@@ -19,7 +19,11 @@ Private paths (`/gruppen/*`, `/einladung/*`) also send `X-Robots-Tag: noindex, n
 - Console patch (prod only) forwards to pino only — no double log.
 - Log errors via `serializeError(err)` (`lib/serialize-error.ts`), never `String(err)` (`[object Object]`).
 - `GET /api/health` → 200 `{status:"ok"}` / 503. DB ping w/ publishable key, no secrets. Bot UA allowed in `proxy.ts`. Point external uptime monitor (e.g. UptimeRobot, free) at it — ops step, not in repo.
-- Sentry wired (`sentry.{server,edge}.config.ts`, `instrumentation-client.ts`, tunnel `/monitoring`). Unset `NEXT_PUBLIC_SENTRY_DSN` = disabled. User info, bodies, IP-ish headers/cookies scrubbed. Use EU region project. Datenschutz disclosure must name Sentry before DSN set in prod (see `docs/go-live.md`). Logs also → Vercel.
+- Sentry error tracker. EU org only (`ingest.de.sentry.io`). No Session Replay (non-essential sessionStorage, §25 TDDDG, page content). Tracing: client 0, server/edge 0.1.
+- `/einladung/<token>` = bearer credential. `lib/sentry-scrub.ts` rewrites to `/einladung/[token]` + filters `?token=`; wired as `beforeSend`, `beforeSendTransaction`, `beforeBreadcrumb` in client/server/edge init. New Sentry init → wire same three hooks.
+- `/monitoring` tunnel excluded from `proxy.ts` matcher (no `updateSession` per envelope).
+- Sentry in Datenschutz processors (Art. 6(1)(f), SCC/DPF for US parent). Change scope → update `messages/de.json`.
+- Logs → Vercel only; watch them or add log drain.
 
 ## Identifier guard
 

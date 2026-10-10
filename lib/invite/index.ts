@@ -94,22 +94,26 @@ export async function getOrCreateToken(groupId: string): Promise<string> {
 /**
  * Resolves an invite token.
  * - Returns ResolvedInvite for both open and drawn groups (check group.state)
- * - Returns null when token not found
+ * - Returns null only when token not found (no rows)
+ * - Throws on any DB error — an error is NOT "not found"
  */
 export async function resolveToken(
   token: string,
 ): Promise<ResolvedInvite | null> {
   const supabase = createAdminClient();
 
-  const { data } = await supabase
+  const { data, error } = await supabase
     .from("invite_tokens")
     .select(
       `token, group_id,
        groups!inner(id, slug, name, state, created_by, budget_hint, note)`,
     )
     .eq("token", token)
-    .single();
+    .maybeSingle();
 
+  if (error) {
+    throw new Error(`[resolveToken] token lookup failed: ${error.message}`);
+  }
   if (!data) {
     return null;
   }
@@ -126,11 +130,16 @@ export async function resolveToken(
   };
 
   // Fetch admin name regardless of state (needed for dead-end contact info)
-  const { data: adminProfile } = await supabase
+  const { data: adminProfile, error: adminError } = await supabase
     .from("profiles")
     .select("first_name, last_name")
     .eq("id", group.created_by)
-    .single();
+    .maybeSingle();
+  if (adminError) {
+    throw new Error(
+      `[resolveToken] admin profile lookup failed: ${adminError.message}`,
+    );
+  }
 
   // Invite link holders may never join: expose first name + last initial only
   // (PRD story 32, issue #179).

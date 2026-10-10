@@ -93,8 +93,12 @@ async function GruppenPageContent() {
 
   const memberships = (raw ?? []) as unknown as MembershipWithGroup[];
 
-  const active = memberships.filter((m) => m.groups.year === currentYear);
-  const past = memberships.filter((m) => m.groups.year < currentYear);
+  // Open groups stay active whatever their year (e.g. created with last
+  // year's year); future-year groups are active too.
+  const isActive = (m: MembershipWithGroup) =>
+    m.groups.year >= currentYear || m.groups.state === "open";
+  const active = memberships.filter(isActive);
+  const past = memberships.filter((m) => !isActive(m));
 
   const pastDrawnIds = past
     .filter((m) => m.groups.state === "drawn")
@@ -119,7 +123,9 @@ async function GruppenPageContent() {
         .in(
           "group_id",
           rows.map((a) => a.group_id),
-        );
+        )
+        .order("joined_at", { ascending: true })
+        .order("id", { ascending: true });
       const members = (membersRaw ?? []) as {
         id: string;
         group_id: string;

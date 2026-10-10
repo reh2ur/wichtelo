@@ -22,6 +22,7 @@ test.describe("account page access", () => {
     const ctx = await browser.newContext({
       baseURL: BASE_URL,
       ignoreHTTPSErrors: BASE_URL.includes("localhost"),
+      extraHTTPHeaders: browserExtraHeaders(),
     });
     const page = await ctx.newPage();
     await page.goto("/konto");

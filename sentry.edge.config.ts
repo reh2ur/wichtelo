@@ -4,12 +4,19 @@
 // https://docs.sentry.io/platforms/javascript/guides/nextjs/
 
 import * as Sentry from "@sentry/nextjs";
+import { scrubSentryData } from "@/lib/sentry-scrub";
 
 Sentry.init({
   dsn: process.env.NEXT_PUBLIC_SENTRY_DSN,
 
-  // Define how likely traces are sampled. Adjust this value in production, or use tracesSampler for greater control.
-  tracesSampleRate: 1,
+  // Sampled to protect the event quota.
+  tracesSampleRate: 0.1,
+
+  // /einladung/<token> is a bearer credential: scrub URLs, transaction names
+  // and breadcrumbs before anything leaves the app.
+  beforeSend: (event) => scrubSentryData(event),
+  beforeSendTransaction: (event) => scrubSentryData(event),
+  beforeBreadcrumb: (breadcrumb) => scrubSentryData(breadcrumb),
 
   // Turns off collection of data that could identify users. Adjust per category:
   // https://docs.sentry.io/platforms/javascript/configuration/options/#dataCollection
