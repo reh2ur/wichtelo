@@ -92,7 +92,7 @@ Fix lives in **`proxy.ts` / `lib/supabase/proxy.ts`**, which runs before any Rea
 
 **Translations.** Server-first: call `getTranslations()` in every Server Component. Client Components that must use `'use client'` and need translations: use `createIntlContext` factory (`lib/create-intl-context.tsx`). Pattern — Server wrapper calls `getTranslations(namespace)`, passes messages to factory-produced `Provider`; client impl uses `useT()` hook from same factory. Never pass full message bundle or mount `NextIntlClientProvider` manually. All German copy in `messages/de.json`.
 
-**No analytics, no tracking, no non-essential cookies.** No cookie banner needed. Exception: Vercel Speed Insights active — cookie-less perf telemetry, disclosed in Datenschutz, Art. 6(1)(f) basis, not covered by "no analytics" claim.
+**No analytics, no tracking, no non-essential cookies.** No cookie banner needed. Exception: Vercel Speed Insights active — cookie-less perf telemetry, disclosed in Datenschutz, Art. 6(1)(f) basis, not covered by "no analytics" claim. Sentry error monitoring also active (EU org, no Session Replay, no cookies/storage, invite tokens scrubbed via `lib/sentry-scrub.ts`, disclosed in Datenschutz, Art. 6(1)(f)) — error telemetry only, not analytics.
 
 ## Routes (German slugs, no locale prefix)
 
