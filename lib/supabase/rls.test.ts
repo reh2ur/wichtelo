@@ -578,7 +578,9 @@ describe.skipIf(!hasSupabase)(
             p_year: args.year ?? 2099,
             p_budget_hint: null,
             p_note: null,
-            p_slugs: args.slugs ?? [`valid-${Date.now()}-${Math.random()}`],
+            p_slugs: args.slugs ?? [
+              `valid-${Date.now()}-${Math.random().toString(36).slice(2)}`,
+            ],
           })
           .single<{ group_id: string; slug: string }>();
 
@@ -659,8 +661,13 @@ describe.skipIf(!hasSupabase)(
               group_id: guardGroupId,
               profile_id: attackerId,
               name_snapshot: "Attacker One",
+              role: "participant",
             },
-            { group_id: guardGroupId, name_snapshot: "Ghost" },
+            {
+              group_id: guardGroupId,
+              name_snapshot: "Ghost",
+              role: "participant",
+            },
           ])
           .select("id, name_snapshot");
         expect(mErr).toBeNull();
@@ -671,7 +678,11 @@ describe.skipIf(!hasSupabase)(
         ghostId = byName("Ghost");
         const { data: b } = await admin
           .from("memberships")
-          .insert({ group_id: guardGroupId, name_snapshot: "B" })
+          .insert({
+            group_id: guardGroupId,
+            name_snapshot: "B",
+            role: "participant",
+          })
           .select("id")
           .single();
         memberBId = b!.id as string;

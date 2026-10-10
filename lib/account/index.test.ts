@@ -238,7 +238,12 @@ describe.skipIf(!hasSupabase)("deleteAccount", () => {
           name_snapshot: "Anna Admin",
           role: "admin",
         },
-        { group_id: group.id, profile_id: userId, name_snapshot: "Excl" },
+        {
+          group_id: group.id,
+          profile_id: userId,
+          name_snapshot: "Excl",
+          role: "participant",
+        },
       ])
       .select("id");
     const [a, b] = [members[0].id, members[1].id].sort();
