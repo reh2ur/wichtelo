@@ -23,6 +23,7 @@ Each spec must cover:
 - Fixtures in `e2e/fixtures.ts` — `authedPage` gives pre-authenticated admin page, `browser` gives raw browser for guest contexts.
 - `guestContextOptions()` and `joinViaInvite()` defined locally per spec file (see `e2e/draw.spec.ts` or `e2e/settings.spec.ts`).
 - Wait for Suspense before interacting: `await page.locator("#someField").waitFor({ state: "visible" })`.
+- Visible ≠ hydrated. Form in streamed/PPR shell submitted pre-hydration = native POST, action result lost (prerendered shell ignores form state). Form submit button disabled until `useHydrated()` (`lib/use-hydrated.ts`); specs `expect(submit).toBeEnabled()` before programmatic `requestSubmit()`. No sleeps.
 - After Server Action mutates data, client calls `router.refresh()` — wait for updated DOM, not fixed timeouts.
 - Use `page.reload()` when Server Component must re-fetch from scratch.
 

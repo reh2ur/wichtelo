@@ -13,6 +13,9 @@ test.describe("authentication", () => {
     page,
   }) => {
     await page.goto("/anmelden");
+    // Submit button is disabled until hydration; submitting earlier is a native
+    // POST that loses the action result.
+    await expect(page.locator('button[type="submit"]')).toBeEnabled();
     // noValidate disables browser constraint validation so requestSubmit() reaches
     // the server action, which exercises the server-side EMAIL_RE check.
     await page.locator("form").evaluate((form: HTMLFormElement) => {
