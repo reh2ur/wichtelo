@@ -117,6 +117,12 @@
     "start": "Auslosung starten",
     "starting": "Wird ausgelost…",
     "emailFailure": "{failed} von {total} E-Mails konnten nicht zugestellt werden – Teilnehmer können ihre Zuteilung jederzeit in der App sehen.",
+    "confirm": {
+      "title": "Auslosung starten?",
+      "message": "Danach kann niemand mehr beitreten, alle erhalten eine E-Mail.",
+      "button": "Jetzt auslosen",
+      "cancel": "Abbrechen"
+    },
     "notEnoughMembersHint": "Es werden mindestens 3 Teilnehmer benötigt, um eine Auslosung zu starten.",
     "errors": {
       "notAdmin": "Nur Admins können die Auslosung starten.",
@@ -159,6 +165,9 @@
       "section": "Teilnehmer",
       "promoteToAdmin": "Zum Admin machen",
       "promoting": "Wird befördert…",
+      "promoteConfirmTitle": "{name} zum Admin machen?",
+      "promoteConfirmMessage": "Admins können Einstellungen ändern, Teilnehmer entfernen und alle Zuteilungen einsehen. Das lässt sich nicht rückgängig machen.",
+      "promoteConfirm": "Zum Admin machen",
       "deletedAccount": "Konto gelöscht",
       "remove": "Entfernen",
       "removing": "Wird entfernt…",
@@ -189,6 +198,7 @@
       "deleting": "Wird gelöscht…"
     },
     "errors": {
+      "noAccount": "Diese Person hat kein Konto mehr und kann nicht befördert werden.",
       "lastAdmin": "Dieser Teilnehmer ist der letzte Admin. Befördere zuerst eine andere Person.",
       "drawn": "Nach der Auslosung können keine Teilnehmer mehr entfernt werden.",
       "notAdmin": "Nur Admins können die Einstellungen ändern.",
@@ -222,6 +232,7 @@
     },
     "errors": {
       "unsolvable": "Die Auslosung ist mit den aktuellen Ausschlüssen nicht möglich. Bitte passe die Ausschlüsse an.",
+      "notDrawn": "Der Gruppenstatus hat sich geändert. Bitte lade die Seite neu.",
       "notAdmin": "Nur Admins können die Auslosung wiederholen.",
       "groupNotFound": "Diese Gruppe wurde nicht gefunden.",
       "generic": "Etwas ist schiefgelaufen. Bitte versuche es erneut.",
@@ -283,6 +294,7 @@
     "title": "Konto endgültig löschen?",
     "message": "Dein Konto und deine persönlichen Daten werden unwiderruflich gelöscht. Erst mit Klick auf den Button wird gelöscht.",
     "confirm": "Konto endgültig löschen",
+    "confirming": "Wird gelöscht…",
     "cancel": "Abbrechen",
     "home": "Zur Startseite",
     "toAccount": "Zu meinem Konto",
@@ -329,7 +341,7 @@
       "title": "Gruppe beitreten",
       "firstNameLabel": "Vorname",
       "lastNameLabel": "Nachname",
-      "lastNameNote": "Dein Nachname wird nur abgekürzt angezeigt, damit alle Teilnehmer erkannt werden.",
+      "lastNameNote": "Andere Teilnehmende sehen deinen Nachnamen höchstens abgekürzt; Admins sehen ihn vollständig.",
       "submitJoin": "Beitreten",
       "accepting": "Bitte warten…"
     },

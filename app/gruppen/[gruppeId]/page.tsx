@@ -265,14 +265,16 @@ async function GruppeDetailContent({
         </h2>
         <ul className="space-y-2">
           {members.map((m) => {
-            const parts = m.name_snapshot.trim().split(/\s+/);
-            const memberInitials = (
-              (parts[0]?.[0] ?? "") + (parts[1]?.[0] ?? "")
-            ).toUpperCase();
             const isMemberAdmin = m.role === "admin";
             const displayName = isAdmin
               ? m.name_snapshot
               : (displayNameById.get(m.id) ?? m.name_snapshot);
+            // Initials come from what this viewer may see, so non-admins
+            // never learn a last-name initial the display name omits.
+            const parts = displayName.trim().split(/\s+/);
+            const memberInitials = (
+              (parts[0]?.[0] ?? "") + (parts[1]?.[0] ?? "")
+            ).toUpperCase();
             return (
               <li
                 key={m.id}

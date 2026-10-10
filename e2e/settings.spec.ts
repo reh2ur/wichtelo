@@ -315,8 +315,21 @@ test.describe("promote to admin", () => {
     await expect(promoteBtn).toBeVisible();
     await promoteBtn.click();
 
+    // Confirm step: cancel first, then promote for real
+    await expect(
+      authedPage.getByText("Berta Bauer zum Admin machen?"),
+    ).toBeFocused();
+    await authedPage.locator('button:has-text("Abbrechen")').click();
+    await expect(promoteBtn).toBeVisible();
+    await expect(promoteBtn).toBeFocused();
+    await promoteBtn.click();
+    await authedPage
+      .getByRole("button", { name: "Zum Admin machen" })
+      .last()
+      .click();
+
     // After refresh, promoted member's row shows "Admin" badge, button gone
-    await expect(promoteBtn).not.toBeVisible({ timeout: 10_000 });
+    await expect(promoteBtn).toHaveCount(0, { timeout: 10_000 });
     // Scope to Berta's list item — avoids false matches from buttons like "Zum Admin machen"
     const bertaRow = authedPage.locator("li").filter({ hasText: /Berta/ });
     await expect(bertaRow.getByText("Admin", { exact: true })).toBeVisible({

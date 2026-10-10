@@ -4,6 +4,7 @@ import { useActionState, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { leaveGroup, type LeaveGroupState } from "./actions";
 import { createIntlContext } from "@/lib/create-intl-context";
+import { CONFIRM_TITLE_CLASS, useConfirmFocus } from "@/lib/use-confirm-focus";
 
 const { Provider: LeaveGroupDetailProvider, useT: useLeaveGroupDetailT } =
   createIntlContext("groupDetail");
@@ -19,6 +20,7 @@ export function LeaveGroupButtonClient({
 }) {
   const t = useLeaveGroupDetailT();
   const [confirming, setConfirming] = useState(false);
+  const { triggerRef, titleRef } = useConfirmFocus(confirming);
   const [state, action, pending] = useActionState<LeaveGroupState, FormData>(
     leaveGroup,
     { status: "idle" },
@@ -49,6 +51,7 @@ export function LeaveGroupButtonClient({
   if (!confirming) {
     return (
       <Button
+        ref={triggerRef}
         type="button"
         variant="ghost"
         size="sm"
@@ -62,11 +65,17 @@ export function LeaveGroupButtonClient({
 
   return (
     <div className="border-border bg-muted/30 mt-4 space-y-3 rounded-lg border p-4">
-      <p className="text-sm font-medium">{t("leave.confirmTitle")}</p>
+      <p ref={titleRef} tabIndex={-1} className={CONFIRM_TITLE_CLASS}>
+        {t("leave.confirmTitle")}
+      </p>
       <p className="text-muted-foreground text-sm">
         {t("leave.confirmMessage")}
       </p>
-      {errorMsg && <p className="text-destructive text-sm">{errorMsg}</p>}
+      {errorMsg && (
+        <p role="alert" className="text-danger-text text-sm">
+          {errorMsg}
+        </p>
+      )}
       <form action={action} className="flex gap-2">
         <input type="hidden" name="slug" value={slug} />
         <Button

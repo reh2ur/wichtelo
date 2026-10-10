@@ -164,7 +164,7 @@ export function GroupFormClient({
         />
       </div>
 
-      {error && <p className="text-destructive text-sm">{error}</p>}
+      {error && <p className="text-danger-text text-sm">{error}</p>}
 
       <Button type="submit" className="w-full" disabled={pending}>
         {pending ? t("submitting") : t("submit")}

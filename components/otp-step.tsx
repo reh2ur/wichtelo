@@ -125,7 +125,7 @@ export function OtpStep({
         </div>
 
         {errorMessage && (
-          <p className="text-destructive text-sm">{errorMessage}</p>
+          <p className="text-danger-text text-sm">{errorMessage}</p>
         )}
 
         <Button

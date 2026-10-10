@@ -116,9 +116,30 @@ test.describe("draw trigger", () => {
 
     // Admin reloads to pick up updated participant count
     await authedPage.goto(`/gruppen/${slug}`);
+    const startBtn = authedPage.locator('button:has-text("Auslosung starten")');
+    await expect(startBtn).toBeVisible();
+
+    // First draw needs confirmation: clicking only opens the panel
+    await startBtn.click();
     await expect(
-      authedPage.locator('button:has-text("Auslosung starten")'),
+      authedPage.getByText(
+        "Danach kann niemand mehr beitreten, alle erhalten eine E-Mail.",
+      ),
     ).toBeVisible();
+    await expect(
+      authedPage.getByText("Auslosung starten?", { exact: true }),
+    ).toBeFocused();
+    await expect(
+      authedPage.locator('button:has-text("Jetzt auslosen")'),
+    ).toBeVisible();
+
+    // Cancel restores the trigger (with focus) and nothing is drawn
+    await authedPage.locator('button:has-text("Abbrechen")').click();
+    await expect(startBtn).toBeVisible();
+    await expect(startBtn).toBeFocused();
+    await expect(
+      authedPage.locator('button:has-text("Jetzt auslosen")'),
+    ).not.toBeVisible();
   });
 
   test("golden path: admin triggers draw, state becomes drawn, assignments visible", async ({
@@ -156,6 +177,7 @@ test.describe("draw trigger", () => {
         authedPage.locator('button:has-text("Auslosung starten")'),
       ).toBeVisible();
       await authedPage.locator('button:has-text("Auslosung starten")').click();
+      await authedPage.locator('button:has-text("Jetzt auslosen")').click();
 
       // Oracle section appears once page re-renders with drawn state
       await expect(
@@ -217,6 +239,7 @@ test.describe("draw trigger", () => {
     // First draw
     await authedPage.goto(`/gruppen/${slug}`);
     await authedPage.locator('button:has-text("Auslosung starten")').click();
+    await authedPage.locator('button:has-text("Jetzt auslosen")').click();
     await expect(authedPage.locator("text=Zuweisung nachschlagen")).toBeVisible(
       { timeout: 15_000 },
     );
@@ -268,6 +291,7 @@ test.describe("draw trigger", () => {
 
     await authedPage.goto(`/gruppen/${slug}`);
     await authedPage.locator('button:has-text("Auslosung starten")').click();
+    await authedPage.locator('button:has-text("Jetzt auslosen")').click();
     await expect(authedPage.locator("text=Zuweisung nachschlagen")).toBeVisible(
       { timeout: 15_000 },
     );
@@ -327,6 +351,7 @@ test.describe("draw trigger", () => {
 
       await authedPage.goto(`/gruppen/${slug}`);
       await authedPage.locator('button:has-text("Auslosung starten")').click();
+      await authedPage.locator('button:has-text("Jetzt auslosen")').click();
       await expect(
         authedPage.locator("text=Zuweisung nachschlagen"),
       ).toBeVisible({ timeout: 15_000 });
@@ -376,6 +401,7 @@ test.describe("draw trigger", () => {
     // Trigger draw
     await authedPage.goto(`/gruppen/${slug}`);
     await authedPage.locator('button:has-text("Auslosung starten")').click();
+    await authedPage.locator('button:has-text("Jetzt auslosen")').click();
     await expect(authedPage.locator("text=Zuweisung nachschlagen")).toBeVisible(
       { timeout: 15_000 },
     );
@@ -458,6 +484,7 @@ test.describe("draw trigger", () => {
       authedPage.locator('button:has-text("Auslosung starten")'),
     ).toBeVisible();
     await authedPage.locator('button:has-text("Auslosung starten")').click();
+    await authedPage.locator('button:has-text("Jetzt auslosen")').click();
 
     await expect(
       authedPage.locator(
@@ -501,6 +528,7 @@ test.describe("draw trigger", () => {
     // First draw
     await authedPage.goto(`/gruppen/${slug}`);
     await authedPage.locator('button:has-text("Auslosung starten")').click();
+    await authedPage.locator('button:has-text("Jetzt auslosen")').click();
     await expect(authedPage.locator("text=Zuweisung nachschlagen")).toBeVisible(
       { timeout: 15_000 },
     );
@@ -554,6 +582,7 @@ test.describe("draw trigger", () => {
       authedPage.locator('button:has-text("Auslosung starten")'),
     ).toBeVisible();
     await authedPage.locator('button:has-text("Auslosung starten")').click();
+    await authedPage.locator('button:has-text("Jetzt auslosen")').click();
     // Oracle section appears once page re-renders with drawn state
     await expect(authedPage.locator("text=Zuweisung nachschlagen")).toBeVisible(
       { timeout: 15_000 },

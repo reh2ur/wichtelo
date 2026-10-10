@@ -103,7 +103,7 @@ export function AuthFormClient() {
         </div>
 
         {requestState.status === "error" && (
-          <p className="text-destructive text-sm">
+          <p className="text-danger-text text-sm">
             {requestState.error === "invalid_email"
               ? t("errors.invalidEmail")
               : requestState.error === "rate_limited"

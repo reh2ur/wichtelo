@@ -24,7 +24,7 @@ export function NavUserMenuClient({
     <Menu.Root>
       <Menu.Trigger
         aria-label={t("menu")}
-        className="text-navy flex items-center gap-2 text-xs outline-none"
+        className="text-navy focus-visible:ring-crimson flex items-center gap-2 rounded-full text-xs outline-none focus-visible:ring-2 focus-visible:ring-offset-2"
       >
         {firstName && <span>{firstName}</span>}
         <div className="bg-primary text-primary-foreground flex h-9 w-9 items-center justify-center rounded-full border-2 border-white text-xs font-extrabold">
