@@ -12,7 +12,7 @@ import { InviteSkeleton } from "./invite-skeleton";
 
 // Blocking route: token check runs before streaming so invalid tokens get a
 // real 404. The actual real-404 guarantee comes from proxy.ts, which
-// rewrites invalid tokens to /einladung/ungueltig before any rendering
+// rewrites invalid tokens to /__not_found__ before any rendering
 // starts — this check is defense in depth for direct hits that bypass that.
 export const instant = false;
 

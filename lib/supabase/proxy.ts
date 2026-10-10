@@ -63,14 +63,14 @@ export async function updateSession(request: NextRequest) {
     if (user) {
       const url = request.nextUrl.clone();
       url.pathname = "/gruppen";
-      return NextResponse.redirect(url);
+      return withSessionCookies(NextResponse.redirect(url), supabaseResponse);
     }
   }
 
   if (isProtectedRoute(pathname)) {
     const user = await getVerifiedUser(supabase, !!claimsData?.claims);
     if (!user) {
-      return redirectToLogin(request);
+      return withSessionCookies(redirectToLogin(request), supabaseResponse);
     }
 
     // Existence/membership check runs here, not in the page: the root
@@ -83,25 +83,35 @@ export async function updateSession(request: NextRequest) {
       GROUP_DETAIL_RE.exec(pathname)?.[1] ??
       GROUP_SETTINGS_RE.exec(pathname)?.[1];
     if (slug && slug !== "neu") {
-      const admin = createAdminClient();
-      const { data: group } = await admin
-        .from("groups")
-        .select("id")
-        .eq("slug", slug)
-        .single();
-      if (!group) {
-        return NextResponse.rewrite(new URL("/__not_found__", request.url));
-      }
-      if (GROUP_DETAIL_RE.test(pathname)) {
-        const { data: membership } = await admin
-          .from("memberships")
+      const notFoundRewrite = () =>
+        withSessionCookies(
+          NextResponse.rewrite(new URL("/__not_found__", request.url)),
+          supabaseResponse,
+        );
+      // A DB error is NOT "not found": on error let the request through and
+      // leave the verdict to the page (which throws → error.tsx), instead of
+      // 404-ing real members during a transient outage.
+      try {
+        const admin = createAdminClient();
+        const { data: group, error: groupError } = await admin
+          .from("groups")
           .select("id")
-          .eq("group_id", group.id)
-          .eq("profile_id", user.id)
+          .eq("slug", slug)
           .maybeSingle();
-        if (!membership) {
-          return NextResponse.rewrite(new URL("/__not_found__", request.url));
+        if (groupError) return supabaseResponse;
+        if (!group) return notFoundRewrite();
+        if (GROUP_DETAIL_RE.test(pathname)) {
+          const { data: membership, error: membershipError } = await admin
+            .from("memberships")
+            .select("id")
+            .eq("group_id", group.id)
+            .eq("profile_id", user.id)
+            .maybeSingle();
+          if (membershipError) return supabaseResponse;
+          if (!membership) return notFoundRewrite();
         }
+      } catch {
+        return supabaseResponse;
       }
     }
   }
@@ -113,4 +123,14 @@ function redirectToLogin(request: NextRequest): NextResponse {
   const url = request.nextUrl.clone();
   url.pathname = "/anmelden";
   return NextResponse.redirect(url);
+}
+
+// Redirect/rewrite responses are fresh objects: copy the cookies Supabase set
+// on supabaseResponse (e.g. a rotated refresh token) or they are lost.
+function withSessionCookies(
+  response: NextResponse,
+  from: NextResponse,
+): NextResponse {
+  from.cookies.getAll().forEach((cookie) => response.cookies.set(cookie));
+  return response;
 }
