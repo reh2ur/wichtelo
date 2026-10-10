@@ -15,6 +15,18 @@ test.describe("not-found pages return real 404", () => {
     ).toBeVisible();
   });
 
+  test("unknown group 404 is server-rendered without JS", async ({
+    authedPage,
+  }) => {
+    const response = await authedPage.request.get("/gruppen/gibt-es-nicht-xyz");
+    expect(response.status()).toBe(404);
+    const html = await response.text();
+    expect(html).toContain('lang="de"');
+    expect(html).toContain('rel="stylesheet"');
+    expect(html).toMatch(/<h1[^>]*>Seite nicht gefunden/);
+    expect(html).not.toContain("__next_error__");
+  });
+
   test("unknown group settings slug returns 404", async ({ authedPage }) => {
     const response = await authedPage.goto(
       "/gruppen/gibt-es-nicht-xyz/einstellungen",

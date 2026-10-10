@@ -32,7 +32,7 @@ Tick each before public launch / before draw season. Env var names in `.env.exam
 ## Sentry (EU)
 
 - [ ] EU-region project. `NEXT_PUBLIC_SENTRY_DSN`, `SENTRY_ORG`, `SENTRY_PROJECT` (+ auth token for source maps).
-- [ ] Datenschutz names Sentry as processor BEFORE DSN set in prod.
+- [ ] Datenschutz already lists Sentry (see `docs/security.md`); re-check wording matches final org/region before DSN set in prod.
 
 ## Super-admin
 

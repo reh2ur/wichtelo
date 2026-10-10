@@ -22,6 +22,12 @@ function transliterate(name: string): string {
     .replace(/^-+|-+$/g, "");
 }
 
+/**
+ * Slugs that collide with static child routes of /gruppen. A group with such a
+ * slug would be unreachable (the static route wins), so they get a suffix.
+ */
+const RESERVED_SLUGS: readonly string[] = ["neu"];
+
 const SEQUENTIAL_ATTEMPTS = 5;
 const RANDOM_SUFFIX_LENGTH = 4;
 
@@ -47,7 +53,10 @@ export function slugCandidate(
 }
 
 export function generateSlug(name: string, existingSlugs: string[]): string {
-  const base = transliterate(name) || "gruppe";
+  const slugBase = transliterate(name) || "gruppe";
+  const base = RESERVED_SLUGS.includes(slugBase)
+    ? `${slugBase}-gruppe`
+    : slugBase;
   if (!existingSlugs.includes(base)) return base;
   let n = 2;
   while (existingSlugs.includes(`${base}-${n}`)) n++;

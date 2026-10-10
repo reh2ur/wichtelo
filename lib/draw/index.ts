@@ -26,6 +26,56 @@ export function liveMembers<T extends { profile_id: string | null }>(
 
 const MAX_ATTEMPTS = 200;
 const MIN_PARTICIPANTS = 3;
+/** Max DFS nodes in backtracking before giving up with `TOO_COMPLEX`. */
+const MAX_BACKTRACK_NODES = 100_000;
+
+/** Distinct outcome: solver budget exhausted, feasibility unknown. */
+export const TOO_COMPLEX = "too_complex" as const;
+export type DrawResult = Assignment | null | typeof TOO_COMPLEX;
+
+/**
+ * Necessary-condition precheck: does a perfect matching exist on the allowed
+ * giver→receiver graph (no self, no exclusion)? Kuhn's augmenting paths.
+ * The no-mutual-pair rule is not expressible in matching, so `true` does not
+ * prove feasibility; `false` proves infeasibility (catches Hall-type cases
+ * such as one large household with all pairs excluded).
+ */
+export function hasPerfectMatching(
+  members: MemberId[],
+  exclusions: ExclusionPair[],
+): boolean {
+  const idx = new Map<MemberId, number>(members.map((m, i) => [m, i]));
+  const n = members.length;
+  const blocked = Array.from({ length: n }, (_, i) => {
+    const row = new Array<boolean>(n).fill(false);
+    row[i] = true;
+    return row;
+  });
+  for (const [a, b] of exclusions) {
+    const i = idx.get(a);
+    const j = idx.get(b);
+    if (i === undefined || j === undefined) continue;
+    blocked[i][j] = true;
+    blocked[j][i] = true;
+  }
+
+  const matchOfReceiver = new Array<number>(n).fill(-1);
+  function augment(giver: number, seen: boolean[]): boolean {
+    for (let r = 0; r < n; r++) {
+      if (blocked[giver][r] || seen[r]) continue;
+      seen[r] = true;
+      if (matchOfReceiver[r] === -1 || augment(matchOfReceiver[r], seen)) {
+        matchOfReceiver[r] = giver;
+        return true;
+      }
+    }
+    return false;
+  }
+  for (let g = 0; g < n; g++) {
+    if (!augment(g, new Array<boolean>(n).fill(false))) return false;
+  }
+  return true;
+}
 
 // Mulberry32 seeded PRNG — produces floats in [0, 1)
 function mulberry32(seed: number): () => number {
@@ -54,11 +104,13 @@ function shuffle<T>(arr: T[], random: () => number): T[] {
 // Exhaustive randomized backtracking fallback with MRV ordering (most-constrained
 // giver first). Explores every branch pruning only on constraints that can never
 // be satisfied, so it returns null only when truly no valid assignment exists.
+// Node budget bounds worst-case runtime; exhausted → TOO_COMPLEX (not null).
 function backtrackSearch(
   members: MemberId[],
   exclusions: ExclusionPair[],
   random: () => number,
-): Assignment | null {
+  maxNodes = MAX_BACKTRACK_NODES,
+): DrawResult {
   const staticForbidden = new Map<MemberId, Set<MemberId>>(
     members.map((m) => [m, new Set<MemberId>([m])]),
   );
@@ -84,8 +136,15 @@ function backtrackSearch(
     return candidates;
   }
 
+  let nodes = 0;
+  let exhausted = false;
+
   function dfs(): boolean {
     if (unassigned.size === 0) return true;
+    if (++nodes > maxNodes) {
+      exhausted = true;
+      return false;
+    }
 
     // MRV: assign the giver with the fewest remaining candidates first —
     // dead ends surface immediately instead of after deep, fruitless recursion.
@@ -110,6 +169,12 @@ function backtrackSearch(
       usedReceivers.add(receiver);
 
       if (dfs()) return true;
+      if (exhausted) {
+        assignment.delete(giver);
+        usedReceivers.delete(receiver);
+        unassigned.add(giver);
+        return false;
+      }
 
       assignment.delete(giver);
       usedReceivers.delete(receiver);
@@ -118,7 +183,8 @@ function backtrackSearch(
     return false;
   }
 
-  return dfs() ? new Map(assignment) : null;
+  if (dfs()) return new Map(assignment);
+  return exhausted ? TOO_COMPLEX : null;
 }
 
 /**
@@ -131,15 +197,19 @@ function backtrackSearch(
  *
  * Tries uniform rejection sampling first (fast path for lightly-constrained
  * groups), then falls back to an exhaustive randomized backtracking search.
+ * A bipartite-matching precheck rejects Hall-type infeasibility instantly.
  * Returns null if and only if no valid assignment exists, or if fewer than
- * 3 members are provided.
+ * 3 members are provided. Returns `TOO_COMPLEX` when the backtracking node
+ * budget is exhausted before feasibility is decided (unknown, not infeasible).
  */
 export function computeDraw(
   members: MemberId[],
   exclusions: ExclusionPair[],
   seed = cryptoSeed(),
-): Assignment | null {
+  maxNodes = MAX_BACKTRACK_NODES,
+): DrawResult {
   if (members.length < MIN_PARTICIPANTS) return null;
+  if (!hasPerfectMatching(members, exclusions)) return null;
 
   const exclusionSet = new Set<string>(
     exclusions.flatMap(([a, b]) => [`${a}:${b}`, `${b}:${a}`]),
@@ -185,5 +255,5 @@ export function computeDraw(
     }
   }
 
-  return backtrackSearch(members, exclusions, random);
+  return backtrackSearch(members, exclusions, random, maxNodes);
 }

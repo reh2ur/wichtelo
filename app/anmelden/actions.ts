@@ -1,12 +1,14 @@
 "use server";
 
-import { headers } from "next/headers";
+import { cookies, headers } from "next/headers";
 import { redirect } from "next/navigation";
+import type { Route } from "next";
 import { z } from "zod";
 import { getSiteUrl } from "@/lib/site-url";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { isTestBackdoorEnabled } from "@/lib/test-backdoor";
+import { safeNext, NEXT_COOKIE } from "@/lib/safe-next";
 import { getClientIp } from "@/lib/request-ip";
 import {
   checkRateLimit,
@@ -71,6 +73,24 @@ export async function requestOtp(
     !(await checkRateLimit(anmeldenOtpRequestLimiter, email.toLowerCase()))
   ) {
     return { status: "error", error: "rate_limited", email };
+  }
+
+  // Magic-link clicks land on /auth/callback, whose URL must match Supabase's
+  // redirect allowlist exactly, so the return-to path travels in a cookie
+  // instead of a query param. Always (re)set or cleared so a stale one from an
+  // earlier attempt never leaks into this login.
+  const next = safeNext(formData.get("next"));
+  const cookieStore = await cookies();
+  if (next) {
+    cookieStore.set(NEXT_COOKIE, next, {
+      httpOnly: true,
+      sameSite: "lax",
+      secure: process.env.NODE_ENV === "production",
+      path: "/auth",
+      maxAge: 60 * 60,
+    });
+  } else {
+    cookieStore.delete({ name: NEXT_COOKIE, path: "/auth" });
   }
 
   const useDevOtp = isTestBackdoorEnabled(await headers());
@@ -168,5 +188,5 @@ export async function verifyOtp(
 
   if (error) return { status: "error", error: "invalid_otp", email };
 
-  redirect("/gruppen");
+  redirect((safeNext(formData.get("next")) ?? "/gruppen") as Route);
 }
