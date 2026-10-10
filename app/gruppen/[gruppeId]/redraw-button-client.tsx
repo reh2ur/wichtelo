@@ -78,15 +78,17 @@ export function RedrawButtonClient({ slug }: { slug: string }) {
     state.status === "error"
       ? state.error === "unsolvable"
         ? t("errors.unsolvable")
-        : state.error === "not_drawn"
-          ? t("errors.notDrawn")
-          : state.error === "not_admin"
-            ? t("errors.notAdmin")
-            : state.error === "group_not_found"
-              ? t("errors.groupNotFound")
-              : state.error === "rate_limited"
-                ? t("errors.rateLimited")
-                : t("errors.generic")
+        : state.error === "too_complex"
+          ? t("errors.tooComplex")
+          : state.error === "not_drawn"
+            ? t("errors.notDrawn")
+            : state.error === "not_admin"
+              ? t("errors.notAdmin")
+              : state.error === "group_not_found"
+                ? t("errors.groupNotFound")
+                : state.error === "rate_limited"
+                  ? t("errors.rateLimited")
+                  : t("errors.generic")
       : null;
 
   if (!confirming || state.status === "success") {

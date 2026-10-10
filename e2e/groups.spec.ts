@@ -288,7 +288,7 @@ test.describe("participant list name display", () => {
 });
 
 test.describe("groups overview sections", () => {
-  test("past year group appears in Vergangene Gruppen section", async ({
+  test("open past-year group stays in the active section", async ({
     authedPage,
   }) => {
     const pastYear = new Date().getFullYear() - 1;
@@ -308,13 +308,13 @@ test.describe("groups overview sections", () => {
     });
 
     await authedPage.goto("/gruppen");
-    // "Vergangene Gruppen" section exists as a <details> summary.
-    const pastSection = authedPage.locator("text=Vergangene Gruppen");
-    await expect(pastSection).toBeVisible();
-    // Open the collapsible section to reveal past groups.
-    await pastSection.click();
+    // Open groups are active whatever their year; only drawn groups of a
+    // past year move to the collapsed "Vergangene Gruppen" <details>.
     await expect(
-      authedPage.locator(`text=Altgruppe ${pastYear}`),
+      authedPage.locator(`a:has-text("Altgruppe ${pastYear}")`).first(),
     ).toBeVisible();
+    await expect(
+      authedPage.locator("details a", { hasText: `Altgruppe ${pastYear}` }),
+    ).toHaveCount(0);
   });
 });

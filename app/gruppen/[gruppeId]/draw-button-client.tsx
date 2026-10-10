@@ -27,6 +27,8 @@ function errorMessage(
       return t("errors.notEnoughMembers");
     case "unsolvable":
       return t("errors.unsolvable");
+    case "too_complex":
+      return t("errors.tooComplex");
     case "ghost_members":
       return t("errors.ghostMembers");
     case "rate_limited":

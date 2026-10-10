@@ -122,21 +122,34 @@ async function fetchGroupData(slug: string) {
 
   const supabase = createAdminClient();
 
-  const { data: group } = await supabase
+  // Errors must throw, never return null/empty: a thrown error is not stored
+  // in the cache, a returned "not found" would be (for the cacheLife window).
+  const { data: group, error: groupError } = await supabase
     .from("groups")
     .select("id, slug, name, year, state, budget_hint, note")
     .eq("slug", slug)
-    .single();
+    .maybeSingle();
+  if (groupError) {
+    throw new Error(
+      `[fetchGroupData] group lookup failed: ${groupError.message}`,
+    );
+  }
 
   if (!group) return null;
 
-  const { data: membersRaw } = await supabase
+  const { data: membersRaw, error: membersError } = await supabase
     .from("memberships")
     .select(
       "id, name_snapshot, first_name_snapshot, last_name_snapshot, role, profile_id",
     )
     .eq("group_id", (group as Group).id)
-    .order("joined_at", { ascending: true });
+    .order("joined_at", { ascending: true })
+    .order("id", { ascending: true });
+  if (membersError) {
+    throw new Error(
+      `[fetchGroupData] members lookup failed: ${membersError.message}`,
+    );
+  }
 
   const members = (membersRaw ?? []) as Member[];
 
@@ -146,10 +159,15 @@ async function fetchGroupData(slug: string) {
 
   const profilesById = new Map<string, ProfileRow>();
   if (profileIds.length > 0) {
-    const { data: profilesRaw } = await supabase
+    const { data: profilesRaw, error: profilesError } = await supabase
       .from("profiles")
       .select("id, first_name, last_name")
       .in("id", profileIds);
+    if (profilesError) {
+      throw new Error(
+        `[fetchGroupData] profiles lookup failed: ${profilesError.message}`,
+      );
+    }
     for (const p of (profilesRaw ?? []) as ProfileRow[]) {
       profilesById.set(p.id, p);
     }
@@ -331,7 +349,13 @@ async function AssignmentSection({
   const draw = await getTranslations("draw");
 
   if (state === "open") {
-    if (!isAdmin) return null;
+    if (!isAdmin) {
+      return (
+        <p className="text-muted-foreground mb-6 text-sm">
+          {t("waitingForDraw")}
+        </p>
+      );
+    }
 
     const canDraw = memberCount >= 3;
     return (
@@ -404,7 +428,9 @@ async function MyAssignment({
     .select(
       "id, name_snapshot, first_name_snapshot, last_name_snapshot, profile_id",
     )
-    .eq("group_id", groupId);
+    .eq("group_id", groupId)
+    .order("joined_at", { ascending: true })
+    .order("id", { ascending: true });
 
   const memberships = (membersRaw ?? []) as {
     id: string;

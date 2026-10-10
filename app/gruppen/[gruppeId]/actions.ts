@@ -8,6 +8,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import {
   computeDraw,
   hasGhostMembers,
+  TOO_COMPLEX,
   type Assignment,
   type ExclusionPair,
 } from "@/lib/draw";
@@ -36,7 +37,6 @@ export type LeaveGroupState =
       error:
         | "not_authenticated"
         | "not_member"
-        | "group_not_found"
         | "last_admin"
         | "already_drawn"
         | "rate_limited"
@@ -68,12 +68,8 @@ export async function leaveGroup(
     .eq("slug", slug)
     .single();
 
-  if (!group) return { status: "error", error: "group_not_found" };
-
-  // Leaving after draw would cascade-delete assignment rows and break the draw.
-  if ((group as { state: string }).state === "drawn") {
-    return { status: "error", error: "already_drawn" };
-  }
+  // Same code for unknown slug and non-member: no slug-existence oracle.
+  if (!group) return { status: "error", error: "not_member" };
 
   const groupId = (
     group as { id: string; slug: string; name: string; state: string }
@@ -87,6 +83,11 @@ export async function leaveGroup(
     .single();
 
   if (!callerMembership) return { status: "error", error: "not_member" };
+
+  // Leaving after draw would cascade-delete assignment rows and break the draw.
+  if ((group as { state: string }).state === "drawn") {
+    return { status: "error", error: "already_drawn" };
+  }
 
   const membership = callerMembership as {
     id: string;
@@ -155,6 +156,7 @@ export type DrawState =
         | "already_drawn"
         | "not_enough_members"
         | "unsolvable"
+        | "too_complex"
         | "ghost_members"
         | "generic"
         | "rate_limited";
@@ -300,7 +302,10 @@ export async function triggerDraw(
     .select(
       "id, role, profile_id, name_snapshot, first_name_snapshot, last_name_snapshot",
     )
-    .eq("group_id", groupId);
+    .eq("group_id", groupId)
+    // Same order as the group page so "(2)" suffixes match across screens.
+    .order("joined_at", { ascending: true })
+    .order("id", { ascending: true });
 
   const memberRows: MembershipRow[] = (memberships ?? []) as MembershipRow[];
 
@@ -331,6 +336,17 @@ export async function triggerDraw(
 
   const memberIds = memberRows.map((m) => m.id);
   const assignment = computeDraw(memberIds, exclusions);
+
+  if (assignment === TOO_COMPLEX) {
+    logger
+      .withMetadata({
+        groupId,
+        participantCount: memberRows.length,
+        reason: "too_complex",
+      })
+      .error("draw.too_complex");
+    return { status: "error", error: "too_complex" };
+  }
 
   if (!assignment) {
     logger
@@ -422,6 +438,7 @@ export type RetriggerDrawState =
         | "not_drawn"
         | "not_enough_members"
         | "unsolvable"
+        | "too_complex"
         | "generic"
         | "rate_limited";
     };
@@ -480,7 +497,10 @@ export async function retriggerDraw(
     .select(
       "id, role, profile_id, name_snapshot, first_name_snapshot, last_name_snapshot",
     )
-    .eq("group_id", groupId);
+    .eq("group_id", groupId)
+    // Same order as the group page so "(2)" suffixes match across screens.
+    .order("joined_at", { ascending: true })
+    .order("id", { ascending: true });
 
   const memberRows: MembershipRow[] = (memberships ?? []) as MembershipRow[];
 
@@ -506,6 +526,17 @@ export async function retriggerDraw(
 
   const memberIds = memberRows.map((m) => m.id);
   const assignment = computeDraw(memberIds, exclusions);
+
+  if (assignment === TOO_COMPLEX) {
+    logger
+      .withMetadata({
+        groupId,
+        participantCount: memberRows.length,
+        reason: "too_complex",
+      })
+      .error("draw.too_complex");
+    return { status: "error", error: "too_complex" };
+  }
 
   if (!assignment) {
     logger
@@ -610,7 +641,8 @@ export async function lookupAssignment(
     .eq("slug", slug)
     .single();
 
-  if (!group) return { status: "error", error: "not_found" };
+  // Same code for unknown slug and non-admin: no slug-existence oracle.
+  if (!group) return { status: "error", error: "not_admin" };
 
   const groupId = (group as { id: string }).id;
 

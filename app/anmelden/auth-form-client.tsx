@@ -16,7 +16,7 @@ const { Provider: SignInProvider, useT: useSignInT } =
 
 export { SignInProvider };
 
-export function AuthFormClient() {
+export function AuthFormClient({ next }: { next: string }) {
   const t = useSignInT();
   const [requestState, requestAction, requestPending] = useActionState<
     RequestOtpState,
@@ -53,6 +53,7 @@ export function AuthFormClient() {
         sentEmail={sentEmail}
         description={`${t("otp.sentPrefix")} ${sentEmail} ${t("otp.sentSuffix")}`}
         tokenFieldName="token"
+        hiddenFields={{ next }}
         devOtp={requestState.devOtp}
         devMode={!!requestState.devMode}
         verifyAction={verifyAction}
@@ -63,6 +64,7 @@ export function AuthFormClient() {
         onResend={() => {
           const fd = new FormData();
           fd.set("email", sentEmail);
+          fd.set("next", next);
           startTransition(() => requestAction(fd));
         }}
         resendPending={requestPending}
@@ -84,6 +86,7 @@ export function AuthFormClient() {
       <p className="text-muted-foreground text-sm">{t("description")}</p>
 
       <form action={requestAction} className="space-y-4">
+        <input type="hidden" name="next" value={next} />
         <div className="space-y-2">
           <label htmlFor="email" className="text-sm font-bold">
             {t("email.label")}

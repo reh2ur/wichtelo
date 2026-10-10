@@ -2,6 +2,7 @@ import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 import { isGuestOnlyRoute, isProtectedRoute } from "@/lib/route-access";
 import { hardenCookieOptions } from "@/lib/supabase/cookie-options";
+import { safeNext } from "@/lib/safe-next";
 import { createAdminClient } from "@/lib/supabase/admin";
 import type { SupabaseClient, User } from "@supabase/supabase-js";
 
@@ -61,16 +62,26 @@ export async function updateSession(request: NextRequest) {
   if (isGuestOnlyRoute(pathname)) {
     const user = await getVerifiedUser(supabase, !!claimsData?.claims);
     if (user) {
+      // Already signed in (e.g. second tab): honor a valid return-to target.
+      const next = safeNext(request.nextUrl.searchParams.get("next"));
       const url = request.nextUrl.clone();
-      url.pathname = "/gruppen";
-      return NextResponse.redirect(url);
+      url.search = "";
+      url.hash = "";
+      if (next) {
+        const target = new URL(next, request.url);
+        url.pathname = target.pathname;
+        url.search = target.search;
+      } else {
+        url.pathname = "/gruppen";
+      }
+      return withSessionCookies(NextResponse.redirect(url), supabaseResponse);
     }
   }
 
   if (isProtectedRoute(pathname)) {
     const user = await getVerifiedUser(supabase, !!claimsData?.claims);
     if (!user) {
-      return redirectToLogin(request);
+      return withSessionCookies(redirectToLogin(request), supabaseResponse);
     }
 
     // Existence/membership check runs here, not in the page: the root
@@ -83,25 +94,39 @@ export async function updateSession(request: NextRequest) {
       GROUP_DETAIL_RE.exec(pathname)?.[1] ??
       GROUP_SETTINGS_RE.exec(pathname)?.[1];
     if (slug && slug !== "neu") {
-      const admin = createAdminClient();
-      const { data: group } = await admin
-        .from("groups")
-        .select("id")
-        .eq("slug", slug)
-        .single();
-      if (!group) {
-        return NextResponse.rewrite(new URL("/__not_found__", request.url));
-      }
-      if (GROUP_DETAIL_RE.test(pathname)) {
-        const { data: membership } = await admin
-          .from("memberships")
+      const notFoundRewrite = () =>
+        withSessionCookies(
+          NextResponse.rewrite(new URL("/__not_found__", request.url)),
+          supabaseResponse,
+        );
+      // A DB error is NOT "not found": on error let the request through and
+      // leave the verdict to the page (which throws → error.tsx), instead of
+      // 404-ing real members during a transient outage.
+      try {
+        const admin = createAdminClient();
+        const { data: group, error: groupError } = await admin
+          .from("groups")
           .select("id")
+          .eq("slug", slug)
+          .maybeSingle();
+        if (groupError) return supabaseResponse;
+        if (!group) return notFoundRewrite();
+        // Detail needs membership; settings needs admin membership. Non-admin
+        // members and non-members get the same 404 as an unknown slug, so the
+        // response never reveals whether a slug exists.
+        const { data: membership, error: membershipError } = await admin
+          .from("memberships")
+          .select("id, role")
           .eq("group_id", group.id)
           .eq("profile_id", user.id)
           .maybeSingle();
-        if (!membership) {
-          return NextResponse.rewrite(new URL("/__not_found__", request.url));
+        if (membershipError) return supabaseResponse;
+        if (!membership) return notFoundRewrite();
+        if (GROUP_SETTINGS_RE.test(pathname) && membership.role !== "admin") {
+          return notFoundRewrite();
         }
+      } catch {
+        return supabaseResponse;
       }
     }
   }
@@ -111,6 +136,19 @@ export async function updateSession(request: NextRequest) {
 
 function redirectToLogin(request: NextRequest): NextResponse {
   const url = request.nextUrl.clone();
+  const next = safeNext(request.nextUrl.pathname + request.nextUrl.search);
   url.pathname = "/anmelden";
+  url.search = "";
+  if (next && next !== "/gruppen") url.searchParams.set("next", next);
   return NextResponse.redirect(url);
+}
+
+// Redirect/rewrite responses are fresh objects: copy the cookies Supabase set
+// on supabaseResponse (e.g. a rotated refresh token) or they are lost.
+function withSessionCookies(
+  response: NextResponse,
+  from: NextResponse,
+): NextResponse {
+  from.cookies.getAll().forEach((cookie) => response.cookies.set(cookie));
+  return response;
 }

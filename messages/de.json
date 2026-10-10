@@ -4,6 +4,7 @@
   },
   "app": {
     "name": "Wichtelo",
+    "accountDeleted": "Dein Konto wurde gelöscht.",
     "hero": {
       "title": "Eure Wichtel-Runde, organisiert.",
       "subtitle": "Gruppe anlegen, Einladungslink teilen, Los auslösen. Wichtelo übernimmt die Zuteilung – fair und geheim.",
@@ -92,6 +93,7 @@
     "adminBadge": "Admin",
     "settings": "Einstellungen",
     "youGiveTo": "Du beschenkst",
+    "waitingForDraw": "Die Auslosung steht noch aus. Du bekommst eine E-Mail, sobald ausgelost wurde.",
     "adminAssignmentsTitle": "Auslosung",
     "adminLookupNotice": "Hinweis: Der Admin dieser Gruppe kann bei Bedarf einzelne Zuordnungen einsehen, z. B. für Rückfragen.",
     "inviteLink": {
@@ -131,6 +133,7 @@
       "notEnoughMembers": "Es werden mindestens 3 Teilnehmer benötigt.",
       "ghostMembers": "Die Gruppe enthält Teilnehmer mit gelöschtem Konto. Bitte entferne diese in den Einstellungen, bevor du auslost.",
       "unsolvable": "Die Auslosung ist mit den aktuellen Ausschlüssen nicht möglich. Bitte passe die Ausschlüsse an.",
+      "tooComplex": "Die Auslosung ist mit diesen Ausschlüssen zu komplex, um sie zu prüfen. Bitte entferne einzelne Ausschlüsse und versuche es erneut.",
       "generic": "Etwas ist schiefgelaufen. Bitte versuche es erneut.",
       "rateLimited": "Zu viele Versuche. Bitte warte einen Moment und versuche es erneut."
     }
@@ -159,7 +162,8 @@
       "remove": "Entfernen",
       "removing": "Wird entfernt…",
       "effectAfterRedraw": "Wirkt erst bei erneuter Auslosung.",
-      "unsolvableWarning": "Mit diesen Ausschlüssen ist keine Auslosung mehr möglich. Bitte entferne einen Ausschluss."
+      "unsolvableWarning": "Mit diesen Ausschlüssen ist keine Auslosung mehr möglich. Bitte entferne einen Ausschluss.",
+      "tooComplexWarning": "Ob mit diesen Ausschlüssen eine Auslosung möglich ist, konnte nicht geprüft werden (zu komplex). Bitte entferne einzelne Ausschlüsse."
     },
     "participants": {
       "section": "Teilnehmer",
@@ -233,6 +237,7 @@
     "errors": {
       "unsolvable": "Die Auslosung ist mit den aktuellen Ausschlüssen nicht möglich. Bitte passe die Ausschlüsse an.",
       "notDrawn": "Der Gruppenstatus hat sich geändert. Bitte lade die Seite neu.",
+      "tooComplex": "Die Auslosung ist mit diesen Ausschlüssen zu komplex, um sie zu prüfen. Bitte entferne einzelne Ausschlüsse und versuche es erneut.",
       "notAdmin": "Nur Admins können die Auslosung wiederholen.",
       "groupNotFound": "Diese Gruppe wurde nicht gefunden.",
       "generic": "Etwas ist schiefgelaufen. Bitte versuche es erneut.",
@@ -572,11 +577,12 @@
       "resend": "Resend (USA) — Versand von Transaktions-E-Mails (Anmeldelinks, Benachrichtigungen).",
       "vercel": "Vercel (USA) — Hosting und Auslieferung der Anwendung.",
       "speedInsights": "Vercel Speed Insights — Performance-Messung der Anwendung.",
+      "sentry": "Sentry (Functional Software, Inc., USA; Datenverarbeitung in der EU) — Fehlerüberwachung: Bei technischen Fehlern werden Fehlermeldung, Stacktrace, Browser-/Geräte-Typ und aufgerufene Seite (Einladungs-Token werden vor der Übermittlung entfernt) übertragen. Kein Session Replay, keine Cookies. Rechtsgrundlage ist Art. 6 Abs. 1 lit. f DSGVO (berechtigtes Interesse an einem stabilen Betrieb). Speicherdauer gemäß Sentry-Tarif (derzeit maximal 90 Tage).",
       "redis": "Upstash (USA) — Redis-basierte Ratenbegrenzung (Rate Limiting) zum Schutz vor Missbrauch, verarbeitet IP-Adressen."
     },
     "transferSafeguard": {
       "heading": "Datenübermittlung in die USA",
-      "body": "Resend, Vercel und Upstash verarbeiten Daten (auch) in den USA. Auch bei Supabase werden die Daten zwar in Frankfurt gespeichert, der Anbieter Supabase Inc. hat seinen Sitz jedoch in den USA, sodass ein Zugriff aus einem Drittland nicht ausgeschlossen werden kann. Wir gehen davon aus, dass alle vier Anbieter nach dem EU-US Data Privacy Framework (DPF) zertifiziert sind, das von der EU-Kommission als angemessenes Datenschutzniveau anerkannt ist (Art. 45 DSGVO). Zusätzlich sind Standardvertragsklauseln (Art. 46 DSGVO) vertraglich vereinbart."
+      "body": "Resend, Vercel und Upstash verarbeiten Daten (auch) in den USA. Sentry verarbeitet Daten in der EU, der Anbieter Functional Software, Inc. hat seinen Sitz jedoch in den USA, sodass ein Zugriff aus einem Drittland ebenfalls nicht ausgeschlossen werden kann. Auch bei Supabase werden die Daten zwar in Frankfurt gespeichert, der Anbieter Supabase Inc. hat seinen Sitz jedoch in den USA, sodass ein Zugriff aus einem Drittland nicht ausgeschlossen werden kann. Wir gehen davon aus, dass alle fünf Anbieter nach dem EU-US Data Privacy Framework (DPF) zertifiziert sind, das von der EU-Kommission als angemessenes Datenschutzniveau anerkannt ist (Art. 45 DSGVO). Zusätzlich sind Standardvertragsklauseln (Art. 46 DSGVO) vertraglich vereinbart."
     },
     "speedInsights": {
       "heading": "Performance-Messung (Vercel Speed Insights)",

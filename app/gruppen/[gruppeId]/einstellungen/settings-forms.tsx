@@ -296,6 +296,11 @@ function AddExclusionForm({
           {t("exclusions.unsolvableWarning")}
         </p>
       )}
+      {state.status === "success" && state.warning === "too_complex" && (
+        <p className="text-destructive text-sm" role="alert">
+          {t("exclusions.tooComplexWarning")}
+        </p>
+      )}
       {groupState === "drawn" && (
         <p className="text-muted-foreground text-xs">
           {t("exclusions.effectAfterRedraw")}
