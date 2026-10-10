@@ -8,7 +8,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { resolveGroupContact } from "@/lib/group-admins";
 import { notify } from "@/lib/notification";
 import { logger } from "@/lib/logger";
-import { computeDraw } from "@/lib/draw";
+import { computeDraw, TOO_COMPLEX } from "@/lib/draw";
 import { rotateToken } from "@/lib/invite";
 import { checkRateLimit, exclusionAddLimiter } from "@/lib/rate-limit";
 
@@ -38,7 +38,7 @@ export type ExclusionState =
   | {
       status: "success";
       /** Set when the exclusions now make a valid draw impossible. */
-      warning?: "unsolvable";
+      warning?: "unsolvable" | "too_complex";
     }
   | {
       status: "error";
@@ -238,8 +238,14 @@ export async function addExclusion(
   const pairs = (
     (allExclusions ?? []) as { member_a: string; member_b: string }[]
   ).map((e): [string, string] => [e.member_a, e.member_b]);
-  if (ids.length >= 3 && computeDraw(ids, pairs) === null) {
-    return { status: "success", warning: "unsolvable" };
+  if (ids.length >= 3) {
+    const result = computeDraw(ids, pairs);
+    if (result === TOO_COMPLEX) {
+      return { status: "success", warning: "too_complex" };
+    }
+    if (result === null) {
+      return { status: "success", warning: "unsolvable" };
+    }
   }
   return { status: "success" };
 }

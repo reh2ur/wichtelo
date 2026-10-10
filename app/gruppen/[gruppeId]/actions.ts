@@ -8,6 +8,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import {
   computeDraw,
   hasGhostMembers,
+  TOO_COMPLEX,
   type Assignment,
   type ExclusionPair,
 } from "@/lib/draw";
@@ -155,6 +156,7 @@ export type DrawState =
         | "already_drawn"
         | "not_enough_members"
         | "unsolvable"
+        | "too_complex"
         | "ghost_members"
         | "generic"
         | "rate_limited";
@@ -332,6 +334,17 @@ export async function triggerDraw(
   const memberIds = memberRows.map((m) => m.id);
   const assignment = computeDraw(memberIds, exclusions);
 
+  if (assignment === TOO_COMPLEX) {
+    logger
+      .withMetadata({
+        groupId,
+        participantCount: memberRows.length,
+        reason: "too_complex",
+      })
+      .error("draw.too_complex");
+    return { status: "error", error: "too_complex" };
+  }
+
   if (!assignment) {
     logger
       .withMetadata({
@@ -422,6 +435,7 @@ export type RetriggerDrawState =
         | "not_drawn"
         | "not_enough_members"
         | "unsolvable"
+        | "too_complex"
         | "generic"
         | "rate_limited";
     };
@@ -506,6 +520,17 @@ export async function retriggerDraw(
 
   const memberIds = memberRows.map((m) => m.id);
   const assignment = computeDraw(memberIds, exclusions);
+
+  if (assignment === TOO_COMPLEX) {
+    logger
+      .withMetadata({
+        groupId,
+        participantCount: memberRows.length,
+        reason: "too_complex",
+      })
+      .error("draw.too_complex");
+    return { status: "error", error: "too_complex" };
+  }
 
   if (!assignment) {
     logger

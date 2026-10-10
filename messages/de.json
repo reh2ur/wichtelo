@@ -125,6 +125,7 @@
       "notEnoughMembers": "Es werden mindestens 3 Teilnehmer benötigt.",
       "ghostMembers": "Die Gruppe enthält Teilnehmer mit gelöschtem Konto. Bitte entferne diese in den Einstellungen, bevor du auslost.",
       "unsolvable": "Die Auslosung ist mit den aktuellen Ausschlüssen nicht möglich. Bitte passe die Ausschlüsse an.",
+      "tooComplex": "Die Auslosung ist mit diesen Ausschlüssen zu komplex, um sie zu prüfen. Bitte entferne einzelne Ausschlüsse und versuche es erneut.",
       "generic": "Etwas ist schiefgelaufen. Bitte versuche es erneut.",
       "rateLimited": "Zu viele Versuche. Bitte warte einen Moment und versuche es erneut."
     }
@@ -153,7 +154,8 @@
       "remove": "Entfernen",
       "removing": "Wird entfernt…",
       "effectAfterRedraw": "Wirkt erst bei erneuter Auslosung.",
-      "unsolvableWarning": "Mit diesen Ausschlüssen ist keine Auslosung mehr möglich. Bitte entferne einen Ausschluss."
+      "unsolvableWarning": "Mit diesen Ausschlüssen ist keine Auslosung mehr möglich. Bitte entferne einen Ausschluss.",
+      "tooComplexWarning": "Ob mit diesen Ausschlüssen eine Auslosung möglich ist, konnte nicht geprüft werden (zu komplex). Bitte entferne einzelne Ausschlüsse."
     },
     "participants": {
       "section": "Teilnehmer",
@@ -222,6 +224,7 @@
     },
     "errors": {
       "unsolvable": "Die Auslosung ist mit den aktuellen Ausschlüssen nicht möglich. Bitte passe die Ausschlüsse an.",
+      "tooComplex": "Die Auslosung ist mit diesen Ausschlüssen zu komplex, um sie zu prüfen. Bitte entferne einzelne Ausschlüsse und versuche es erneut.",
       "notAdmin": "Nur Admins können die Auslosung wiederholen.",
       "groupNotFound": "Diese Gruppe wurde nicht gefunden.",
       "generic": "Etwas ist schiefgelaufen. Bitte versuche es erneut.",

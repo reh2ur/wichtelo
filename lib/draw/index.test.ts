@@ -1,7 +1,9 @@
 import { describe, expect, it } from "vitest";
 import {
-  computeDraw,
+  computeDraw as computeDrawRaw,
   hasGhostMembers,
+  hasPerfectMatching,
+  TOO_COMPLEX,
   type Assignment,
   type MemberId,
 } from "./index";
@@ -9,6 +11,15 @@ import {
 // Fixed seeds chosen to produce valid assignments for each group size,
 // verified by running the implementation.
 const SEED = 42;
+
+// Tests below expect a decided outcome; budget exhaustion is a failure.
+function computeDraw(
+  ...args: Parameters<typeof computeDrawRaw>
+): Assignment | null {
+  const result = computeDrawRaw(...args);
+  if (result === TOO_COMPLEX) throw new Error("unexpected TOO_COMPLEX");
+  return result;
+}
 
 function assertValidAssignment(
   members: MemberId[],
@@ -175,6 +186,60 @@ describe("computeDraw", () => {
           expect(computeDraw(members, [pair], seed)).toBeNull();
         }
       }
+    });
+  });
+
+  describe("household infeasibility (perf, #22)", () => {
+    function household(sizes: number[]): {
+      members: MemberId[];
+      exclusions: [MemberId, MemberId][];
+    } {
+      const members: MemberId[] = [];
+      const exclusions: [MemberId, MemberId][] = [];
+      sizes.forEach((size, h) => {
+        const ids = Array.from({ length: size }, (_, i) => `h${h}m${i}`);
+        members.push(...ids);
+        for (let i = 0; i < ids.length; i++)
+          for (let j = i + 1; j < ids.length; j++)
+            exclusions.push([ids[i], ids[j]]);
+      });
+      return { members, exclusions };
+    }
+
+    it.each([
+      [[9, 8]],
+      [[10, 9]],
+      [[10, 3, 3, 3]],
+      [[11, 4, 4, 2]],
+      [[12, 11]],
+    ])("households %j: null in < 100 ms", (sizes) => {
+      const { members, exclusions } = household(sizes);
+      const t0 = performance.now();
+      expect(computeDraw(members, exclusions, SEED)).toBeNull();
+      expect(performance.now() - t0).toBeLessThan(100);
+    });
+
+    it("hasPerfectMatching true for feasible, false for Hall violation", () => {
+      const ok = household([3, 3]);
+      expect(hasPerfectMatching(ok.members, ok.exclusions)).toBe(true);
+      const bad = household([4, 2]);
+      expect(hasPerfectMatching(bad.members, bad.exclusions)).toBe(false);
+    });
+
+    it("returns TOO_COMPLEX (not null) when node budget is exhausted", () => {
+      // Matching-feasible but mutual-pair-infeasible; budget 0 forces
+      // exhaustion deterministically.
+      const members = ["A", "B", "C", "D"];
+      const ex: [MemberId, MemberId][] = [
+        ["A", "B"],
+        ["C", "D"],
+        ["A", "C"],
+        ["B", "D"],
+      ];
+      // Only A->D, B->C, C->B, D->A possible: mutual pairs, infeasible.
+      expect(hasPerfectMatching(members, ex)).toBe(true);
+      expect(computeDraw(members, ex, SEED)).toBeNull();
+      expect(computeDrawRaw(members, ex, SEED, 0)).toBe(TOO_COMPLEX);
     });
   });
 
