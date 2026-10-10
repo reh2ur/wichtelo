@@ -90,7 +90,7 @@ test.describe("magic link sign-in (/auth/callback)", () => {
     await secondPage.goto(`/auth/callback?token_hash=${hash}&type=email`);
     await secondPage.getByRole("button", { name: "Jetzt anmelden" }).click();
     await expect(secondPage).toHaveURL(/\/anmelden\?error=link_invalid/);
-    await expect(secondPage.getByRole("alert")).toContainText(LINK_ERROR);
+    await expect(secondPage.locator("p[role=alert]")).toContainText(LINK_ERROR);
     await second.close();
   });
 
@@ -101,7 +101,7 @@ test.describe("magic link sign-in (/auth/callback)", () => {
     const page = await ctx.newPage();
     await page.goto("/auth/callback?code=old-pkce-code");
     await expect(page).toHaveURL(/\/anmelden\?error=link_invalid/);
-    await expect(page.getByRole("alert")).toContainText(LINK_ERROR);
+    await expect(page.locator("p[role=alert]")).toContainText(LINK_ERROR);
     await ctx.close();
   });
 
@@ -110,7 +110,7 @@ test.describe("magic link sign-in (/auth/callback)", () => {
     const page = await ctx.newPage();
     await page.goto("/anmelden?error=<script>");
     await expect(page.locator("h1")).toContainText("Anmelden");
-    await expect(page.getByRole("alert")).toHaveCount(0);
+    await expect(page.locator("p[role=alert]")).toHaveCount(0);
     await ctx.close();
   });
 });
@@ -151,7 +151,7 @@ test.describe("magic link on an invite (/einladung/[token]/magiclink)", () => {
     await expect(page).toHaveURL(
       new RegExp(`/einladung/${token}\\?error=link_invalid`),
     );
-    await expect(page.getByRole("alert")).toContainText(LINK_ERROR);
+    await expect(page.locator("p[role=alert]")).toContainText(LINK_ERROR);
     await expect(page.locator("#email")).toBeVisible();
     await ctx.close();
   });
