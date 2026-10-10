@@ -6,6 +6,7 @@ import { DrawAssignmentEmail } from "@/emails/draw-assignment";
 import { GroupDeletedEmail } from "@/emails/group-deleted";
 import { ParticipantJoinedEmail } from "@/emails/participant-joined";
 import { ParticipantLeftConfirmationEmail } from "@/emails/participant-left-confirmation";
+import { ParticipantRemovedEmail } from "@/emails/participant-removed";
 import { ParticipantLeftAdminNoticeEmail } from "@/emails/participant-left-admin-notice";
 import { AccountDeletionEmail } from "@/emails/account-deletion";
 import { AccountDeletionConfirmedEmail } from "@/emails/account-deletion-confirmed";
@@ -33,7 +34,11 @@ export type DomainEvent =
       assignments: DrawAssignmentRecipient[];
       /** Scopes Resend idempotency keys so retries never duplicate mails. */
       groupId: string;
-      /** Unique per draw (e.g. pre-draw `draw_version`). */
+      /**
+       * Unique per draw: the post-draw `draw_version` (strictly increasing,
+       * never reset). Trigger, re-draw and resend must all use it so a resend
+       * reuses the original Resend idempotency keys.
+       */
       drawKey: string;
     }
   | {
@@ -59,6 +64,14 @@ export type DomainEvent =
       adminEmails: string[];
     }
   | {
+      type: "participant.removed";
+      groupName: string;
+      participantEmail: string;
+      /** Admin contact shown to the removed person (PRD #33). */
+      adminName: string | null;
+      adminEmail: string | null;
+    }
+  | {
       type: "account.deletion_requested";
       to: string;
       confirmUrl: string;
@@ -71,6 +84,8 @@ export type DomainEvent =
   | {
       type: "account.deletion_admin_notice";
       groupName: string;
+      /** Name of the member whose account was deleted (membership snapshot). */
+      participantName: string;
       adminEmails: string[];
       /** true: group already drawn (re-draw may be needed). false: open group, member removed. */
       postDraw: boolean;
@@ -87,7 +102,7 @@ export interface NotifyResult {
 }
 
 interface EmailPayload {
-  to: string | string[];
+  to: string;
   subject: string;
   react: ReactElement;
 }
@@ -133,19 +148,16 @@ function buildPayloads(event: DomainEvent): EmailPayload[] {
       }));
 
     case "participant.joined":
-      if (event.adminEmails.length === 0) return [];
-      return [
-        {
-          to: event.adminEmails,
-          subject: `Wichtelo ${event.groupName}: Neuer Teilnehmer beigetreten`,
-          react: (
-            <ParticipantJoinedEmail
-              groupName={event.groupName}
-              participantName={event.participantName}
-            />
-          ),
-        },
-      ];
+      return event.adminEmails.map((to) => ({
+        to,
+        subject: `Wichtelo ${event.groupName}: Neuer Teilnehmer beigetreten`,
+        react: (
+          <ParticipantJoinedEmail
+            groupName={event.groupName}
+            participantName={event.participantName}
+          />
+        ),
+      }));
 
     case "participant.left": {
       const payloads: EmailPayload[] = [
@@ -157,9 +169,9 @@ function buildPayloads(event: DomainEvent): EmailPayload[] {
           ),
         },
       ];
-      if (event.adminEmails.length > 0) {
+      for (const to of event.adminEmails) {
         payloads.push({
-          to: event.adminEmails,
+          to,
           subject: `Wichtelo ${event.groupName}: Teilnehmer hat die Gruppe verlassen`,
           react: (
             <ParticipantLeftAdminNoticeEmail
@@ -172,6 +184,21 @@ function buildPayloads(event: DomainEvent): EmailPayload[] {
       }
       return payloads;
     }
+
+    case "participant.removed":
+      return [
+        {
+          to: event.participantEmail,
+          subject: `Wichtelo ${event.groupName}: Du wurdest aus der Gruppe entfernt`,
+          react: (
+            <ParticipantRemovedEmail
+              groupName={event.groupName}
+              adminName={event.adminName}
+              adminEmail={event.adminEmail}
+            />
+          ),
+        },
+      ];
 
     case "account.deletion_requested":
       return [
@@ -192,19 +219,70 @@ function buildPayloads(event: DomainEvent): EmailPayload[] {
       ];
 
     case "account.deletion_admin_notice":
-      if (event.adminEmails.length === 0) return [];
-      return [
-        {
-          to: event.adminEmails,
-          subject: `Wichtelo: Teilnehmer hat Konto gelöscht – ${event.groupName}`,
-          react: (
-            <AccountDeletionAdminNoticeEmail
-              groupName={event.groupName}
-              postDraw={event.postDraw}
-            />
-          ),
-        },
-      ];
+      return event.adminEmails.map((to) => ({
+        to,
+        subject: `Wichtelo: Teilnehmer hat Konto gelöscht – ${event.groupName}`,
+        react: (
+          <AccountDeletionAdminNoticeEmail
+            groupName={event.groupName}
+            participantName={event.participantName}
+            postDraw={event.postDraw}
+          />
+        ),
+      }));
+  }
+}
+
+/** Max sends per chunk (first try + retries) on Resend 429/5xx. */
+export const MAX_ATTEMPTS = 3;
+/** Backoff before retry n (1-based): base * 2^(n-1). */
+export const RETRY_BASE_DELAY_MS = 500;
+
+class ResendSendError extends Error {
+  constructor(
+    message: string,
+    readonly statusCode: number | null,
+  ) {
+    super(message);
+  }
+}
+
+function isRetryable(err: unknown): boolean {
+  if (!(err instanceof ResendSendError)) return false;
+  return (
+    err.statusCode === 429 || (err.statusCode !== null && err.statusCode >= 500)
+  );
+}
+
+async function sendChunk(
+  chunk: EmailPayload[],
+  options: { idempotencyKey: string } | undefined,
+): Promise<void> {
+  const { error } =
+    chunk.length === 1
+      ? await resend.emails.send({ from: FROM_EMAIL, ...chunk[0] }, options)
+      : await resend.batch.send(
+          chunk.map((payload) => ({ from: FROM_EMAIL, ...payload })),
+          options,
+        );
+  if (error) throw new ResendSendError(error.message, error.statusCode ?? null);
+}
+
+/** Bounded retry with exponential backoff on 429/5xx only. */
+async function sendChunkWithRetry(
+  chunk: EmailPayload[],
+  options: { idempotencyKey: string } | undefined,
+): Promise<void> {
+  for (let attempt = 1; ; attempt++) {
+    try {
+      await sendChunk(chunk, options);
+      return;
+    } catch (err) {
+      if (attempt >= MAX_ATTEMPTS || !isRetryable(err)) throw err;
+      await new Promise((r) =>
+        setTimeout(r, RETRY_BASE_DELAY_MS * 2 ** (attempt - 1)),
+      );
+    }
   }
 }
 
@@ -219,7 +297,7 @@ function idempotencyBase(event: DomainEvent): string | null {
  * Single entry point for all transactional email. Maps a domain event to its
  * React Email template(s) and recipient list, then dispatches via Resend in
  * chunks of at most 100 (batch limit). Draw events carry an idempotency key
- * per chunk. Never throws — delivery failures are logged and reported via the
+ * per chunk. Retries a chunk (max 3 tries, backoff) on Resend 429/5xx. Never throws — delivery failures are logged and reported via the
  * returned counts (a failed chunk counts all its emails as failed), so a
  * failed email never blocks the mutation that triggered it.
  */
@@ -236,19 +314,7 @@ export async function notify(event: DomainEvent): Promise<NotifyResult> {
       ? { idempotencyKey: `${base}:${i / BATCH_LIMIT}` }
       : undefined;
     try {
-      if (chunk.length === 1) {
-        const { error } = await resend.emails.send(
-          { from: FROM_EMAIL, ...chunk[0] },
-          options,
-        );
-        if (error) throw new Error(error.message);
-      } else {
-        const { error } = await resend.batch.send(
-          chunk.map((payload) => ({ from: FROM_EMAIL, ...payload })),
-          options,
-        );
-        if (error) throw new Error(error.message);
-      }
+      await sendChunkWithRetry(chunk, options);
       result.sent += chunk.length;
     } catch (err) {
       result.failed += chunk.length;
