@@ -40,7 +40,8 @@
       "generic": "Etwas ist schiefgelaufen. Bitte versuche es erneut.",
       "invalidOtp": "Der Code ist ungültig oder abgelaufen.",
       "invalidEmail": "Bitte gib eine gültige E-Mail-Adresse ein.",
-      "rateLimited": "Zu viele Versuche. Bitte warte einen Moment und versuche es erneut."
+      "rateLimited": "Zu viele Versuche. Bitte warte einen Moment und versuche es erneut.",
+      "linkInvalid": "Der Link ist abgelaufen oder wurde in einem anderen Browser geöffnet. Gib den Code aus der E-Mail ein oder fordere einen neuen an."
     }
   },
   "groups": {
@@ -119,6 +120,12 @@
     "start": "Auslosung starten",
     "starting": "Wird ausgelost…",
     "emailFailure": "{failed} von {total} E-Mails konnten nicht zugestellt werden – Teilnehmer können ihre Zuteilung jederzeit in der App sehen.",
+    "confirm": {
+      "title": "Auslosung starten?",
+      "message": "Danach kann niemand mehr beitreten, alle erhalten eine E-Mail.",
+      "button": "Jetzt auslosen",
+      "cancel": "Abbrechen"
+    },
     "notEnoughMembersHint": "Es werden mindestens 3 Teilnehmer benötigt, um eine Auslosung zu starten.",
     "errors": {
       "notAdmin": "Nur Admins können die Auslosung starten.",
@@ -163,6 +170,9 @@
       "section": "Teilnehmer",
       "promoteToAdmin": "Zum Admin machen",
       "promoting": "Wird befördert…",
+      "promoteConfirmTitle": "{name} zum Admin machen?",
+      "promoteConfirmMessage": "Admins können Einstellungen ändern, Teilnehmer entfernen und alle Zuteilungen einsehen. Das lässt sich nicht rückgängig machen.",
+      "promoteConfirm": "Zum Admin machen",
       "deletedAccount": "Konto gelöscht",
       "remove": "Entfernen",
       "removing": "Wird entfernt…",
@@ -193,6 +203,7 @@
       "deleting": "Wird gelöscht…"
     },
     "errors": {
+      "noAccount": "Diese Person hat kein Konto mehr und kann nicht befördert werden.",
       "lastAdmin": "Dieser Teilnehmer ist der letzte Admin. Befördere zuerst eine andere Person.",
       "drawn": "Nach der Auslosung können keine Teilnehmer mehr entfernt werden.",
       "notAdmin": "Nur Admins können die Einstellungen ändern.",
@@ -226,6 +237,7 @@
     },
     "errors": {
       "unsolvable": "Die Auslosung ist mit den aktuellen Ausschlüssen nicht möglich. Bitte passe die Ausschlüsse an.",
+      "notDrawn": "Der Gruppenstatus hat sich geändert. Bitte lade die Seite neu.",
       "tooComplex": "Die Auslosung ist mit diesen Ausschlüssen zu komplex, um sie zu prüfen. Bitte entferne einzelne Ausschlüsse und versuche es erneut.",
       "notAdmin": "Nur Admins können die Auslosung wiederholen.",
       "groupNotFound": "Diese Gruppe wurde nicht gefunden.",
@@ -288,6 +300,7 @@
     "title": "Konto endgültig löschen?",
     "message": "Dein Konto und deine persönlichen Daten werden unwiderruflich gelöscht. Erst mit Klick auf den Button wird gelöscht.",
     "confirm": "Konto endgültig löschen",
+    "confirming": "Wird gelöscht…",
     "cancel": "Abbrechen",
     "home": "Zur Startseite",
     "toAccount": "Zu meinem Konto",
@@ -334,7 +347,7 @@
       "title": "Gruppe beitreten",
       "firstNameLabel": "Vorname",
       "lastNameLabel": "Nachname",
-      "lastNameNote": "Dein Nachname wird nur abgekürzt angezeigt, damit alle Teilnehmer erkannt werden.",
+      "lastNameNote": "Andere Teilnehmende sehen deinen Nachnamen höchstens abgekürzt; Admins sehen ihn vollständig.",
       "submitJoin": "Beitreten",
       "accepting": "Bitte warten…"
     },
@@ -344,7 +357,8 @@
       "invalidOtp": "Der Code ist ungültig oder abgelaufen.",
       "drawn": "Diese Gruppe hat bereits ausgelost. Du kannst nicht mehr beitreten.",
       "missingName": "Bitte gib Vor- und Nachnamen ein.",
-      "rateLimited": "Zu viele Versuche. Bitte warte einen Moment und versuche es erneut."
+      "rateLimited": "Zu viele Versuche. Bitte warte einen Moment und versuche es erneut.",
+      "linkInvalid": "Der Link ist abgelaufen oder wurde in einem anderen Browser geöffnet. Gib den Code aus der E-Mail ein oder fordere einen neuen an."
     },
     "signedInAs": "Angemeldet als {name} ({email})",
     "notYou": "Nicht du? Abmelden"
@@ -635,5 +649,13 @@
     "home": "Zur Startseite",
     "notFoundTitle": "Seite nicht gefunden",
     "notFoundMessage": "Diese Seite existiert nicht oder du hast keinen Zugriff darauf."
+  },
+  "emailLink": {
+    "signInTitle": "Anmeldung bestätigen",
+    "signInMessage": "Mit Klick auf den Button meldest du dich in diesem Browser bei Wichtelo an.",
+    "signInSubmit": "Jetzt anmelden",
+    "inviteTitle": "Anmeldung bestätigen",
+    "inviteMessage": "Mit Klick auf den Button meldest du dich in diesem Browser an und kannst danach der Gruppe beitreten.",
+    "inviteSubmit": "Anmeldung bestätigen"
   }
 }

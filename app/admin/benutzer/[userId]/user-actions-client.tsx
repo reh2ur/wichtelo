@@ -62,7 +62,7 @@ function BanUserButton({ userId }: { userId: string }) {
       <p className="text-muted-foreground text-sm">
         {t("actions.banConfirmMessage")}
       </p>
-      {errorMsg && <p className="text-destructive text-sm">{errorMsg}</p>}
+      {errorMsg && <p className="text-danger-text text-sm">{errorMsg}</p>}
       <form action={action} className="flex gap-2">
         <input type="hidden" name="userId" value={userId} />
         <Button type="submit" variant="destructive" disabled={pending}>
@@ -104,7 +104,7 @@ function UnbanUserButton({ userId }: { userId: string }) {
           {pending ? t("actions.unbanning") : t("actions.unban")}
         </Button>
       </form>
-      {errorMsg && <p className="text-destructive text-sm">{errorMsg}</p>}
+      {errorMsg && <p className="text-danger-text text-sm">{errorMsg}</p>}
     </div>
   );
 }
@@ -138,7 +138,7 @@ function DeleteUserButton({ userId }: { userId: string }) {
       <p className="text-muted-foreground text-sm">
         {t("actions.deleteConfirmMessage")}
       </p>
-      {errorMsg && <p className="text-destructive text-sm">{errorMsg}</p>}
+      {errorMsg && <p className="text-danger-text text-sm">{errorMsg}</p>}
       <form action={action} className="flex gap-2">
         <input type="hidden" name="userId" value={userId} />
         <Button type="submit" variant="destructive" disabled={pending}>

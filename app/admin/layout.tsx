@@ -1,5 +1,8 @@
 import { getTranslations } from "next-intl/server";
+import { Suspense } from "react";
 import Link from "next/link";
+import { notFound } from "next/navigation";
+import { isSuperAdmin } from "@/lib/admin/require-super-admin";
 
 export default async function AdminLayout({
   children,
@@ -38,7 +41,17 @@ export default async function AdminLayout({
           </Link>
         </div>
       </nav>
-      {children}
+      <Suspense fallback={null}>
+        <SuperAdminGuard>{children}</SuperAdminGuard>
+      </Suspense>
     </>
   );
+}
+
+// Defense in depth: proxy.ts already 404s non-admins (with a real status), but
+// its matcher skips paths ending in .png/.svg etc., so pages must not rely on
+// it alone. Session read is dynamic, hence the Suspense boundary above.
+async function SuperAdminGuard({ children }: { children: React.ReactNode }) {
+  if (!(await isSuperAdmin())) notFound();
+  return <>{children}</>;
 }

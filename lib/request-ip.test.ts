@@ -4,7 +4,7 @@ vi.mock("next/headers", () => ({
   headers: vi.fn(),
 }));
 
-import { getClientIp } from "./request-ip";
+import { getClientIp, normalizeIpKey } from "./request-ip";
 import { headers } from "next/headers";
 
 function makeHeaders(values: Record<string, string>) {
@@ -100,5 +100,57 @@ describe("getClientIp 'unknown' fallback logging", () => {
     await expect(getClientIpFresh()).resolves.toBe("10.0.0.1");
 
     expect(warnMock).not.toHaveBeenCalled();
+  });
+});
+
+describe("normalizeIpKey", () => {
+  it("leaves IPv4 untouched", () => {
+    expect(normalizeIpKey("1.2.3.4")).toBe("1.2.3.4");
+  });
+
+  it("collapses IPv6 addresses of the same /64 to one key", () => {
+    const a = normalizeIpKey("2001:db8:abcd:12::1");
+    const b = normalizeIpKey("2001:0db8:abcd:0012:ffff:ffff:ffff:ffff");
+    expect(a).toBe("2001:db8:abcd:12::/64");
+    expect(b).toBe(a);
+  });
+
+  it("separates different /64 prefixes", () => {
+    expect(normalizeIpKey("2001:db8:abcd:12::1")).not.toBe(
+      normalizeIpKey("2001:db8:abcd:13::1"),
+    );
+  });
+
+  it("handles :: compression at the start, middle and end", () => {
+    expect(normalizeIpKey("::1")).toBe("0:0:0:0::/64");
+    expect(normalizeIpKey("2001:db8::")).toBe("2001:db8:0:0::/64");
+    expect(normalizeIpKey("fe80::1%eth0")).toBe("fe80:0:0:0::/64");
+  });
+
+  it("keys IPv4-mapped IPv6 as plain IPv4", () => {
+    expect(normalizeIpKey("::ffff:1.2.3.4")).toBe("1.2.3.4");
+  });
+
+  it("is case-insensitive", () => {
+    expect(normalizeIpKey("2001:DB8:ABCD:12::1")).toBe(
+      normalizeIpKey("2001:db8:abcd:12::2"),
+    );
+  });
+
+  it("returns malformed input unchanged (lowercased)", () => {
+    expect(normalizeIpKey("unknown")).toBe("unknown");
+    expect(normalizeIpKey("zz::1")).toBe("zz::1");
+    expect(normalizeIpKey("1:2:3:4:5:6:7:8:9")).toBe("1:2:3:4:5:6:7:8:9");
+  });
+});
+
+describe("getClientIp IPv6 keying", () => {
+  it("returns the /64 key for an IPv6 client", async () => {
+    vi.mocked(headers).mockResolvedValue(
+      makeHeaders({
+        "x-vercel-forwarded-for": "2001:db8:abcd:12::99",
+      }) as never,
+    );
+    await expect(getClientIp()).resolves.toBe("2001:db8:abcd:12::/64");
   });
 });

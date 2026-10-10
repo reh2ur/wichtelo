@@ -3,9 +3,10 @@ import Link from "next/link";
 import { getTranslations } from "next-intl/server";
 import { verifyDeletionToken, isDeletionNonceCurrent } from "@/lib/account";
 import { getUser } from "@/lib/auth/get-user";
-import { Button, buttonVariants } from "@/components/ui/button";
+import { buttonVariants } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { confirmAccountDeletion } from "./actions";
+import { ConfirmSubmitButton } from "./confirm-submit-button";
 
 export const metadata = { robots: { index: false, follow: false } };
 
@@ -63,7 +64,7 @@ async function ConfirmContent({
   return (
     <Message title={t("title")} body={t("message")}>
       {errorKey && (
-        <p role="alert" className="text-destructive mb-4 text-sm">
+        <p role="alert" className="text-danger-text mb-4 text-sm">
           {t(
             `errors.${errorKey as "sole_admin" | "generic" | "invalid" | "wrong_account"}`,
           )}
@@ -71,9 +72,10 @@ async function ConfirmContent({
       )}
       <form action={confirmAccountDeletion} className="flex gap-3">
         <input type="hidden" name="token" value={token} />
-        <Button type="submit" variant="destructive">
-          {t("confirm")}
-        </Button>
+        <ConfirmSubmitButton
+          label={t("confirm")}
+          pendingLabel={t("confirming")}
+        />
         <Link
           href={user ? "/konto" : "/"}
           className={buttonVariants({ variant: "outline" })}

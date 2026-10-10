@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, useEffect, useState } from "react";
+import { useActionState, useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import {
@@ -21,6 +21,7 @@ import {
   type DeleteGroupState,
 } from "./actions";
 import { createIntlContext } from "@/lib/create-intl-context";
+import { CONFIRM_TITLE_CLASS, useConfirmFocus } from "@/lib/use-confirm-focus";
 
 const { Provider: GroupSettingsProvider, useT: useGroupSettingsT } =
   createIntlContext("groupSettings");
@@ -141,9 +142,13 @@ export function UpdateGroupInfoForm({ group }: { group: GroupInfo }) {
             className={TEXTAREA_CLASS}
           />
         </div>
-        {errorMsg && <p className="text-destructive text-sm">{errorMsg}</p>}
+        {errorMsg && (
+          <p role="alert" className="text-danger-text text-sm">
+            {errorMsg}
+          </p>
+        )}
         {state.status === "success" && (
-          <p className="text-sm text-emerald-600">
+          <p role="status" className="text-success-text text-sm">
             {t("groupInfo.saveSuccess")}
           </p>
         )}
@@ -173,6 +178,15 @@ function RemoveExclusionButton({
     if (state.status === "success") router.refresh();
   }, [state.status, router]);
 
+  const errorMsg =
+    state.status === "error"
+      ? state.error === "not_admin"
+        ? t("errors.notAdmin")
+        : state.error === "group_not_found"
+          ? t("errors.groupNotFound")
+          : t("errors.generic")
+      : null;
+
   return (
     <form action={action} className="inline">
       <input type="hidden" name="slug" value={slug} />
@@ -181,6 +195,11 @@ function RemoveExclusionButton({
       <Button type="submit" variant="ghost" size="xs" disabled={pending}>
         {pending ? t("exclusions.removing") : t("exclusions.remove")}
       </Button>
+      {errorMsg && (
+        <p role="alert" className="text-danger-text mt-1 text-xs">
+          {errorMsg}
+        </p>
+      )}
     </form>
   );
 }
@@ -267,9 +286,13 @@ function AddExclusionForm({
           </select>
         </div>
       </div>
-      {errorMsg && <p className="text-destructive text-sm">{errorMsg}</p>}
+      {errorMsg && (
+        <p role="alert" className="text-danger-text text-sm">
+          {errorMsg}
+        </p>
+      )}
       {state.status === "success" && state.warning === "unsolvable" && (
-        <p className="text-destructive text-sm" role="alert">
+        <p className="text-danger-text text-sm" role="alert">
           {t("exclusions.unsolvableWarning")}
         </p>
       )}
@@ -290,34 +313,75 @@ function AddExclusionForm({
   );
 }
 
-function PromoteAdminButton({
+function PromoteConfirmPanel({
   slug,
   member,
+  onDone,
+  onCancel,
 }: {
   slug: string;
   member: Member;
+  onDone: () => void;
+  onCancel: () => void;
 }) {
   const t = useGroupSettingsT();
   const router = useRouter();
+  const { titleRef } = useConfirmFocus(true);
   const [state, action, pending] = useActionState<PromoteState, FormData>(
     promoteToAdmin,
     { status: "idle" },
   );
 
   useEffect(() => {
-    if (state.status === "success") router.refresh();
-  }, [state.status, router]);
+    if (state.status === "success") {
+      router.refresh();
+      onDone();
+    }
+  }, [state.status, router, onDone]);
+
+  const errorMsg =
+    state.status === "error"
+      ? state.error === "not_admin"
+        ? t("errors.notAdmin")
+        : state.error === "group_not_found"
+          ? t("errors.groupNotFound")
+          : state.error === "no_account"
+            ? t("errors.noAccount")
+            : t("errors.generic")
+      : null;
 
   return (
-    <form action={action} className="inline">
-      <input type="hidden" name="slug" value={slug} />
-      <input type="hidden" name="membershipId" value={member.id} />
-      <Button type="submit" variant="outline" size="xs" disabled={pending}>
-        {pending
-          ? t("participants.promoting")
-          : t("participants.promoteToAdmin")}
-      </Button>
-    </form>
+    <div className="border-border bg-muted/30 mt-2 space-y-2 rounded-lg border p-3">
+      <p ref={titleRef} tabIndex={-1} className={CONFIRM_TITLE_CLASS}>
+        {t("participants.promoteConfirmTitle", { name: member.name_snapshot })}
+      </p>
+      <p className="text-muted-foreground text-sm">
+        {t("participants.promoteConfirmMessage")}
+      </p>
+      {errorMsg && (
+        <p role="alert" className="text-danger-text text-sm">
+          {errorMsg}
+        </p>
+      )}
+      <form action={action} className="flex gap-2">
+        <input type="hidden" name="slug" value={slug} />
+        <input type="hidden" name="membershipId" value={member.id} />
+        <Button type="submit" size="xs" disabled={pending}>
+          {pending
+            ? t("participants.promoting")
+            : t("participants.promoteConfirm")}
+        </Button>
+        <Button
+          type="button"
+          variant="outline"
+          size="xs"
+          onClick={onCancel}
+          disabled={pending}
+        >
+          {t("participants.cancel")}
+        </Button>
+      </form>
+    </div>
   );
 }
 
@@ -325,6 +389,7 @@ function DeleteGroupButton({ slug }: { slug: string }) {
   const t = useGroupSettingsT();
   const router = useRouter();
   const [confirming, setConfirming] = useState(false);
+  const { triggerRef, titleRef } = useConfirmFocus(confirming);
   const [state, action, pending] = useActionState<DeleteGroupState, FormData>(
     deleteGroup,
     { status: "idle" },
@@ -350,6 +415,7 @@ function DeleteGroupButton({ slug }: { slug: string }) {
   if (!confirming) {
     return (
       <Button
+        ref={triggerRef}
         type="button"
         variant="destructive"
         onClick={() => setConfirming(true)}
@@ -361,11 +427,17 @@ function DeleteGroupButton({ slug }: { slug: string }) {
 
   return (
     <div className="border-destructive/30 bg-destructive/5 space-y-3 rounded-lg border p-4">
-      <p className="text-sm font-medium">{t("danger.confirmTitle")}</p>
+      <p ref={titleRef} tabIndex={-1} className={CONFIRM_TITLE_CLASS}>
+        {t("danger.confirmTitle")}
+      </p>
       <p className="text-muted-foreground text-sm">
         {t("danger.confirmMessage")}
       </p>
-      {errorMsg && <p className="text-destructive text-sm">{errorMsg}</p>}
+      {errorMsg && (
+        <p role="alert" className="text-danger-text text-sm">
+          {errorMsg}
+        </p>
+      )}
       <form action={action} className="flex gap-2">
         <input type="hidden" name="slug" value={slug} />
         <Button type="submit" variant="destructive" disabled={pending}>
@@ -425,6 +497,12 @@ export function ExclusionsSection({
   );
 }
 
+type TrackedRemoveState = RemoveMemberState & { membershipId?: string };
+
+function focusById(id: string) {
+  requestAnimationFrame(() => document.getElementById(id)?.focus());
+}
+
 // state/action/pending come from the parent's useActionState: removing a
 // member makes this panel's own <li> disappear in the same update that
 // delivers a "success" status, so a hook owned here would unmount before its
@@ -440,27 +518,42 @@ function RemoveMemberConfirmPanel({
 }: {
   slug: string;
   member: Member;
-  state: RemoveMemberState;
+  state: TrackedRemoveState;
   action: (formData: FormData) => void;
   pending: boolean;
   onCancel: () => void;
 }) {
   const t = useGroupSettingsT();
+  const { titleRef } = useConfirmFocus(true);
 
+  // Action state is shared across members: only show an error that this
+  // panel's own submission produced.
   const errorMsg =
-    state.status === "error"
+    state.status === "error" && state.membershipId === member.id
       ? state.error === "last_admin"
         ? t("errors.lastAdmin")
-        : t("errors.generic")
+        : state.error === "drawn"
+          ? t("errors.drawn")
+          : state.error === "not_admin"
+            ? t("errors.notAdmin")
+            : state.error === "group_not_found"
+              ? t("errors.groupNotFound")
+              : t("errors.generic")
       : null;
 
   return (
     <div className="border-destructive/30 bg-destructive/5 mt-2 space-y-2 rounded-lg border p-3">
-      <p className="text-sm font-medium">{t("participants.confirmTitle")}</p>
+      <p ref={titleRef} tabIndex={-1} className={CONFIRM_TITLE_CLASS}>
+        {t("participants.confirmTitle")}
+      </p>
       <p className="text-muted-foreground text-sm">
         {t("participants.confirmMessage")}
       </p>
-      {errorMsg && <p className="text-destructive text-sm">{errorMsg}</p>}
+      {errorMsg && (
+        <p role="alert" className="text-danger-text text-sm">
+          {errorMsg}
+        </p>
+      )}
       <form action={action} className="flex gap-2">
         <input type="hidden" name="slug" value={slug} />
         <input type="hidden" name="membershipId" value={member.id} />
@@ -500,10 +593,18 @@ export function ParticipantsSection({
   const t = useGroupSettingsT();
   const router = useRouter();
   const [confirmingId, setConfirmingId] = useState<string | null>(null);
+  const [promotingId, setPromotingId] = useState<string | null>(null);
   const [removeState, removeAction, removePending] = useActionState<
-    RemoveMemberState,
+    TrackedRemoveState,
     FormData
-  >(removeMember, { status: "idle" });
+  >(
+    async (prev, formData) => {
+      const next: TrackedRemoveState = await removeMember(prev, formData);
+      return { ...next, membershipId: String(formData.get("membershipId")) };
+    },
+    { status: "idle" },
+  );
+  const donePromoting = useCallback(() => setPromotingId(null), []);
   // Derived, not stored: once a removal succeeds the removed member's <li>
   // (and its confirm panel) disappears from `members` on its own, and the
   // hint should stay up for the rest of this success status regardless.
@@ -536,7 +637,15 @@ export function ParticipantsSection({
                 {m.role === "admin" ? (
                   <span className="text-muted-foreground text-xs">Admin</span>
                 ) : m.profile_id ? (
-                  <PromoteAdminButton slug={slug} member={m} />
+                  <Button
+                    id={`promote-${m.id}`}
+                    type="button"
+                    variant="outline"
+                    size="xs"
+                    onClick={() => setPromotingId(m.id)}
+                  >
+                    {t("participants.promoteToAdmin")}
+                  </Button>
                 ) : (
                   <span className="text-muted-foreground text-xs">
                     {t("participants.deletedAccount")}
@@ -544,6 +653,7 @@ export function ParticipantsSection({
                 )}
                 {groupState === "open" && m.id !== currentMembershipId && (
                   <Button
+                    id={`remove-${m.id}`}
                     type="button"
                     variant="ghost"
                     size="xs"
@@ -561,7 +671,21 @@ export function ParticipantsSection({
                 state={removeState}
                 action={removeAction}
                 pending={removePending}
-                onCancel={() => setConfirmingId(null)}
+                onCancel={() => {
+                  setConfirmingId(null);
+                  focusById(`remove-${m.id}`);
+                }}
+              />
+            )}
+            {promotingId === m.id && (
+              <PromoteConfirmPanel
+                slug={slug}
+                member={m}
+                onDone={donePromoting}
+                onCancel={() => {
+                  setPromotingId(null);
+                  focusById(`promote-${m.id}`);
+                }}
               />
             )}
           </li>
@@ -592,6 +716,8 @@ export function InviteLinkSection({
     openedAgainst !== null &&
     !(state.status === "success" && state !== openedAgainst);
 
+  const { triggerRef, titleRef } = useConfirmFocus(confirming);
+
   useEffect(() => {
     if (state.status === "success") router.refresh();
   }, [state.status, router]);
@@ -614,12 +740,13 @@ export function InviteLinkSection({
         {t("inviteLink.hint")}
       </p>
       {state.status === "success" && (
-        <p className="mb-3 text-sm text-emerald-600">
+        <p role="status" className="text-success-text mb-3 text-sm">
           {t("inviteLink.success")}
         </p>
       )}
       {!confirming ? (
         <Button
+          ref={triggerRef}
           type="button"
           variant="outline"
           onClick={() => setOpenedAgainst(state)}
@@ -632,11 +759,17 @@ export function InviteLinkSection({
           className="border-border bg-muted/30 space-y-3 rounded-lg border p-4"
         >
           <input type="hidden" name="slug" value={slug} />
-          <p className="text-sm font-medium">{t("inviteLink.confirmTitle")}</p>
+          <p ref={titleRef} tabIndex={-1} className={CONFIRM_TITLE_CLASS}>
+            {t("inviteLink.confirmTitle")}
+          </p>
           <p className="text-muted-foreground text-sm">
             {t("inviteLink.confirmMessage")}
           </p>
-          {errorMsg && <p className="text-destructive text-sm">{errorMsg}</p>}
+          {errorMsg && (
+            <p role="alert" className="text-danger-text text-sm">
+              {errorMsg}
+            </p>
+          )}
           <div className="flex gap-2">
             <Button type="submit" size="sm" disabled={pending}>
               {pending ? t("inviteLink.regenerating") : t("inviteLink.confirm")}

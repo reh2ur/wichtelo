@@ -10,6 +10,7 @@ import {
   type RequestDeletionState,
 } from "./actions";
 import { createIntlContext } from "@/lib/create-intl-context";
+import { CONFIRM_TITLE_CLASS, useConfirmFocus } from "@/lib/use-confirm-focus";
 
 const { Provider: AccountProvider, useT: useAccountT } =
   createIntlContext("account");
@@ -94,9 +95,15 @@ export function UpdateProfileForm({
             {t("profile.emailNote")}
           </p>
         </div>
-        {errorMsg && <p className="text-destructive text-sm">{errorMsg}</p>}
+        {errorMsg && (
+          <p role="alert" className="text-danger-text text-sm">
+            {errorMsg}
+          </p>
+        )}
         {state.status === "success" && (
-          <p className="text-sm text-emerald-600">{t("profile.saveSuccess")}</p>
+          <p className="text-success-text text-sm">
+            {t("profile.saveSuccess")}
+          </p>
         )}
         <Button type="submit" disabled={pending}>
           {pending ? t("profile.saving") : t("profile.save")}
@@ -113,6 +120,7 @@ export function DeleteAccountSection() {
     RequestDeletionState,
     FormData
   >(requestAccountDeletion, { status: "idle" });
+  const { triggerRef, titleRef } = useConfirmFocus(confirming);
 
   if (state.status === "sent") {
     return (
@@ -137,6 +145,7 @@ export function DeleteAccountSection() {
       </h2>
       {!confirming ? (
         <Button
+          ref={triggerRef}
           type="button"
           variant="destructive"
           onClick={() => setConfirming(true)}
@@ -145,12 +154,14 @@ export function DeleteAccountSection() {
         </Button>
       ) : (
         <div className="border-destructive/30 bg-destructive/5 space-y-3 rounded-lg border p-4">
-          <p className="text-sm font-medium">{t("danger.confirmTitle")}</p>
+          <p ref={titleRef} tabIndex={-1} className={CONFIRM_TITLE_CLASS}>
+            {t("danger.confirmTitle")}
+          </p>
           <p className="text-muted-foreground text-sm">
             {t("danger.confirmMessage")}
           </p>
           {state.status === "error" && (
-            <p className="text-destructive text-sm">
+            <p role="alert" className="text-danger-text text-sm">
               {state.error === "rate_limited"
                 ? t("errors.rateLimited")
                 : state.error === "email_failed"

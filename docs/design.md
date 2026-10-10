@@ -10,14 +10,16 @@ Source mock: `design-proposals/4a-v-glacier-mark.html`. Replaces old "Festive Pi
 
 ### Custom glacier-mark tokens (hex, CSS vars + Tailwind utilities)
 
-| Token         | Hex       | Tailwind                     | Use                                                                                |
-| ------------- | --------- | ---------------------------- | ---------------------------------------------------------------------------------- |
-| `--navy`      | `#16283f` | `bg-navy`, `text-navy`       | Foreground text, header bg (solid use)                                             |
-| `--navy-dark` | `#0d1a2b` | `bg-navy-dark`               | Avatar/placeholder bg fallback                                                     |
-| `--navy-soft` | `#3d5872` | `text-navy-soft`             | Secondary/muted text (darkened for 4.5:1 AA vs lightest gradient stop, issue #110) |
-| `--crimson`   | `#df4a5e` | `bg-crimson`, `text-crimson` | Primary CTA, drawn-state badge, accent                                             |
-| `--success`   | `#1e8a5f` | `bg-success`, `text-success` | Open-state badge                                                                   |
-| `--ice`       | `#e3eef8` | `bg-ice`                     | Page background base tone                                                          |
+| Token            | Hex       | Tailwind                     | Use                                                                                                                           |
+| ---------------- | --------- | ---------------------------- | ----------------------------------------------------------------------------------------------------------------------------- |
+| `--navy`         | `#16283f` | `bg-navy`, `text-navy`       | Foreground text, header bg (solid use)                                                                                        |
+| `--navy-dark`    | `#0d1a2b` | `bg-navy-dark`               | Avatar/placeholder bg fallback                                                                                                |
+| `--navy-soft`    | `#3d5872` | `text-navy-soft`             | Secondary/muted text (darkened for 4.5:1 AA vs lightest gradient stop, issue #110)                                            |
+| `--crimson`      | `#df4a5e` | `bg-crimson`, `text-crimson` | Primary CTA, drawn-state badge, accent                                                                                        |
+| `--success`      | `#1e8a5f` | `bg-success`, `text-success` | Open-state badge                                                                                                              |
+| `--ice`          | `#e3eef8` | `bg-ice`                     | Page background base tone                                                                                                     |
+| `--danger-text`  | `#b83247` | `text-danger-text`           | Error text. 5.9:1 on white, 5.0:1 on `--ice`. `--destructive`/`--crimson` too light for text (3.4–4.0:1) — fills/borders only |
+| `--success-text` | `#17704d` | `text-success-text`          | Success text. 6.1:1 on white, 5.2:1 on `--ice`. Never `text-emerald-*` (3.2:1)                                                |
 
 Not tokenized (used inline only, body gradient/blobs): `--sky-1 #8fc3ea`, `--sky-2 #bfe0f5`.
 
@@ -70,6 +72,16 @@ Untouched, still neutral slate (not themed for navy/crimson). Avoid dark-mode-sp
 `.bg-primary` also gets crimson→pink gradient overlay (`linear-gradient(135deg, var(--crimson), #f0808f)`) atop flat `--primary` color — applies to every primary button + account avatar (reuses `bg-primary`).
 
 Page bg: `body` gets fixed sky gradient (`linear-gradient(175deg, #8fc3ea, #bfe0f5 40%, #a8d2ee 65%, #6fa8d8 85%, #4a86c2 100%)`) + two blurred blob accents via `body::before`/`::after` (pure CSS, no DOM). Don't duplicate per-page — global.
+
+---
+
+## Accessibility rules
+
+- Error `<p>` → `role="alert"`, `text-danger-text`. Success `<p>` → `role="status"`, `text-success-text`.
+- Inline confirm panels: title `<p tabIndex={-1}>` gets focus on open, trigger gets focus back on cancel. Use `useConfirmFocus` (`lib/use-confirm-focus.ts`) + `CONFIRM_TITLE_CLASS`.
+- Never bare `outline-none` on focusable element — pair with `focus-visible:ring-*`.
+- Snow hidden under `prefers-reduced-motion: reduce` (`.snow` rule in `globals.css`).
+- Confirm panel pattern (first draw, redraw, leave, promote): `border-border bg-muted/30` box, title, muted message, confirm + outline cancel. Destructive actions use `border-destructive/30 bg-destructive/5`.
 
 ---
 

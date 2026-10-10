@@ -4,6 +4,7 @@ import { useActionState, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { lookupAssignment, type OracleState } from "./actions";
 import { createIntlContext } from "@/lib/create-intl-context";
+import { CONFIRM_TITLE_CLASS, useConfirmFocus } from "@/lib/use-confirm-focus";
 
 const INPUT_CLASS =
   "flex h-9 w-full rounded-lg border border-input bg-background px-3 py-1 text-sm shadow-xs transition-colors placeholder:text-muted-foreground focus-visible:border-ring focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50 disabled:cursor-not-allowed disabled:opacity-50";
@@ -43,6 +44,7 @@ export function AdminOracleClient({
     submittedId === selectedId;
 
   const phase = revealed ? "revealed" : confirming ? "confirming" : "idle";
+  const { triggerRef, titleRef } = useConfirmFocus(phase === "confirming");
 
   const errorMsg =
     state.status === "error"
@@ -82,6 +84,7 @@ export function AdminOracleClient({
             </select>
           </div>
           <Button
+            ref={triggerRef}
             type="button"
             variant="outline"
             disabled={!selectedId}
@@ -94,11 +97,17 @@ export function AdminOracleClient({
 
       {phase === "confirming" && selectedMember && (
         <div className="border-border bg-muted/30 space-y-3 rounded-lg border p-4">
-          <p className="text-sm font-medium">{t("confirm.title")}</p>
+          <p ref={titleRef} tabIndex={-1} className={CONFIRM_TITLE_CLASS}>
+            {t("confirm.title")}
+          </p>
           <p className="text-muted-foreground text-sm">
             {t("confirm.message", { name: selectedMember.name_snapshot })}
           </p>
-          {errorMsg && <p className="text-destructive text-sm">{errorMsg}</p>}
+          {errorMsg && (
+            <p role="alert" className="text-danger-text text-sm">
+              {errorMsg}
+            </p>
+          )}
           <form
             action={action}
             onSubmit={() => setSubmittedId(selectedId)}

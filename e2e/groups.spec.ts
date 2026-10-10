@@ -111,7 +111,7 @@ test.describe("create group page", () => {
     // server trims it to "" → missing_name error.
     await authedPage.locator("#name").fill(" ");
     await authedPage.locator('button[type="submit"]').click();
-    await expect(authedPage.locator("p.text-destructive")).toContainText(
+    await expect(authedPage.locator("p.text-danger-text")).toContainText(
       "Bitte gib einen Gruppennamen ein.",
     );
   });
