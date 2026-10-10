@@ -4,8 +4,8 @@ import { scrubSentryData, scrubString } from "./sentry-scrub";
 describe("scrubString", () => {
   it("rewrites invite paths in paths and full URLs", () => {
     expect(scrubString("/einladung/abc123XYZ")).toBe("/einladung/[token]");
-    expect(scrubString("https://wichtelo.de/einladung/abc-_1?x=1#h")).toBe(
-      "https://wichtelo.de/einladung/[token]?x=1#h",
+    expect(scrubString("https://example.com/einladung/abc-_1?x=1#h")).toBe(
+      "https://example.com/einladung/[token]?x=1#h",
     );
     expect(scrubString("GET /einladung/abc123 failed")).toBe(
       "GET /einladung/[token] failed",
