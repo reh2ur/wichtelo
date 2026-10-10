@@ -3,6 +3,7 @@ import { notFound, redirect } from "next/navigation";
 import { getTranslations, getMessages } from "next-intl/server";
 import { resolveToken, type ResolvedInvite } from "@/lib/invite";
 import { createClient } from "@/lib/supabase/server";
+import { parseEmailLinkError } from "@/lib/auth/email-link";
 import {
   InviteAuthForm,
   InviteAcceptForm,
@@ -27,7 +28,11 @@ export default async function EinladungPage(
   return (
     <main className="mx-auto w-full max-w-lg px-4 py-16">
       <Suspense fallback={<InviteSkeleton />}>
-        <EinladungContent token={token} resolved={resolved} />
+        <EinladungContent
+          token={token}
+          resolved={resolved}
+          searchParams={props.searchParams}
+        />
       </Suspense>
     </main>
   );
@@ -36,11 +41,15 @@ export default async function EinladungPage(
 async function EinladungContent({
   token,
   resolved,
+  searchParams,
 }: {
   token: string;
   resolved: ResolvedInvite;
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
   const t = await getTranslations("invite");
+  // Set by the emailed-link confirm step (./magiclink) when it fails.
+  const linkError = parseEmailLinkError((await searchParams).error);
   const messages = await getMessages();
 
   const { group, adminName } = resolved;
@@ -120,7 +129,16 @@ async function EinladungContent({
               accountEmail={user?.email ?? ""}
             />
           ) : (
-            <InviteAuthForm token={token} />
+            <>
+              {linkError && (
+                <p role="alert" className="text-destructive mb-4 text-sm">
+                  {linkError === "rate_limited"
+                    ? t("errors.rateLimited")
+                    : t("errors.linkInvalid")}
+                </p>
+              )}
+              <InviteAuthForm token={token} />
+            </>
           )}
         </InviteProvider>
       )}

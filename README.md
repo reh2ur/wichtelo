@@ -70,7 +70,7 @@ Create an API key and verify your sending domain at resend.com. Supabase Auth ma
 | `ACCOUNT_DELETION_SECRET`                                                                     | production              | HMAC secret for deletion links, at least 32 chars           |
 | `OPERATOR_NAME`, `OPERATOR_ADDRESS_LINE1`, `OPERATOR_ADDRESS_LINE2`, `OPERATOR_CONTACT_EMAIL` | production              | Legally required Impressum (§ 5 DDG), shown on `/impressum` |
 | `SUPER_ADMIN_EMAIL`                                                                           | optional                | Account allowed into the `/admin` back-office               |
-| `UPSTASH_REDIS_REST_URL`, `UPSTASH_REDIS_REST_TOKEN`                                          | optional                | Rate limiting; all requests allowed when unset              |
+| `UPSTASH_REDIS_REST_URL`, `UPSTASH_REDIS_REST_TOKEN`                                          | production              | Rate limiting; requests unlimited when unset (dev/preview)  |
 | `SUPABASE_PROJECT_REF_LIVE`                                                                   | recommended on previews | E2E backdoors refuse to run against this project            |
 | `E2E_TEST_MODE`, `E2E_TEST_SECRET`                                                            | previews/local E2E only | Enables test-only endpoints. **Never set in production**    |
 
@@ -80,7 +80,7 @@ In production the app validates required variables at boot and fails with a list
 
 Any Node host works; the project is developed against Vercel. On Vercel: import the repo, set the variables above for Production (and Preview, pointing at a separate staging Supabase project), and add your domain. Keep Deployment Protection on for previews.
 
-Optional, add to your instance's Supabase dashboard: Auth → Email → turn **off** "Confirm email" so new users can sign in directly via OTP/magic link.
+Keep Auth → Email → **"Confirm email" ON** (`enable_confirmations = true`; `supabase config push` sets it). Off, anyone can create a confirmed account for any address via the password signup endpoint. Apply all migrations (`supabase db push`): `blank_auth_password` wipes any password written to `auth.users`, the app is OTP-only. Sign in once with `SUPER_ADMIN_EMAIL` before go-live so nobody else can claim that account first.
 
 ### Parts specific to the original deployment
 

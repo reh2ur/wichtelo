@@ -14,6 +14,8 @@ const prod = {
   RESEND_FROM_EMAIL: "a@b.de",
   NEXT_PUBLIC_SITE_URL: "https://wichtelo.example",
   ACCOUNT_DELETION_SECRET: "x".repeat(32),
+  UPSTASH_REDIS_REST_URL: "https://x.upstash.io",
+  UPSTASH_REDIS_REST_TOKEN: "t",
   OPERATOR_NAME: "Erika Mustermann",
   OPERATOR_ADDRESS_LINE1: "Musterstr. 1",
   OPERATOR_ADDRESS_LINE2: "12345 Musterstadt",
@@ -55,6 +57,25 @@ describe("env validation", () => {
         "ACCOUNT_DELETION_SECRET must be at least 32 characters",
       ]),
     );
+  });
+
+  it("requires Upstash credentials in production (rate limits fail open otherwise)", () => {
+    const { UPSTASH_REDIS_REST_URL, UPSTASH_REDIS_REST_TOKEN, ...rest } = prod;
+    void UPSTASH_REDIS_REST_URL;
+    void UPSTASH_REDIS_REST_TOKEN;
+    expect(envProblems(rest)).toEqual(
+      expect.arrayContaining([
+        "UPSTASH_REDIS_REST_URL is required",
+        "UPSTASH_REDIS_REST_TOKEN is required",
+      ]),
+    );
+  });
+
+  it("does not require Upstash in preview or dev", () => {
+    expect(
+      envProblems({ ...base, NODE_ENV: "production", VERCEL_ENV: "preview" }),
+    ).toEqual([]);
+    expect(envProblems({ ...base, NODE_ENV: "development" })).toEqual([]);
   });
 
   it("requires Impressum operator fields in production", () => {

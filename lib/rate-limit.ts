@@ -51,9 +51,19 @@ export const anmeldenOtpRequestIpLimiter = makeLimiter(
   30,
   "1 h",
 );
+// OTP *verify* limits: primary limiter keyed by normalized email (10/15 min)
+// caps guesses against one 6-digit code no matter how many IPs (or IPv6
+// addresses) the attacker has, and keeps a shared Wi-Fi/CGNAT IP from locking
+// everyone out. Looser per-IP backstop (30/15 min, IPv6 keyed by /64 in
+// getClientIp) stops one source spraying many addresses.
 export const anmeldenOtpVerifyLimiter = makeLimiter(
-  "otp-verify-anmelden",
-  5,
+  "otp-verify-anmelden-email",
+  10,
+  "15 m",
+);
+export const anmeldenOtpVerifyIpLimiter = makeLimiter(
+  "otp-verify-anmelden-ip",
+  30,
   "15 m",
 );
 export const inviteOtpRequestLimiter = makeLimiter(
@@ -67,10 +77,18 @@ export const inviteOtpRequestIpLimiter = makeLimiter(
   "1 h",
 );
 export const inviteOtpVerifyLimiter = makeLimiter(
-  "otp-verify-invite",
-  5,
+  "otp-verify-invite-email",
+  10,
   "15 m",
 );
+export const inviteOtpVerifyIpLimiter = makeLimiter(
+  "otp-verify-invite-ip",
+  30,
+  "15 m",
+);
+// Emailed-link confirm POST (/auth/callback, /einladung/[token]/magiclink):
+// no email known, token hash is high-entropy, so per-IP backstop only.
+export const linkConfirmIpLimiter = makeLimiter("link-confirm-ip", 30, "15 m");
 export const groupCreateLimiter = makeLimiter("group-create", 5, "24 h");
 export const drawTriggerLimiter = makeLimiter("draw-trigger", 10, "1 h");
 // Join/leave each email every admin — cap per user so an invite holder can't

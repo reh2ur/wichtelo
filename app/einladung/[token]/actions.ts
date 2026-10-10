@@ -20,8 +20,10 @@ import {
   inviteOtpRequestLimiter,
   inviteOtpRequestIpLimiter,
   inviteOtpVerifyLimiter,
+  inviteOtpVerifyIpLimiter,
   joinLeaveLimiter,
 } from "@/lib/rate-limit";
+import { isAuthRateLimitError } from "@/lib/supabase/auth-errors";
 
 export type RequestInviteOtpState =
   | { status: "idle" }
@@ -116,7 +118,19 @@ export async function requestInviteOtp(
     },
   });
   if (error) {
-    console.error("[requestInviteOtp] signInWithOtp failed:", error.message);
+    logger
+      .withMetadata({
+        status: error.status,
+        code: error.code,
+        message: error.message,
+      })
+      .error("invite.sign_in_otp_failed");
+    // Throttled (per-address max_frequency, project email quota, per-IP):
+    // tell the user to wait. No existence leak: a new address is throttled
+    // the same way as an existing one after its first request.
+    if (isAuthRateLimitError(error)) {
+      return { status: "error", error: "rate_limited", email };
+    }
     return { status: "error", error: "generic", email };
   }
   return { status: "otp_sent", email };
@@ -130,12 +144,20 @@ export async function verifyInviteOtp(
   const email = ((formData.get("email") as string) ?? "").trim();
   const otp = ((formData.get("otp") as string) ?? "").trim();
 
-  if (!otpSchema.safeParse(otp).success) {
+  if (
+    !otpSchema.safeParse(otp).success ||
+    !emailSchema.safeParse(email).success
+  ) {
     return { status: "error", error: "invalid_otp", email };
   }
 
+  // Per-email limit caps guesses at one code regardless of source IPs;
+  // per-IP backstop is looser so a shared Wi-Fi/CGNAT doesn't lock users out.
   const ip = await getClientIp();
-  if (!(await checkRateLimit(inviteOtpVerifyLimiter, ip))) {
+  if (
+    !(await checkRateLimit(inviteOtpVerifyIpLimiter, ip)) ||
+    !(await checkRateLimit(inviteOtpVerifyLimiter, email.toLowerCase()))
+  ) {
     return { status: "error", error: "rate_limited", email };
   }
 
@@ -152,6 +174,9 @@ export async function verifyInviteOtp(
   });
 
   if (verifyError) {
+    if (isAuthRateLimitError(verifyError)) {
+      return { status: "error", error: "rate_limited", email };
+    }
     return { status: "error", error: "invalid_otp", email };
   }
 

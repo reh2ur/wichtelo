@@ -2,6 +2,7 @@ import { createServerClient } from "@supabase/ssr";
 import { NextResponse, userAgent, type NextRequest } from "next/server";
 import { updateSession } from "@/lib/supabase/proxy";
 import { resolveToken } from "@/lib/invite";
+import { isSuperAdminEmail } from "@/lib/admin/super-admin-email";
 
 const INVITE_TOKEN_RE = /^\/einladung\/([^/]+)$/;
 
@@ -42,7 +43,7 @@ export async function proxy(request: NextRequest) {
     const {
       data: { user },
     } = await supabase.auth.getUser();
-    if (!user || user.email !== process.env.SUPER_ADMIN_EMAIL) {
+    if (!user || !isSuperAdminEmail(user.email)) {
       return new NextResponse(null, { status: 404 });
     }
   }
