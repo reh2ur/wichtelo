@@ -87,7 +87,9 @@ test.describe("group overview", () => {
   test("group named Neu gets a reachable slug", async ({ authedPage }) => {
     const { slug } = await setupGroup(authedPage, "Neu");
     expect(slug).toMatch(/^neu-gruppe/);
-    await expect(authedPage.locator("h1")).toContainText("Neu");
+    await expect(
+      authedPage.getByRole("heading", { name: "Neu", exact: true }),
+    ).toBeVisible();
     // Not the create form
     await expect(authedPage.locator("#name")).toHaveCount(0);
   });
