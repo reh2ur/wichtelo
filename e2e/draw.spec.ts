@@ -641,7 +641,14 @@ test.describe("re-draw after a member deleted their account (#18)", () => {
 
     // Re-draw succeeds and drops the ghost.
     await authedPage.goto(`/gruppen/${slug}`);
-    await authedPage.locator('button:has-text("Neu auslosen")').click();
+    // Let the page settle: a click while content still shifts can land under
+    // the sticky header.
+    await expect(authedPage.locator("text=Zuweisung nachschlagen")).toBeVisible(
+      { timeout: 15_000 },
+    );
+    const redrawBtn = authedPage.locator('button:has-text("Neu auslosen")');
+    await redrawBtn.scrollIntoViewIfNeeded();
+    await redrawBtn.click();
     await authedPage.locator('button:has-text("Wiederholen")').click();
     await expect(
       authedPage.locator("text=Auslosung wirklich wiederholen?"),
