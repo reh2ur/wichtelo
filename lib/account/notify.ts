@@ -23,6 +23,7 @@ export async function notifyAccountDeleted(
     await notify({
       type: "account.deletion_admin_notice",
       groupName: group.name,
+      participantName: group.participantName,
       adminEmails: group.adminEmails,
       postDraw: true,
     });
@@ -32,6 +33,7 @@ export async function notifyAccountDeleted(
     await notify({
       type: "account.deletion_admin_notice",
       groupName: group.name,
+      participantName: group.participantName,
       adminEmails: group.adminEmails,
       postDraw: false,
     });

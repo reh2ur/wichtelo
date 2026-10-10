@@ -8,6 +8,8 @@ export interface AffectedDrawnGroup {
   groupId: string;
   name: string;
   slug: string;
+  /** Deleted member's `name_snapshot` in this group. */
+  participantName: string;
   adminEmails: string[];
 }
 
@@ -95,6 +97,7 @@ export async function isDeletionNonceCurrent(
 interface MembershipRow {
   id: string;
   group_id: string;
+  name_snapshot: string;
   groups: { id: string; name: string; slug: string; state: string } | null;
 }
 
@@ -190,7 +193,7 @@ export async function deleteAccount(
 
   const { data: membershipsRaw } = await admin
     .from("memberships")
-    .select("id, group_id, groups(id, name, slug, state)")
+    .select("id, group_id, name_snapshot, groups(id, name, slug, state)")
     .eq("profile_id", userId);
 
   const memberships = (membershipsRaw ?? []) as unknown as MembershipRow[];
@@ -200,6 +203,7 @@ export async function deleteAccount(
     groupId: m.groups!.id,
     name: m.groups!.name,
     slug: m.groups!.slug,
+    participantName: m.name_snapshot,
     adminEmails: await collectAdminEmails(admin, m.groups!.id, userId),
   });
 

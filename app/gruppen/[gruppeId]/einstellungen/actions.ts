@@ -347,7 +347,7 @@ export async function removeMember(
         result.error === "group_not_found" ? "group_not_found" : "not_admin",
     };
   }
-  const { group, admin } = result;
+  const { group, admin, userId } = result;
 
   const { data: targetRaw } = await admin
     .from("memberships")
@@ -395,13 +395,13 @@ export async function removeMember(
       target.profile_id,
     );
     if (userData?.user?.email) {
+      const contact = await resolveGroupContact(admin, group.id, userId);
       await notify({
-        type: "participant.left",
+        type: "participant.removed",
         groupName: group.name,
-        participantName: target.name_snapshot,
         participantEmail: userData.user.email,
-        postDraw: group.state === "drawn",
-        adminEmails: [],
+        adminName: contact?.name ?? null,
+        adminEmail: contact?.email ?? null,
       });
     }
   }
@@ -492,7 +492,8 @@ export async function deleteGroup(
           name_snapshot: string;
         }[]
       ).map(async (m) => {
-        if (!m.profile_id) return null;
+        // The acting admin just deleted the group; no mail to themself.
+        if (!m.profile_id || m.profile_id === userId) return null;
         const { data: userData } = await admin.auth.admin.getUserById(
           m.profile_id,
         );

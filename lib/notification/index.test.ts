@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 
 const sendMock = vi.fn();
 const batchSendMock = vi.fn();
@@ -22,7 +22,8 @@ vi.mock("@/lib/logger", () => ({
   logger: { withMetadata: (...args: unknown[]) => withMetadataMock(...args) },
 }));
 
-import { notify } from "./index";
+import { notify, MAX_ATTEMPTS, RETRY_BASE_DELAY_MS } from "./index";
+import { ParticipantRemovedEmail } from "@/emails/participant-removed";
 import { DrawAssignmentEmail } from "@/emails/draw-assignment";
 import { GroupDeletedEmail } from "@/emails/group-deleted";
 import { ParticipantJoinedEmail } from "@/emails/participant-joined";
@@ -253,7 +254,7 @@ describe("notify", () => {
     expect(payload.react.props.adminName).toBeNull();
   });
 
-  it("participant.joined: notifies all admins in one email", async () => {
+  it("participant.joined: one separate mail per admin (no shared To:)", async () => {
     await notify({
       type: "participant.joined",
       groupName: "Familie Muster",
@@ -261,11 +262,14 @@ describe("notify", () => {
       adminEmails: ["anna@example.com", "bert@example.com"],
     });
 
-    expect(sendMock).toHaveBeenCalledTimes(1);
-    const [payload] = sendMock.mock.calls[0];
-    expect(payload.to).toEqual(["anna@example.com", "bert@example.com"]);
-    expect(payload.react.type).toBe(ParticipantJoinedEmail);
-    expect(payload.react.props.participantName).toBe("Max Mustermann");
+    expect(batchSendMock).toHaveBeenCalledTimes(1);
+    const [payloads] = batchSendMock.mock.calls[0];
+    expect(payloads.map((p: { to: unknown }) => p.to)).toEqual([
+      "anna@example.com",
+      "bert@example.com",
+    ]);
+    expect(payloads[0].react.type).toBe(ParticipantJoinedEmail);
+    expect(payloads[0].react.props.participantName).toBe("Max Mustermann");
   });
 
   it("participant.joined: sends nothing when there are no admins", async () => {
@@ -295,9 +299,48 @@ describe("notify", () => {
     expect(payloads).toHaveLength(2);
     expect(payloads[0].to).toBe("max@example.com");
     expect(payloads[0].react.type).toBe(ParticipantLeftConfirmationEmail);
-    expect(payloads[1].to).toEqual(["anna@example.com"]);
+    expect(payloads[1].to).toBe("anna@example.com");
     expect(payloads[1].react.type).toBe(ParticipantLeftAdminNoticeEmail);
     expect(payloads[1].react.props.postDraw).toBe(true);
+  });
+
+  it("participant.left: one admin notice per admin", async () => {
+    await notify({
+      type: "participant.left",
+      groupName: "Familie Muster",
+      participantName: "Max Mustermann",
+      participantEmail: "max@example.com",
+      postDraw: false,
+      adminEmails: ["anna@example.com", "bert@example.com"],
+    });
+
+    const [payloads] = batchSendMock.mock.calls[0];
+    expect(payloads.map((p: { to: unknown }) => p.to)).toEqual([
+      "max@example.com",
+      "anna@example.com",
+      "bert@example.com",
+    ]);
+  });
+
+  it("participant.removed: removed person gets removal mail (not the left confirmation) with admin contact", async () => {
+    await notify({
+      type: "participant.removed",
+      groupName: "Familie Muster",
+      participantEmail: "max@example.com",
+      adminName: "Anna Admin",
+      adminEmail: "anna@example.com",
+    });
+
+    expect(sendMock).toHaveBeenCalledTimes(1);
+    const [payload] = sendMock.mock.calls[0];
+    expect(payload.to).toBe("max@example.com");
+    expect(payload.subject).toContain("entfernt");
+    expect(payload.react.type).toBe(ParticipantRemovedEmail);
+    expect(payload.react.type).not.toBe(ParticipantLeftConfirmationEmail);
+    expect(payload.react.props).toMatchObject({
+      adminName: "Anna Admin",
+      adminEmail: "anna@example.com",
+    });
   });
 
   it("participant.left: only confirms participant when there are no admins", async () => {
@@ -362,21 +405,28 @@ describe("notify", () => {
     await notify({
       type: "account.deletion_admin_notice",
       groupName: "Familie Muster",
-      adminEmails: ["anna@example.com"],
+      participantName: "Max Mustermann",
+      adminEmails: ["anna@example.com", "bert@example.com"],
       postDraw: false,
     });
 
-    expect(sendMock).toHaveBeenCalledTimes(1);
-    const [payload] = sendMock.mock.calls[0];
-    expect(payload.to).toEqual(["anna@example.com"]);
-    expect(payload.react.type).toBe(AccountDeletionAdminNoticeEmail);
-    expect(payload.react.props.postDraw).toBe(false);
+    const [payloads] = batchSendMock.mock.calls[0];
+    expect(payloads.map((p: { to: unknown }) => p.to)).toEqual([
+      "anna@example.com",
+      "bert@example.com",
+    ]);
+    expect(payloads[0].react.type).toBe(AccountDeletionAdminNoticeEmail);
+    expect(payloads[0].react.props).toMatchObject({
+      postDraw: false,
+      participantName: "Max Mustermann",
+    });
   });
 
   it("account.deletion_admin_notice: sends nothing when there are no admins", async () => {
     await notify({
       type: "account.deletion_admin_notice",
       groupName: "Familie Muster",
+      participantName: "Max Mustermann",
       adminEmails: [],
       postDraw: true,
     });
@@ -405,5 +455,88 @@ describe("notify", () => {
     expect(metadata.eventType).toBe("account.deletion_confirmed");
     expect(metadata.reason).toContain("boom");
     expect(JSON.stringify(metadata)).not.toContain("max@example.com");
+  });
+});
+
+describe("notify retry", () => {
+  const one = {
+    type: "account.deletion_confirmed" as const,
+    to: "max@example.com",
+    name: "Max",
+  };
+
+  beforeEach(() => {
+    vi.useFakeTimers();
+  });
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it("retries 429 with backoff and succeeds", async () => {
+    sendMock
+      .mockResolvedValueOnce({
+        data: null,
+        error: { message: "rate", statusCode: 429 },
+      })
+      .mockResolvedValueOnce({
+        data: null,
+        error: { message: "oops", statusCode: 503 },
+      })
+      .mockResolvedValueOnce({ data: { id: "e" }, error: null });
+
+    const promise = notify(one);
+    await vi.advanceTimersByTimeAsync(
+      RETRY_BASE_DELAY_MS + RETRY_BASE_DELAY_MS * 2,
+    );
+    await expect(promise).resolves.toEqual({ sent: 1, failed: 0 });
+    expect(sendMock).toHaveBeenCalledTimes(3);
+  });
+
+  it("gives up after MAX_ATTEMPTS and counts the chunk failed", async () => {
+    sendMock.mockResolvedValue({
+      data: null,
+      error: { message: "down", statusCode: 500 },
+    });
+    const promise = notify(one);
+    await vi.advanceTimersByTimeAsync(60_000);
+    await expect(promise).resolves.toEqual({ sent: 0, failed: 1 });
+    expect(sendMock).toHaveBeenCalledTimes(MAX_ATTEMPTS);
+  });
+
+  it("does not retry 4xx validation errors", async () => {
+    sendMock.mockResolvedValue({
+      data: null,
+      error: { message: "bad", statusCode: 422 },
+    });
+    await expect(notify(one)).resolves.toEqual({ sent: 0, failed: 1 });
+    expect(sendMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("reuses the same idempotency key across retries", async () => {
+    sendMock
+      .mockResolvedValueOnce({
+        data: null,
+        error: { message: "rate", statusCode: 429 },
+      })
+      .mockResolvedValueOnce({ data: { id: "e" }, error: null });
+    const promise = notify({
+      type: "draw.completed",
+      groupId: "g1",
+      drawKey: "2",
+      groupName: "X",
+      groupSlug: "x",
+      year: 2026,
+      adminName: null,
+      adminEmail: null,
+      assignments: [
+        { to: "a@example.com", giverName: "A", receiverDisplayName: "B" },
+      ],
+    });
+    await vi.advanceTimersByTimeAsync(RETRY_BASE_DELAY_MS);
+    await promise;
+    expect(sendMock.mock.calls.map((c) => c[1])).toEqual([
+      { idempotencyKey: "draw.completed:g1:2:0" },
+      { idempotencyKey: "draw.completed:g1:2:0" },
+    ]);
   });
 });

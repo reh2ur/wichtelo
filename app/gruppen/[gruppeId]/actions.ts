@@ -12,18 +12,16 @@ import {
   type Assignment,
   type ExclusionPair,
 } from "@/lib/draw";
-import {
-  abbreviateNames,
-  membersFromMemberships,
-} from "@/lib/name-abbreviator";
 import { getGroupAdminEmails, resolveGroupContact } from "@/lib/group-admins";
-import {
-  notify,
-  type DrawAssignmentRecipient,
-  type NotifyResult,
-} from "@/lib/notification";
+import { notify, type NotifyResult } from "@/lib/notification";
 import { logger } from "@/lib/logger";
 import { removeMembership } from "@/lib/membership";
+import {
+  buildDrawAssignmentRecipients,
+  postDrawVersion,
+  resendEventType,
+  type MembershipRow,
+} from "@/lib/draw-mail";
 import {
   checkRateLimit,
   drawTriggerLimiter,
@@ -156,90 +154,9 @@ export type DrawState =
         | "rate_limited";
     };
 
-interface MembershipRow {
-  id: string;
-  role: "participant" | "admin";
-  profile_id: string | null;
-  name_snapshot: string;
-  first_name_snapshot: string | null;
-  last_name_snapshot: string | null;
-}
-
 interface ExclusionRow {
   member_a: string;
   member_b: string;
-}
-
-/**
- * Builds the per-participant email recipient list for a draw/re-draw:
- * resolves each giver's email address and each receiver's abbreviated
- * display name (same abbreviation shown on the group page).
- */
-async function buildDrawAssignmentRecipients(
-  admin: ReturnType<typeof createAdminClient>,
-  memberRows: MembershipRow[],
-  assignment: Assignment,
-): Promise<DrawAssignmentRecipient[]> {
-  const profileIds = memberRows
-    .map((m) => m.profile_id)
-    .filter((id): id is string => !!id);
-
-  const profilesById = new Map<
-    string,
-    { first_name: string; last_name: string }
-  >();
-  if (profileIds.length > 0) {
-    const { data } = await admin
-      .from("profiles")
-      .select("id, first_name, last_name")
-      .in("id", profileIds);
-    for (const p of (data ?? []) as {
-      id: string;
-      first_name: string;
-      last_name: string;
-    }[]) {
-      profilesById.set(p.id, p);
-    }
-  }
-
-  const receiverDisplayById = new Map(
-    abbreviateNames(membersFromMemberships(memberRows, profilesById)).map(
-      (d) => [d.id, d.displayName],
-    ),
-  );
-
-  const emailByMembershipId = new Map<string, string>();
-  // Parallel lookups: sequential getUserById per member risks serverless timeouts.
-  await Promise.all(
-    memberRows.map(async (m) => {
-      if (!m.profile_id) return;
-      const { data: userData } = await admin.auth.admin.getUserById(
-        m.profile_id,
-      );
-      if (userData?.user?.email) {
-        emailByMembershipId.set(m.id, userData.user.email);
-      }
-    }),
-  );
-
-  const memberById = new Map(memberRows.map((m) => [m.id, m]));
-  const recipients: DrawAssignmentRecipient[] = [];
-  // Sorted by giver: payload (and thus Resend idempotency chunks) must be
-  // identical on resend, independent of Map insertion order.
-  const sortedPairs = Array.from(assignment.entries()).sort(([a], [b]) =>
-    a < b ? -1 : a > b ? 1 : 0,
-  );
-  for (const [giverId, receiverId] of sortedPairs) {
-    const to = emailByMembershipId.get(giverId);
-    const receiverDisplayName = receiverDisplayById.get(receiverId);
-    if (!to || !receiverDisplayName) continue;
-    recipients.push({
-      to,
-      giverName: memberById.get(giverId)?.name_snapshot ?? "",
-      receiverDisplayName,
-    });
-  }
-  return recipients;
 }
 
 export async function triggerDraw(
@@ -372,6 +289,10 @@ export async function triggerDraw(
     return { status: "error", error: "generic" };
   }
 
+  // Expire the cached shell right away: the DB is `drawn` now, and a timeout
+  // in the mail steps below must not leave "open" + draw button cached.
+  updateTag(groupTag(slug));
+
   logger
     .withMetadata({ groupId, from: "open", to: "drawn" })
     .info("group.state_changed");
@@ -380,15 +301,12 @@ export async function triggerDraw(
     .info("draw.succeeded");
 
   const contact = await resolveGroupContact(admin, groupId, user.id);
-  const assignments = await buildDrawAssignmentRecipients(
-    admin,
-    memberRows,
-    assignment,
-  );
+  const { recipients: assignments, skipped } =
+    await buildDrawAssignmentRecipients(admin, memberRows, assignment);
   const emailResult: NotifyResult = await notify({
     type: "draw.completed",
     groupId,
-    drawKey: String(group.draw_version),
+    drawKey: String(postDrawVersion(group.draw_version as number)),
     groupName: group.name as string,
     groupSlug: slug,
     year: group.year as number,
@@ -397,12 +315,10 @@ export async function triggerDraw(
     assignments,
   });
 
-  updateTag(groupTag(slug));
-
   return {
     status: "success",
-    emailsFailed: emailResult.failed,
-    emailsTotal: emailResult.sent + emailResult.failed,
+    emailsFailed: emailResult.failed + skipped,
+    emailsTotal: emailResult.sent + emailResult.failed + skipped,
   };
 }
 
@@ -553,20 +469,19 @@ export async function retriggerDraw(
     return { status: "error", error: "generic" };
   }
 
+  updateTag(groupTag(slug));
+
   logger
     .withMetadata({ groupId, participantCount: memberRows.length })
     .info("draw.retrigger_succeeded");
 
   const contact = await resolveGroupContact(admin, groupId, user.id);
-  const assignments = await buildDrawAssignmentRecipients(
-    admin,
-    memberRows,
-    assignment,
-  );
+  const { recipients: assignments, skipped } =
+    await buildDrawAssignmentRecipients(admin, memberRows, assignment);
   const emailResult: NotifyResult = await notify({
     type: "draw.redrawn",
     groupId,
-    drawKey: String(group.draw_version),
+    drawKey: String(postDrawVersion(group.draw_version as number)),
     groupName: group.name as string,
     groupSlug: slug,
     year: group.year as number,
@@ -575,12 +490,10 @@ export async function retriggerDraw(
     assignments,
   });
 
-  updateTag(groupTag(slug));
-
   return {
     status: "success",
-    emailsFailed: emailResult.failed,
-    emailsTotal: emailResult.sent + emailResult.failed,
+    emailsFailed: emailResult.failed + skipped,
+    emailsTotal: emailResult.sent + emailResult.failed + skipped,
   };
 }
 
@@ -689,7 +602,7 @@ export type ResendDrawEmailsState =
 
 /**
  * Re-sends draw emails for the current draw after a partial failure. Uses the
- * same idempotency keys as the original send (group + draw_version + chunk),
+ * same idempotency keys as the original send (group + post-draw draw_version + chunk)
  * so Resend returns the stored result for chunks already delivered (within its
  * 24h key window) and only genuinely failed chunks go out again.
  */
@@ -756,16 +669,21 @@ export async function resendDrawEmails(
   );
 
   const contact = await resolveGroupContact(admin, groupId, user.id);
-  const assignments = await buildDrawAssignmentRecipients(
-    admin,
-    (memberships ?? []) as MembershipRow[],
-    assignment,
-  );
+  const { recipients: assignments, skipped } =
+    await buildDrawAssignmentRecipients(
+      admin,
+      (memberships ?? []) as MembershipRow[],
+      assignment,
+    );
+  // Here `draw_version` is already the post-draw value (first draw = 1), the
+  // same one trigger/re-draw keyed their sends with. Anything above 1 means a
+  // re-draw happened, so the redrawn template applies.
+  const drawVersion = group.draw_version as number;
   const emailResult: NotifyResult = await notify({
-    type: "draw.completed",
+    type: resendEventType(drawVersion),
     groupId,
     groupSlug: slug,
-    drawKey: String(group.draw_version),
+    drawKey: String(drawVersion),
     groupName: group.name as string,
     year: group.year as number,
     adminName: contact?.name ?? null,
@@ -783,7 +701,7 @@ export async function resendDrawEmails(
 
   return {
     status: "success",
-    emailsFailed: emailResult.failed,
-    emailsTotal: emailResult.sent + emailResult.failed,
+    emailsFailed: emailResult.failed + skipped,
+    emailsTotal: emailResult.sent + emailResult.failed + skipped,
   };
 }

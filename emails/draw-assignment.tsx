@@ -27,7 +27,11 @@ export function DrawAssignmentEmail({
 
   return (
     <WichtelLayout
-      preview={`${groupName}: Die Auslosung ist da – öffne die E-Mail, um zu sehen, wen du beschenkst.`}
+      preview={
+        isRedraw
+          ? `${groupName}: Neue Auslosung – öffne die E-Mail, um zu sehen, wen du jetzt beschenkst.`
+          : `${groupName}: Die Auslosung ist da – öffne die E-Mail, um zu sehen, wen du beschenkst.`
+      }
       heading={heading}
     >
       <Text style={text}>Hallo {giverName},</Text>

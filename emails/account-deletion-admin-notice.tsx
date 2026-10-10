@@ -4,22 +4,25 @@ import { box, muted, text } from "./components/theme";
 
 export interface AccountDeletionAdminNoticeEmailProps {
   groupName: string;
+  /** Name of the member whose account was deleted. */
+  participantName: string;
   /** Group already drawn: name stays, re-draw may be needed. Open: member removed. */
   postDraw: boolean;
 }
 
 export function AccountDeletionAdminNoticeEmail({
   groupName,
+  participantName,
   postDraw,
 }: AccountDeletionAdminNoticeEmailProps) {
   return (
     <WichtelLayout
-      preview={`Teilnehmer hat Konto gelöscht – ${groupName}`}
+      preview={`${participantName} hat das Konto gelöscht – ${groupName}`}
       heading="Teilnehmer hat Konto gelöscht"
     >
       <Text style={text}>
-        Ein Teilnehmer deiner Gruppe <strong>{groupName}</strong> hat sein Konto
-        gelöscht.{" "}
+        <strong>{participantName}</strong> aus deiner Gruppe{" "}
+        <strong>{groupName}</strong> hat das Konto gelöscht.{" "}
         {postDraw
           ? "Da die Auslosung bereits stattgefunden hat, ist möglicherweise eine manuelle Aktion erforderlich."
           : "Die Person wurde aus der Gruppe entfernt und nimmt an der Auslosung nicht teil."}
