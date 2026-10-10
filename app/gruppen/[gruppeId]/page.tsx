@@ -4,12 +4,12 @@ import { groupTag } from "@/lib/cache-tags";
 import { getTranslations } from "next-intl/server";
 import { notFound } from "next/navigation";
 import Link from "next/link";
-import { headers } from "next/headers";
 import { ArrowLeftIcon, InfoIcon } from "@phosphor-icons/react/ssr";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 import { getUser } from "@/lib/auth/get-user";
 import { getOrCreateToken } from "@/lib/invite";
+import { buildInviteUrl, getSiteUrl } from "@/lib/site-url";
 import {
   abbreviateNames,
   membersFromMemberships,
@@ -169,15 +169,8 @@ async function GruppeDetailContent({
 
   let inviteUrl: string | null = null;
   if (isAdmin && g.state === "open") {
-    const headersList = await headers();
-    const host =
-      headersList.get("x-forwarded-host") ??
-      headersList.get("host") ??
-      "localhost:3000";
-    const proto = headersList.get("x-forwarded-proto") ?? "http";
-    const origin = `${proto}://${host.replace("127.0.0.1", "localhost")}`;
     const token = await getOrCreateToken(g.id);
-    inviteUrl = `${origin}/einladung/${token}`;
+    inviteUrl = buildInviteUrl(await getSiteUrl(), token);
   }
 
   return (

@@ -1,4 +1,4 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi, afterEach } from "vitest";
 import { resolveSiteUrl } from "./site-url";
 
 describe("resolveSiteUrl", () => {
@@ -38,5 +38,31 @@ describe("resolveSiteUrl", () => {
 
   it("dev falls back to localhost:3000", () => {
     expect(resolveSiteUrl({ production: false })).toBe("http://localhost:3000");
+  });
+});
+
+describe("getSiteUrl / buildInviteUrl", () => {
+  afterEach(() => {
+    vi.unstubAllEnvs();
+    vi.resetModules();
+    vi.doUnmock("next/headers");
+  });
+
+  it("production invite URL uses canonical origin, not the request host", async () => {
+    vi.stubEnv("NODE_ENV", "production");
+    vi.stubEnv("VERCEL_ENV", "production");
+    vi.stubEnv("NEXT_PUBLIC_SITE_URL", "https://wichtelo.example");
+    vi.doMock("next/headers", () => ({
+      headers: async () =>
+        new Headers({
+          host: "alias.vercel.app",
+          "x-forwarded-host": "alias.vercel.app",
+          "x-forwarded-proto": "https",
+        }),
+    }));
+    const { getSiteUrl, buildInviteUrl } = await import("./site-url");
+    expect(buildInviteUrl(await getSiteUrl(), "tok")).toBe(
+      "https://wichtelo.example/einladung/tok",
+    );
   });
 });
