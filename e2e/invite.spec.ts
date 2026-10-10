@@ -72,10 +72,13 @@ test.describe("invite page", () => {
     await guestCtx.close();
   });
 
-  test("invalid token shows not-found page", async ({ page }) => {
-    // notFound() is called inside <Suspense> with PPR streaming, so the HTTP
-    // status is 200 (headers already sent). Check content instead.
-    await page.goto("/einladung/00000000-0000-0000-0000-000000000000");
+  test("invalid token shows not-found page with 404 status", async ({
+    page,
+  }) => {
+    const response = await page.goto(
+      "/einladung/00000000-0000-0000-0000-000000000000",
+    );
+    expect(response?.status()).toBe(404);
     await expect(page.locator("h1")).toContainText("Ungültiger Einladungslink");
   });
 

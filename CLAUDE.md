@@ -82,6 +82,10 @@ Full design spec (palette, tokens, components, icon rules) in **`docs/design.md`
 
 `updateTag` only valid in Server Actions, not route handlers — keep mutations as actions (account-deletion confirm already is one).
 
+**Real 404 status.** `notFound()` after streaming starts = HTTP 200 (status already fixed), `noindex` tag only. Root layout's `Nav` suspends every request (uncached session cookie read) — under `cacheComponents`, its Suspense fallback flush starts the response and fixes status 200 before ANY page-level check gets a turn, no matter where that check sits (page body, `generateMetadata` — tried both, verified both fail in a real `next build && next start`; `next dev` hides this, don't trust it for this class of bug). `generateMetadata`'s per-request data does NOT get special before-streaming treatment here: under `cacheComponents` it just joins the same deferred/streamed bucket as the rest of the page (confirmed in Next's own docs: "If other parts also defer to request time: ... metadata streams in with other deferred content").
+
+Fix lives in **`proxy.ts` / `lib/supabase/proxy.ts`**, which runs before any React rendering, so there's no Suspense to race: `/einladung/[token]` checks `resolveToken` and rewrites bad tokens to the fully-static `/einladung/ungueltig` page (shares `app/einladung/not-found.tsx`'s "Ungültiger Einladungslink" copy via `notFound()` bubbling); `/gruppen/[slug]` and `.../einstellungen` check group existence + (detail page only) membership and rewrite to `/__not_found__` (matches no route → Next's own generic 404 takes over, same as a truly unmatched URL). Page-level `notFound()` checks (`export const instant = false` above `<Suspense>`) stay as defense in depth, not as the actual guarantee. New dynamic-slug pages needing a real 404 must add their check in proxy, not just the page.
+
 **`/gruppen` list page fully dynamic** — reads cookies via `createClient()`, renders fresh per request. No `use cache`, no tag, no invalidation needed.
 
 **Assignments never cached** — fetched dynamically via user-scoped `createClient()` so RLS restricts each user to own row.

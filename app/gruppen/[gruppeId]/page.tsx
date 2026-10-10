@@ -77,10 +77,24 @@ function StateBadge({
   );
 }
 
+// Blocking route: existence + membership checks run before streaming so
+// unknown groups and non-members get a real 404 status. The actual real-404
+// guarantee comes from proxy.ts (lib/supabase/proxy.ts), which rewrites
+// unknown slugs / non-members before any rendering starts — this check is
+// defense in depth for direct hits that somehow bypass that.
+export const instant = false;
+
 export default async function GruppeDetailPage(
   props: PageProps<"/gruppen/[gruppeId]">,
 ) {
+  const { gruppeId } = await props.params;
   const t = await getTranslations("groupDetail");
+  const user = (await getUser())!;
+
+  const data = await fetchGroupData(gruppeId);
+  if (!data) notFound();
+  const myMembership = data.members.find((m) => m.profile_id === user.id);
+  if (!myMembership) notFound();
 
   return (
     <main className="mx-auto w-full max-w-2xl px-4 py-8">
@@ -95,7 +109,7 @@ export default async function GruppeDetailPage(
       </div>
 
       <Suspense fallback={<GroupDetailSkeleton />}>
-        <GruppeDetailContent params={props.params} />
+        <GruppeDetailContent data={data} myMembership={myMembership} />
       </Suspense>
     </main>
   );
@@ -148,21 +162,17 @@ async function fetchGroupData(slug: string) {
   return { group: group as Group, members, displayNames };
 }
 
+type GroupData = NonNullable<Awaited<ReturnType<typeof fetchGroupData>>>;
+
 async function GruppeDetailContent({
-  params,
+  data,
+  myMembership,
 }: {
-  params: Promise<{ gruppeId: string }>;
+  data: GroupData;
+  myMembership: Member;
 }) {
-  const { gruppeId } = await params;
   const t = await getTranslations("groupDetail");
-  const user = (await getUser())!;
-
-  const data = await fetchGroupData(gruppeId);
-  if (!data) notFound();
-
   const { group: g, members, displayNames } = data;
-  const myMembership = members.find((m) => m.profile_id === user.id);
-  if (!myMembership) notFound();
 
   const isAdmin = myMembership.role === "admin";
   const displayNameById = new Map(displayNames);

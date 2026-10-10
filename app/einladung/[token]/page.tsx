@@ -1,7 +1,7 @@
 import { Suspense } from "react";
 import { notFound, redirect } from "next/navigation";
 import { getTranslations, getMessages } from "next-intl/server";
-import { resolveToken } from "@/lib/invite";
+import { resolveToken, type ResolvedInvite } from "@/lib/invite";
 import { createClient } from "@/lib/supabase/server";
 import {
   InviteAuthForm,
@@ -10,27 +10,38 @@ import {
 } from "./invite-form";
 import { InviteSkeleton } from "./invite-skeleton";
 
-export default function EinladungPage(props: PageProps<"/einladung/[token]">) {
+// Blocking route: token check runs before streaming so invalid tokens get a
+// real 404. The actual real-404 guarantee comes from proxy.ts, which
+// rewrites invalid tokens to /einladung/ungueltig before any rendering
+// starts — this check is defense in depth for direct hits that bypass that.
+export const instant = false;
+
+export default async function EinladungPage(
+  props: PageProps<"/einladung/[token]">,
+) {
+  const { token } = await props.params;
+  // Resolve before the Suspense boundary: notFound() here still sets a real 404.
+  const resolved = await resolveToken(token);
+  if (!resolved) notFound();
+
   return (
     <main className="mx-auto w-full max-w-lg px-4 py-16">
       <Suspense fallback={<InviteSkeleton />}>
-        <EinladungContent params={props.params} />
+        <EinladungContent token={token} resolved={resolved} />
       </Suspense>
     </main>
   );
 }
 
 async function EinladungContent({
-  params,
+  token,
+  resolved,
 }: {
-  params: Promise<{ token: string }>;
+  token: string;
+  resolved: ResolvedInvite;
 }) {
-  const { token } = await params;
   const t = await getTranslations("invite");
   const messages = await getMessages();
-
-  const resolved = await resolveToken(token);
-  if (!resolved) notFound();
 
   const { group, adminName } = resolved;
 
