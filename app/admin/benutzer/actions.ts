@@ -5,7 +5,8 @@ import { updateTag } from "next/cache";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { isSuperAdmin } from "@/lib/admin/require-super-admin";
 import { logAdminAction } from "@/lib/admin/audit";
-import { deleteAccount } from "@/lib/account";
+import { deleteAccount, findSoleAdminGroups } from "@/lib/account";
+import { notifyAccountDeleted } from "@/lib/account/notify";
 import { logger } from "@/lib/logger";
 import { serializeError } from "@/lib/serialize-error";
 import { groupTag } from "@/lib/cache-tags";
@@ -88,7 +89,12 @@ export async function unbanUser(
 
 export type DeleteUserState =
   | { status: "idle" }
-  | { status: "error"; error: "not_admin" | "user_not_found" | "generic" };
+  | {
+      status: "error";
+      error: "not_admin" | "user_not_found" | "sole_admin" | "generic";
+      /** Groups the user is the only live admin of (only with `sole_admin`). */
+      groups?: string[];
+    };
 
 export async function deleteUser(
   _prev: DeleteUserState,
@@ -106,9 +112,29 @@ export async function deleteUser(
   }
   const email = userData.user.email;
 
-  let affectedSlugs: string[];
+  // Same guard as self-service deletion: never leave a group without a live admin.
+  const soleAdminGroups = await findSoleAdminGroups(userId);
+  if (soleAdminGroups.length > 0) {
+    return {
+      status: "error",
+      error: "sole_admin",
+      groups: soleAdminGroups.map((g) => g.name),
+    };
+  }
+
+  // Captured before deletion: deleteAccount removes the profile row.
+  const { data: profile } = await admin
+    .from("profiles")
+    .select("first_name, last_name")
+    .eq("id", userId)
+    .single();
+  const name = profile
+    ? `${profile.first_name} ${profile.last_name}`
+    : (email ?? "");
+
+  let deleteResult;
   try {
-    ({ affectedSlugs } = await deleteAccount(userId));
+    deleteResult = await deleteAccount(userId);
   } catch (err) {
     logger
       .withMetadata({ userId, error: serializeError(err) })
@@ -116,7 +142,9 @@ export async function deleteUser(
     return { status: "error", error: "generic" };
   }
 
-  for (const slug of affectedSlugs) updateTag(groupTag(slug));
+  for (const slug of deleteResult.affectedSlugs) updateTag(groupTag(slug));
+
+  await notifyAccountDeleted(deleteResult, email, name);
 
   await logAdminAction("delete_user", "user", userId, { email });
   logger.withMetadata({ userId }).info("admin.user_deleted");

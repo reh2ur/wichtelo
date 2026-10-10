@@ -80,7 +80,11 @@ export function RedrawButtonClient({ slug }: { slug: string }) {
             ? t("errors.groupNotFound")
             : state.error === "rate_limited"
               ? t("errors.rateLimited")
-              : t("errors.generic")
+              : state.error === "not_enough_members"
+                ? t("errors.notEnoughMembers")
+                : state.error === "membership_changed"
+                  ? t("errors.membershipChanged")
+                  : t("errors.generic")
       : null;
 
   if (!confirming || state.status === "success") {

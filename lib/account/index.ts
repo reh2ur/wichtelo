@@ -1,6 +1,7 @@
 import { createHmac, randomBytes, timingSafeEqual } from "crypto";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { logger } from "@/lib/logger";
+import { removeMembership } from "@/lib/membership";
 import { isProductionDeploy } from "@/lib/env";
 
 export interface AffectedDrawnGroup {
@@ -213,21 +214,22 @@ export async function deleteAccount(
   const affectedOpenGroups: AffectedOpenGroup[] = openEntries.map(
     ({ group }) => group,
   );
-  const openMembershipIds = openEntries.map(({ m }) => m.id);
 
-  if (openMembershipIds.length > 0) {
-    // Remove open-group memberships BEFORE deleteUser: afterwards they would
-    // be profile_id = null rows that look like normal members and could be
-    // drawn (#244). A failure here aborts the deletion; user can retry.
-    const { error } = await admin
-      .from("memberships")
-      .delete()
-      .in("id", openMembershipIds);
-    if (error) {
+  // Remove open-group memberships BEFORE deleteUser: afterwards they would
+  // be profile_id = null rows that look like normal members and could be
+  // drawn (#244). Goes through the locking RPC: if a draw commits while we
+  // run, the removal is refused ("already_drawn") instead of cascading away
+  // two assignments, and the deletion aborts; user can retry (the group is
+  // then treated as drawn). Last-admin is guarded by the callers.
+  for (const { m } of openEntries) {
+    const { result, reason } = await removeMembership(admin, m.group_id, m.id, {
+      enforceLastAdmin: false,
+    });
+    if (result !== "ok" && result !== "member_not_found") {
       logger
-        .withMetadata({ userId, reason: error.message })
+        .withMetadata({ userId, result, reason })
         .error("account.open_membership_cleanup_failed");
-      throw error;
+      throw new Error(`open membership cleanup failed: ${result}`);
     }
   }
 

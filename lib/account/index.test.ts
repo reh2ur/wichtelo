@@ -9,6 +9,7 @@ import { createHmac } from "crypto";
 import { describe, it, expect, beforeAll, afterAll } from "vitest";
 import {
   deleteAccount,
+  findSoleAdminGroups,
   createDeletionToken,
   verifyDeletionToken,
 } from "./index";
@@ -206,6 +207,106 @@ describe.skipIf(!hasSupabase)("deleteAccount", () => {
     expect(left).toHaveLength(0);
 
     await supabase.auth.admin.deleteUser(thirdUserId).catch(() => {});
+  });
+
+  it("open group: removing the membership also cascades its exclusions", async () => {
+    const { data: u } = await supabase.auth.admin.createUser({
+      email: `account-deletion-excl-${Date.now()}@test.local`,
+      email_confirm: true,
+    });
+    const userId = u.user.id;
+    await supabase
+      .from("profiles")
+      .insert({ id: userId, first_name: "Excl", last_name: "Nutzer" });
+    const { data: group } = await supabase
+      .from("groups")
+      .insert({
+        slug: `open-excl-${Date.now()}`,
+        name: "Exclusion Gruppe",
+        state: "open",
+        created_by: adminUserId,
+        year: 2024,
+      })
+      .select("id")
+      .single();
+    const { data: members } = await supabase
+      .from("memberships")
+      .insert([
+        {
+          group_id: group.id,
+          profile_id: adminUserId,
+          name_snapshot: "Anna Admin",
+          role: "admin",
+        },
+        { group_id: group.id, profile_id: userId, name_snapshot: "Excl" },
+      ])
+      .select("id");
+    const [a, b] = [members[0].id, members[1].id].sort();
+    await supabase
+      .from("exclusions")
+      .insert({ group_id: group.id, member_a: a, member_b: b });
+
+    await deleteAccount(userId);
+
+    const { data: exclusions } = await supabase
+      .from("exclusions")
+      .select("id")
+      .eq("group_id", group.id);
+    expect(exclusions).toHaveLength(0);
+  });
+
+  it("findSoleAdminGroups lists only groups without another live admin", async () => {
+    const { data: u } = await supabase.auth.admin.createUser({
+      email: `account-sole-admin-${Date.now()}@test.local`,
+      email_confirm: true,
+    });
+    const soleId = u.user.id;
+    await supabase
+      .from("profiles")
+      .insert({ id: soleId, first_name: "Sole", last_name: "Admin" });
+
+    const mkGroup = async (slug: string) => {
+      const { data } = await supabase
+        .from("groups")
+        .insert({
+          slug: `${slug}-${Date.now()}`,
+          name: slug,
+          state: "open",
+          created_by: soleId,
+          year: 2024,
+        })
+        .select("id")
+        .single();
+      return data.id as string;
+    };
+    const solo = await mkGroup("sole-solo");
+    const shared = await mkGroup("sole-shared");
+    await supabase.from("memberships").insert([
+      {
+        group_id: solo,
+        profile_id: soleId,
+        name_snapshot: "Sole Admin",
+        role: "admin",
+      },
+      {
+        group_id: shared,
+        profile_id: soleId,
+        name_snapshot: "Sole Admin",
+        role: "admin",
+      },
+      {
+        group_id: shared,
+        profile_id: adminUserId,
+        name_snapshot: "Anna Admin",
+        role: "admin",
+      },
+    ]);
+
+    const result = await findSoleAdminGroups(soleId);
+    expect(result.map((g) => g.groupId)).toEqual([solo]);
+
+    await supabase.from("groups").delete().in("id", [solo, shared]);
+    await supabase.auth.admin.deleteUser(soleId).catch(() => {});
   });
 });
 

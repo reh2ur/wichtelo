@@ -1,6 +1,6 @@
 import { type BrowserContext, type Page } from "@playwright/test";
 import { expect, test } from "./fixtures";
-import { BASE_URL, browserExtraHeaders } from "./helpers";
+import { BASE_URL, browserExtraHeaders, testApiHeaders } from "./helpers";
 
 function guestContextOptions() {
   return {
@@ -571,5 +571,89 @@ test.describe("draw trigger", () => {
     } finally {
       await guestCtx.close();
     }
+  });
+});
+
+test.describe("re-draw after a member deleted their account (#18)", () => {
+  test("ghost is dropped and the new draw only contains live members", async ({
+    authedPage,
+    browser,
+  }) => {
+    const { slug, inviteUrl } = await setupGroup(authedPage, "Ghost Redraw");
+
+    const run = Date.now();
+    const ghostEmail = `e2e+ghost-d-${run}@example.com`;
+    const ctxs = [
+      await browser.newContext(guestContextOptions()),
+      await browser.newContext(guestContextOptions()),
+      await browser.newContext(guestContextOptions()),
+    ];
+    try {
+      await joinViaInvite(ctxs[0], inviteUrl, slug, {
+        firstName: "Bernd",
+        lastName: "Becker",
+        email: `e2e+ghost-b-${run}@example.com`,
+      });
+      await joinViaInvite(ctxs[1], inviteUrl, slug, {
+        firstName: "Clara",
+        lastName: "Conrad",
+        email: `e2e+ghost-c-${run}@example.com`,
+      });
+      await joinViaInvite(ctxs[2], inviteUrl, slug, {
+        firstName: "Dieter",
+        lastName: "Dahl",
+        email: ghostEmail,
+      });
+    } finally {
+      for (const c of ctxs) await c.close();
+    }
+
+    await authedPage.goto(`/gruppen/${slug}`);
+    await authedPage.locator('button:has-text("Auslosung starten")').click();
+    await expect(authedPage.locator("text=Zuweisung nachschlagen")).toBeVisible(
+      { timeout: 15_000 },
+    );
+
+    // Dieter deletes his account after the draw.
+    const tokenRes = await fetch(`${BASE_URL}/api/test/deletion-token`, {
+      method: "POST",
+      headers: testApiHeaders(),
+      body: JSON.stringify({ email: ghostEmail }),
+    });
+    expect(tokenRes.ok).toBe(true);
+    const { token } = (await tokenRes.json()) as { token: string };
+    const delCtx = await browser.newContext(guestContextOptions());
+    try {
+      const delPage = await delCtx.newPage();
+      await delPage.goto(`/konto/delete/confirm?token=${token}`);
+      await delPage
+        .locator('button:has-text("Konto endgültig löschen")')
+        .click();
+      await expect(delPage).toHaveURL(/\/\?deleted=1$/, { timeout: 10_000 });
+    } finally {
+      await delCtx.close();
+    }
+
+    // Admin sees the ghost in settings.
+    await authedPage.goto(`/gruppen/${slug}/einstellungen`);
+    await expect(authedPage.locator("#name")).toBeVisible();
+    await expect(authedPage.locator("text=Konto gelöscht")).toBeVisible();
+
+    // Re-draw succeeds and drops the ghost.
+    await authedPage.goto(`/gruppen/${slug}`);
+    await authedPage.locator('button:has-text("Neu auslosen")').click();
+    await authedPage.locator('button:has-text("Wiederholen")').click();
+    await expect(
+      authedPage.locator("text=Auslosung wirklich wiederholen?"),
+    ).not.toBeVisible({ timeout: 15_000 });
+
+    await authedPage.goto(`/gruppen/${slug}/einstellungen`);
+    await expect(authedPage.locator("#name")).toBeVisible();
+    await authedPage.reload();
+    await expect(authedPage.locator("#name")).toBeVisible();
+    await expect(authedPage.locator("text=Konto gelöscht")).toHaveCount(0);
+    await expect(
+      authedPage.locator("li").filter({ hasText: /Dieter/ }),
+    ).toHaveCount(0);
   });
 });

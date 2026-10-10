@@ -428,6 +428,7 @@ export function ExclusionsSection({
 function RemoveMemberConfirmPanel({
   slug,
   member,
+  groupState,
   state,
   action,
   pending,
@@ -435,6 +436,7 @@ function RemoveMemberConfirmPanel({
 }: {
   slug: string;
   member: Member;
+  groupState: "open" | "drawn";
   state: RemoveMemberState;
   action: (formData: FormData) => void;
   pending: boolean;
@@ -453,7 +455,9 @@ function RemoveMemberConfirmPanel({
     <div className="border-destructive/30 bg-destructive/5 mt-2 space-y-2 rounded-lg border p-3">
       <p className="text-sm font-medium">{t("participants.confirmTitle")}</p>
       <p className="text-muted-foreground text-sm">
-        {t("participants.confirmMessage")}
+        {groupState === "drawn"
+          ? t("participants.confirmMessageDrawn")
+          : t("participants.confirmMessage")}
       </p>
       {errorMsg && <p className="text-destructive text-sm">{errorMsg}</p>}
       <form action={action} className="flex gap-2">
@@ -519,7 +523,9 @@ export function ParticipantsSection({
           data-testid="removed-invite-hint"
           className="border-border bg-muted/30 mb-3 rounded-lg border p-3 text-sm"
         >
-          {t("participants.removedInviteHint")}
+          {groupState === "drawn"
+            ? t("participants.removedRedrawHint")
+            : t("participants.removedInviteHint")}
         </p>
       )}
       <ul className="border-border bg-card divide-y rounded-lg border">
@@ -537,7 +543,7 @@ export function ParticipantsSection({
                     {t("participants.deletedAccount")}
                   </span>
                 )}
-                {groupState === "open" && m.id !== currentMembershipId && (
+                {m.id !== currentMembershipId && (
                   <Button
                     type="button"
                     variant="ghost"
@@ -553,6 +559,7 @@ export function ParticipantsSection({
               <RemoveMemberConfirmPanel
                 slug={slug}
                 member={m}
+                groupState={groupState}
                 state={removeState}
                 action={removeAction}
                 pending={removePending}

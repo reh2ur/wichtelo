@@ -10,6 +10,7 @@ import { notify } from "@/lib/notification";
 import { logger } from "@/lib/logger";
 import { computeDraw } from "@/lib/draw";
 import { rotateToken } from "@/lib/invite";
+import { removeMembership } from "@/lib/membership";
 import { checkRateLimit, exclusionAddLimiter } from "@/lib/rate-limit";
 
 const nameSchema = z.string().min(1).max(100);
@@ -70,8 +71,7 @@ export type RemoveMemberState =
   | { status: "success" }
   | {
       status: "error";
-      error:
-        "not_admin" | "group_not_found" | "drawn" | "last_admin" | "generic";
+      error: "not_admin" | "group_not_found" | "last_admin" | "generic";
     };
 
 export type RotateInviteState =
@@ -349,16 +349,6 @@ export async function removeMember(
   }
   const { group, admin } = result;
 
-  const { data: groupData } = await admin
-    .from("groups")
-    .select("state")
-    .eq("id", group.id)
-    .single();
-
-  if ((groupData as { state: string } | null)?.state === "drawn") {
-    return { status: "error", error: "drawn" };
-  }
-
   const { data: targetRaw } = await admin
     .from("memberships")
     .select("id, role, profile_id, name_snapshot")
@@ -375,28 +365,23 @@ export async function removeMember(
     name_snapshot: string;
   };
 
-  if (target.role === "admin") {
-    const { data: allAdmins } = await admin
-      .from("memberships")
-      .select("id")
-      .eq("group_id", group.id)
-      .eq("role", "admin")
-      .not("profile_id", "is", null);
-
-    if ((allAdmins ?? []).length <= 1) {
-      return { status: "error", error: "last_admin" };
-    }
+  // Allowed after the draw too (ghost or live member). The RPC locks the
+  // group; the removed member's assignments cascade, so the admin re-draws.
+  const { result: removal, reason } = await removeMembership(
+    admin,
+    group.id,
+    membershipId,
+    { allowDrawn: true },
+  );
+  if (removal === "last_admin") {
+    return { status: "error", error: "last_admin" };
   }
-
-  const { error } = await admin
-    .from("memberships")
-    .delete()
-    .eq("id", membershipId)
-    .eq("group_id", group.id);
-
-  if (error) {
+  if (removal === "member_not_found") {
+    return { status: "error", error: "generic" };
+  }
+  if (removal !== "ok") {
     logger
-      .withMetadata({ groupId: group.id, membershipId, reason: error.message })
+      .withMetadata({ groupId: group.id, membershipId, reason })
       .error("membership.remove_failed");
     return { status: "error", error: "generic" };
   }
@@ -415,7 +400,7 @@ export async function removeMember(
         groupName: group.name,
         participantName: target.name_snapshot,
         participantEmail: userData.user.email,
-        postDraw: false,
+        postDraw: group.state === "drawn",
         adminEmails: [],
       });
     }

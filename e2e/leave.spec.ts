@@ -201,14 +201,18 @@ test.describe("admin remove participant", () => {
     await expect(authedPage.getByTestId("removed-invite-hint")).toBeVisible();
   });
 
-  test("remove button is hidden post-draw", async ({ authedPage, browser }) => {
+  test("admin can remove a member after the draw and is told to re-draw (#18)", async ({
+    authedPage,
+    browser,
+  }) => {
     const { slug, inviteUrl } = await setupGroup(
       authedPage,
-      "Remove Hidden PostDraw Test",
+      "Remove PostDraw Test",
     );
 
     const ctxB = await browser.newContext(guestContextOptions());
     const ctxC = await browser.newContext(guestContextOptions());
+    const ctxD = await browser.newContext(guestContextOptions());
 
     try {
       await joinViaInvite(ctxB, inviteUrl, slug, {
@@ -221,9 +225,15 @@ test.describe("admin remove participant", () => {
         lastName: "Conrad",
         email: `e2e+remove-pd-c-${Date.now()}@example.com`,
       });
+      await joinViaInvite(ctxD, inviteUrl, slug, {
+        firstName: "Dora",
+        lastName: "Dietz",
+        email: `e2e+remove-pd-d-${Date.now()}@example.com`,
+      });
     } finally {
       await ctxB.close();
       await ctxC.close();
+      await ctxD.close();
     }
 
     // Trigger draw
@@ -239,20 +249,36 @@ test.describe("admin remove participant", () => {
       authedPage.locator('button:has-text("Auslosung starten")'),
     ).toHaveCount(0);
 
-    // Settings page should show no "Entfernen" buttons
     await authedPage.goto(`/gruppen/${slug}/einstellungen`);
     await expect(authedPage.locator("#name")).toBeVisible();
     // Reload to bypass any stale Supabase pooler read on Vercel preview envs
     await authedPage.reload();
     await expect(authedPage.locator("#name")).toBeVisible();
 
-    // Scope to Teilnehmer section by its heading — exclusion "Entfernen" buttons may still exist
-    const participantsSection = authedPage
-      .locator("section")
-      .filter({ has: authedPage.getByRole("heading", { name: "Teilnehmer" }) });
+    const removeBtn = authedPage
+      .locator("li")
+      .filter({ hasText: /Dora/ })
+      .locator('button:has-text("Entfernen")');
+    await removeBtn.click();
     await expect(
-      participantsSection.locator('button:has-text("Entfernen")'),
-    ).toHaveCount(0);
+      authedPage.locator("text=Starte danach auf der Gruppenseite"),
+    ).toBeVisible();
+    await authedPage.locator('button:has-text("Endgültig entfernen")').click();
+
+    await expect(
+      authedPage.locator("li").filter({ hasText: /Dora/ }),
+    ).not.toBeVisible({ timeout: 10_000 });
+    await expect(authedPage.getByTestId("removed-invite-hint")).toContainText(
+      "Neu auslosen",
+    );
+
+    // Re-draw restores a full set of assignments for the remaining members.
+    await authedPage.goto(`/gruppen/${slug}`);
+    await authedPage.locator('button:has-text("Neu auslosen")').click();
+    await authedPage.locator('button:has-text("Wiederholen")').click();
+    await expect(authedPage.locator("text=Zuweisung nachschlagen")).toBeVisible(
+      { timeout: 15_000 },
+    );
   });
 
   test("cancel remove confirmation keeps participant in list", async ({

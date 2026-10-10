@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   computeDraw,
   hasGhostMembers,
+  liveMembers,
   type Assignment,
   type MemberId,
 } from "./index";
@@ -322,5 +323,20 @@ describe("hasGhostMembers", () => {
     expect(hasGhostMembers([{ profile_id: "a" }, { profile_id: null }])).toBe(
       true,
     );
+  });
+});
+
+describe("liveMembers", () => {
+  it("drops members without a profile and keeps order", () => {
+    const rows = [
+      { id: "a", profile_id: "pa" },
+      { id: "g", profile_id: null },
+      { id: "b", profile_id: "pb" },
+    ];
+    expect(liveMembers(rows).map((m) => m.id)).toEqual(["a", "b"]);
+  });
+
+  it("returns an empty list when everyone is a ghost", () => {
+    expect(liveMembers([{ profile_id: null }])).toEqual([]);
   });
 });

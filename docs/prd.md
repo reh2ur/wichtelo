@@ -142,7 +142,7 @@ Six core tables in Supabase PostgreSQL. Row Level Security enforced on all table
 - **exclusions** — bidirectional exclusion pairs per group. Canonical ordering (`member_a < member_b`) enforced via check constraint to prevent duplicates.
 - **invite_tokens** — one active token per group. Invalidated logically once group state becomes `drawn`.
 
-RLS rules: participants read only their own assignment row; admins read all assignment rows for their group; profiles are readable by co-members only.
+RLS rules: participants + admins read only own assignment row (admin lookup = audited action, service role); profiles readable by owner only; user JWT writes only profile names + `create_group` RPC.
 
 ### Deep Modules
 

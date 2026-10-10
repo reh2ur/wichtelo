@@ -8,6 +8,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import {
   computeDraw,
   hasGhostMembers,
+  liveMembers,
   type Assignment,
   type ExclusionPair,
 } from "@/lib/draw";
@@ -22,6 +23,7 @@ import {
   type NotifyResult,
 } from "@/lib/notification";
 import { logger } from "@/lib/logger";
+import { removeMembership } from "@/lib/membership";
 import {
   checkRateLimit,
   drawTriggerLimiter,
@@ -94,30 +96,24 @@ export async function leaveGroup(
     name_snapshot: string;
   };
 
-  if (membership.role === "admin") {
-    const { data: allAdmins } = await admin
-      .from("memberships")
-      .select("id")
-      .eq("group_id", groupId)
-      .eq("role", "admin")
-      .not("profile_id", "is", null);
-
-    if ((allAdmins ?? []).length <= 1) {
-      return { status: "error", error: "last_admin" };
-    }
+  // Locks the group row: a draw cannot slip in between the checks and the delete.
+  const { result, reason } = await removeMembership(
+    admin,
+    groupId,
+    membership.id,
+  );
+  if (result === "last_admin" || result === "already_drawn") {
+    return { status: "error", error: result };
   }
-
-  const { error } = await admin
-    .from("memberships")
-    .delete()
-    .eq("id", membership.id);
-
-  if (error) {
+  if (result === "member_not_found") {
+    return { status: "error", error: "not_member" };
+  }
+  if (result !== "ok") {
     logger
       .withMetadata({
         groupId,
         membershipId: membership.id,
-        reason: error.message,
+        reason,
       })
       .error("membership.leave_failed");
     return { status: "error", error: "generic" };
@@ -422,6 +418,7 @@ export type RetriggerDrawState =
         | "not_drawn"
         | "not_enough_members"
         | "unsolvable"
+        | "membership_changed"
         | "generic"
         | "rate_limited";
     };
@@ -482,7 +479,11 @@ export async function retriggerDraw(
     )
     .eq("group_id", groupId);
 
-  const memberRows: MembershipRow[] = (memberships ?? []) as MembershipRow[];
+  // Deleted accounts keep their row after the draw; they are not redrawn and
+  // perform_draw removes them atomically with the new assignments.
+  const memberRows: MembershipRow[] = liveMembers(
+    (memberships ?? []) as MembershipRow[],
+  );
 
   if (memberRows.length < 3) {
     logger
@@ -496,9 +497,10 @@ export async function retriggerDraw(
     .select("member_a, member_b")
     .eq("group_id", groupId);
 
-  const exclusions: ExclusionPair[] = (
-    (exclusionsRaw ?? []) as ExclusionRow[]
-  ).map((e) => [e.member_a, e.member_b]);
+  const liveIds = new Set(memberRows.map((m) => m.id));
+  const exclusions: ExclusionPair[] = ((exclusionsRaw ?? []) as ExclusionRow[])
+    .filter((e) => liveIds.has(e.member_a) && liveIds.has(e.member_b))
+    .map((e) => [e.member_a, e.member_b]);
 
   logger
     .withMetadata({ groupId, participantCount: memberRows.length })
@@ -544,6 +546,9 @@ export async function retriggerDraw(
       .error("draw.retrigger_failed");
     if (drawResult === "state_changed") {
       return { status: "error", error: "not_drawn" };
+    }
+    if (drawResult === "membership_changed") {
+      return { status: "error", error: "membership_changed" };
     }
     return { status: "error", error: "generic" };
   }

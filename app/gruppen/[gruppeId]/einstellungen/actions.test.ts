@@ -9,6 +9,7 @@ vi.mock("@/lib/rate-limit", () => ({
   exclusionAddLimiter: {},
 }));
 vi.mock("@/lib/invite", () => ({ rotateToken: vi.fn() }));
+vi.mock("@/lib/membership", () => ({ removeMembership: vi.fn() }));
 vi.mock("@/lib/logger", () => {
   const chain = { info: vi.fn(), error: vi.fn(), warn: vi.fn() };
   return { logger: { ...chain, withMetadata: vi.fn().mockReturnValue(chain) } };
@@ -18,10 +19,12 @@ import {
   addExclusion,
   updateGroupInfo,
   regenerateInviteLink,
+  removeMember,
   invalidateDeletedGroup,
 } from "./actions";
 import { updateTag } from "next/cache";
 import { rotateToken } from "@/lib/invite";
+import { removeMembership } from "@/lib/membership";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 
@@ -176,6 +179,49 @@ describe("regenerateInviteLink (#187)", () => {
     const res = await regenerateInviteLink(
       { status: "idle" },
       fd({ slug: "s" }),
+    );
+    expect(res).toEqual({ status: "error", error: "generic" });
+  });
+});
+
+describe("removeMember (#18)", () => {
+  beforeEach(() => vi.clearAllMocks());
+
+  it("lets an admin remove a member of a drawn group", async () => {
+    setup({ state: "drawn", memberIds: ["a", "b", "c"] });
+    vi.mocked(removeMembership).mockResolvedValue({ result: "ok" });
+    const res = await removeMember(
+      { status: "idle" },
+      fd({ slug: "s", membershipId: "m-target" }),
+    );
+    expect(res).toEqual({ status: "success" });
+    expect(removeMembership).toHaveBeenCalledWith(
+      expect.anything(),
+      "g1",
+      "m-target",
+      { allowDrawn: true },
+    );
+  });
+
+  it("maps last_admin from the locked removal", async () => {
+    setup({ memberIds: ["a", "b", "c"] });
+    vi.mocked(removeMembership).mockResolvedValue({ result: "last_admin" });
+    const res = await removeMember(
+      { status: "idle" },
+      fd({ slug: "s", membershipId: "m-target" }),
+    );
+    expect(res).toEqual({ status: "error", error: "last_admin" });
+  });
+
+  it("maps DB failures to generic", async () => {
+    setup({ memberIds: ["a", "b", "c"] });
+    vi.mocked(removeMembership).mockResolvedValue({
+      result: "error",
+      reason: "boom",
+    });
+    const res = await removeMember(
+      { status: "idle" },
+      fd({ slug: "s", membershipId: "m-target" }),
     );
     expect(res).toEqual({ status: "error", error: "generic" });
   });
