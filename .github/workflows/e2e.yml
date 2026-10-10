@@ -9,6 +9,7 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
+      deployments: read
       pull-requests: write
 
     steps:
@@ -27,35 +28,50 @@ jobs:
       - name: Install Playwright browsers
         run: pnpm exec playwright install chromium --with-deps
 
-      - name: Wait for Vercel preview URL (from bot comment)
+      # Match the deployment to the exact PR head commit — the first bot
+      # comment keeps pointing at the previous deployment after later pushes.
+      - name: Wait for Vercel preview deployment (head SHA)
         id: vercel
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+          SHA: ${{ github.event.pull_request.head.sha }}
         run: |
-          PR="${{ github.event.pull_request.number }}"
-          REPO="${{ github.repository }}"
           PREVIEW_URL=""
 
-          for i in $(seq 1 30); do
-            PREVIEW_URL=$(gh api "/repos/$REPO/issues/$PR/comments" \
-              --jq '[.[] | select(.user.login == "vercel[bot]") | .body
-                    | capture("\\[Preview\\]\\((?P<url>https://[^)]+vercel\\.app[^)]*)\\)")
-                    | .url][0] // empty')
+          for i in $(seq 1 60); do
+            # Newest first. Vercel names the environment "Preview" (or
+            # "Preview – <project>"), so match by prefix.
+            IDS=$(gh api "/repos/$REPO/deployments?sha=$SHA&per_page=100" \
+              --jq '[.[] | select(.environment | startswith("Preview")) | .id][]')
 
-            if [ -n "$PREVIEW_URL" ]; then
-              echo "preview_url=$PREVIEW_URL" >> "$GITHUB_OUTPUT"
-              echo "Preview URL: $PREVIEW_URL"
-              break
-            fi
+            for ID in $IDS; do
+              STATUS=$(gh api "/repos/$REPO/deployments/$ID/statuses?per_page=1" \
+                --jq '.[0] // empty | "\(.state) \(.environment_url // .target_url // "")"')
+              STATE="${STATUS%% *}"
+              URL="${STATUS#* }"
 
-            echo "Attempt $i/30 — waiting 10s..."
+              if [ "$STATE" = "success" ] && [ -n "$URL" ]; then
+                PREVIEW_URL="$URL"
+                break 2
+              fi
+              if [ "$STATE" = "failure" ] || [ "$STATE" = "error" ]; then
+                echo "Vercel deployment $ID for $SHA ended in state '$STATE'."
+                exit 1
+              fi
+            done
+
+            echo "Attempt $i/60 — no successful Preview deployment for $SHA yet, waiting 10s..."
             sleep 10
           done
 
           if [ -z "$PREVIEW_URL" ]; then
-            echo "Timed out waiting for Vercel preview URL in PR comments."
+            echo "Timed out waiting for Vercel Preview deployment of $SHA."
             exit 1
           fi
+
+          echo "preview_url=$PREVIEW_URL" >> "$GITHUB_OUTPUT"
+          echo "Preview URL: $PREVIEW_URL"
 
       - name: Run Playwright tests
         id: playwright

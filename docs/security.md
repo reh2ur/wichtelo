@@ -19,7 +19,7 @@ Private paths (`/gruppen/*`, `/einladung/*`) also send `X-Robots-Tag: noindex, n
 - Console patch (prod only) forwards to pino only — no double log.
 - Log errors via `serializeError(err)` (`lib/serialize-error.ts`), never `String(err)` (`[object Object]`).
 - `GET /api/health` → 200 `{status:"ok"}` / 503. DB ping w/ publishable key, no secrets. Bot UA allowed in `proxy.ts`. Point external uptime monitor (e.g. UptimeRobot, free) at it — ops step, not in repo.
-- No third-party error tracker yet: needs vendor choice (EU-hosted), Datenschutz disclosure. Logs → Vercel only; watch them or add log drain.
+- Sentry wired (`sentry.{server,edge}.config.ts`, `instrumentation-client.ts`, tunnel `/monitoring`). Unset `NEXT_PUBLIC_SENTRY_DSN` = disabled. User info, bodies, IP-ish headers/cookies scrubbed. Use EU region project. Datenschutz disclosure must name Sentry before DSN set in prod (see `docs/go-live.md`). Logs also → Vercel.
 
 ## Identifier guard
 

@@ -96,10 +96,7 @@ export async function updateProfile(
   return { status: "success" };
 }
 
-export async function requestAccountDeletion(
-  _prev: RequestDeletionState,
-  _formData: FormData,
-): Promise<RequestDeletionState> {
+export async function requestAccountDeletion(): Promise<RequestDeletionState> {
   const supabase = await createClient();
   const {
     data: { user },

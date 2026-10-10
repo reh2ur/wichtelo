@@ -4,6 +4,8 @@ overrides:
   baseline-browser-mapping: ">=2.11.0"
   browserslist: ">=4.28.7"
   "@babel/core": ">=7.29.1"
+  # Only the 5.x line (via @sentry/bundler-plugin glob); minimatch@3 needs 1.x.
+  "brace-expansion@^5": ">=5.0.12"
 
 allowBuilds:
   "@parcel/watcher": false

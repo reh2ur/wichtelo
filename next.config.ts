@@ -1,6 +1,14 @@
 import { withSentryConfig } from "@sentry/nextjs/config";
 import type { NextConfig } from "next";
 import createNextIntlPlugin from "next-intl/plugin";
+import { validateEnv } from "./lib/env";
+
+// Fail the production build on a misconfigured env instead of promoting a
+// deploy that 500s on first cold start (instrumentation.ts only checks at boot).
+// Previews and local builds are untouched.
+if (process.env.VERCEL_ENV === "production") {
+  validateEnv();
+}
 
 const withNextIntl = createNextIntlPlugin("./i18n/request.ts");
 

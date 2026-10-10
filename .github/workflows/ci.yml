@@ -57,18 +57,67 @@ jobs:
         run: node scripts/check-no-pii.mts
 
   db-lint:
-    name: Database lint
+    name: Database lint & integration tests
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
-      - uses: supabase/setup-cli@v3
+      - uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
+
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
-          version: latest
+          node-version: 22
+          cache: pnpm
+
+      # Keep version in sync with devDependency `supabase` in package.json.
+      - uses: supabase/setup-cli@45a513f8c64c0bc8e0e3dfe572b5c95be85f6359 # v3.0.1
+        with:
+          version: 2.119.0
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
 
       - name: Start local Supabase (applies migrations)
         run: supabase start
 
       - name: Lint database schema
         run: supabase db lint --local --level warning --fail-on error
+
+      # Integration suites are `describe.skipIf(!hasSupabase)` where
+      # hasSupabase = NEXT_PUBLIC_SUPABASE_URL set. Export local stack creds
+      # under the names the app/tests read.
+      - name: Export local Supabase env
+        run: |
+          supabase status -o env > "$RUNNER_TEMP/supabase.env"
+          get() { grep -E "^$1=" "$RUNNER_TEMP/supabase.env" | head -n1 | cut -d= -f2- | sed -e 's/^"//' -e 's/"$//'; }
+          URL=$(get API_URL)
+          ANON=$(get ANON_KEY)
+          SERVICE=$(get SERVICE_ROLE_KEY)
+          for v in URL ANON SERVICE; do
+            if [ -z "${!v}" ]; then
+              echo "::error::Missing $v in 'supabase status -o env' output"
+              exit 1
+            fi
+          done
+          echo "::add-mask::$ANON"
+          echo "::add-mask::$SERVICE"
+          {
+            echo "NEXT_PUBLIC_SUPABASE_URL=$URL"
+            echo "NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=$ANON"
+            echo "SUPABASE_SERVICE_ROLE_KEY=$SERVICE"
+          } >> "$GITHUB_ENV"
+          rm "$RUNNER_TEMP/supabase.env"
+
+      - name: Integration tests
+        run: pnpm test --reporter=default --reporter=json --outputFile.json="$RUNNER_TEMP/vitest.json"
+
+      # Skipped suites mean the env wiring broke silently: fail instead.
+      - name: Fail if any test was skipped
+        run: |
+          skipped=$(node -e 'const r=require(process.argv[1]);console.log(r.numPendingTests+r.numTodoTests)' "$RUNNER_TEMP/vitest.json")
+          echo "Skipped/todo tests: $skipped"
+          if [ "$skipped" -ne 0 ]; then
+            echo "::error::$skipped test(s) skipped — integration suites did not run"
+            exit 1
+          fi
