@@ -2,6 +2,7 @@ import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 import { isGuestOnlyRoute, isProtectedRoute } from "@/lib/route-access";
 import { hardenCookieOptions } from "@/lib/supabase/cookie-options";
+import { safeNext } from "@/lib/safe-next";
 import { createAdminClient } from "@/lib/supabase/admin";
 import type { SupabaseClient, User } from "@supabase/supabase-js";
 
@@ -61,8 +62,18 @@ export async function updateSession(request: NextRequest) {
   if (isGuestOnlyRoute(pathname)) {
     const user = await getVerifiedUser(supabase, !!claimsData?.claims);
     if (user) {
+      // Already signed in (e.g. second tab): honor a valid return-to target.
+      const next = safeNext(request.nextUrl.searchParams.get("next"));
       const url = request.nextUrl.clone();
-      url.pathname = "/gruppen";
+      url.search = "";
+      url.hash = "";
+      if (next) {
+        const target = new URL(next, request.url);
+        url.pathname = target.pathname;
+        url.search = target.search;
+      } else {
+        url.pathname = "/gruppen";
+      }
       return withSessionCookies(NextResponse.redirect(url), supabaseResponse);
     }
   }
@@ -100,15 +111,19 @@ export async function updateSession(request: NextRequest) {
           .maybeSingle();
         if (groupError) return supabaseResponse;
         if (!group) return notFoundRewrite();
-        if (GROUP_DETAIL_RE.test(pathname)) {
-          const { data: membership, error: membershipError } = await admin
-            .from("memberships")
-            .select("id")
-            .eq("group_id", group.id)
-            .eq("profile_id", user.id)
-            .maybeSingle();
-          if (membershipError) return supabaseResponse;
-          if (!membership) return notFoundRewrite();
+        // Detail needs membership; settings needs admin membership. Non-admin
+        // members and non-members get the same 404 as an unknown slug, so the
+        // response never reveals whether a slug exists.
+        const { data: membership, error: membershipError } = await admin
+          .from("memberships")
+          .select("id, role")
+          .eq("group_id", group.id)
+          .eq("profile_id", user.id)
+          .maybeSingle();
+        if (membershipError) return supabaseResponse;
+        if (!membership) return notFoundRewrite();
+        if (GROUP_SETTINGS_RE.test(pathname) && membership.role !== "admin") {
+          return notFoundRewrite();
         }
       } catch {
         return supabaseResponse;
@@ -121,7 +136,10 @@ export async function updateSession(request: NextRequest) {
 
 function redirectToLogin(request: NextRequest): NextResponse {
   const url = request.nextUrl.clone();
+  const next = safeNext(request.nextUrl.pathname + request.nextUrl.search);
   url.pathname = "/anmelden";
+  url.search = "";
+  if (next && next !== "/gruppen") url.searchParams.set("next", next);
   return NextResponse.redirect(url);
 }
 

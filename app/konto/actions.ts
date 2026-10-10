@@ -54,10 +54,12 @@ export async function updateProfile(
   } = await supabase.auth.getUser();
   if (!user) return { status: "error", error: "not_authenticated" };
 
+  // Upsert, not update: users without a profile row (super-admin first
+  // login, abandoned invite name step) would otherwise match 0 rows and still
+  // see "Gespeichert".
   const { error } = await supabase
     .from("profiles")
-    .update({ first_name: firstName, last_name: lastName })
-    .eq("id", user.id);
+    .upsert({ id: user.id, first_name: firstName, last_name: lastName });
 
   if (error) {
     logger

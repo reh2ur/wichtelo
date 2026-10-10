@@ -36,7 +36,6 @@ export type LeaveGroupState =
       error:
         | "not_authenticated"
         | "not_member"
-        | "group_not_found"
         | "last_admin"
         | "already_drawn"
         | "rate_limited"
@@ -68,12 +67,8 @@ export async function leaveGroup(
     .eq("slug", slug)
     .single();
 
-  if (!group) return { status: "error", error: "group_not_found" };
-
-  // Leaving after draw would cascade-delete assignment rows and break the draw.
-  if ((group as { state: string }).state === "drawn") {
-    return { status: "error", error: "already_drawn" };
-  }
+  // Same code for unknown slug and non-member: no slug-existence oracle.
+  if (!group) return { status: "error", error: "not_member" };
 
   const groupId = (
     group as { id: string; slug: string; name: string; state: string }
@@ -87,6 +82,11 @@ export async function leaveGroup(
     .single();
 
   if (!callerMembership) return { status: "error", error: "not_member" };
+
+  // Leaving after draw would cascade-delete assignment rows and break the draw.
+  if ((group as { state: string }).state === "drawn") {
+    return { status: "error", error: "already_drawn" };
+  }
 
   const membership = callerMembership as {
     id: string;
@@ -300,7 +300,10 @@ export async function triggerDraw(
     .select(
       "id, role, profile_id, name_snapshot, first_name_snapshot, last_name_snapshot",
     )
-    .eq("group_id", groupId);
+    .eq("group_id", groupId)
+    // Same order as the group page so "(2)" suffixes match across screens.
+    .order("joined_at", { ascending: true })
+    .order("id", { ascending: true });
 
   const memberRows: MembershipRow[] = (memberships ?? []) as MembershipRow[];
 
@@ -480,7 +483,10 @@ export async function retriggerDraw(
     .select(
       "id, role, profile_id, name_snapshot, first_name_snapshot, last_name_snapshot",
     )
-    .eq("group_id", groupId);
+    .eq("group_id", groupId)
+    // Same order as the group page so "(2)" suffixes match across screens.
+    .order("joined_at", { ascending: true })
+    .order("id", { ascending: true });
 
   const memberRows: MembershipRow[] = (memberships ?? []) as MembershipRow[];
 
@@ -610,7 +616,8 @@ export async function lookupAssignment(
     .eq("slug", slug)
     .single();
 
-  if (!group) return { status: "error", error: "not_found" };
+  // Same code for unknown slug and non-admin: no slug-existence oracle.
+  if (!group) return { status: "error", error: "not_admin" };
 
   const groupId = (group as { id: string }).id;
 
