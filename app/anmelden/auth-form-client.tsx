@@ -10,6 +10,7 @@ import {
   type VerifyOtpState,
 } from "./actions";
 import { createIntlContext } from "@/lib/create-intl-context";
+import { useHydrated } from "@/lib/use-hydrated";
 
 const { Provider: SignInProvider, useT: useSignInT } =
   createIntlContext("signIn");
@@ -18,6 +19,7 @@ export { SignInProvider };
 
 export function AuthFormClient({ next }: { next: string }) {
   const t = useSignInT();
+  const hydrated = useHydrated();
   const [requestState, requestAction, requestPending] = useActionState<
     RequestOtpState,
     FormData
@@ -115,7 +117,14 @@ export function AuthFormClient({ next }: { next: string }) {
           </p>
         )}
 
-        <Button type="submit" className="w-full" disabled={requestPending}>
+        {/* Disabled until hydrated: a pre-hydration submit is a native POST
+            whose action result the prerendered shell cannot show. Disabled
+            default button also blocks Enter-key implicit submit. */}
+        <Button
+          type="submit"
+          className="w-full"
+          disabled={!hydrated || requestPending}
+        >
           {requestPending ? t("email.sending") : t("email.submit")}
         </Button>
       </form>
