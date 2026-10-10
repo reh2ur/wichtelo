@@ -153,7 +153,7 @@ test.describe("group info editing", () => {
     await authedPage.locator("#name").fill(" ");
     await authedPage.locator('button:has-text("Speichern")').click();
 
-    await expect(authedPage.locator("p.text-destructive")).toContainText(
+    await expect(authedPage.locator("p.text-danger-text")).toContainText(
       "Bitte gib einen Gruppennamen ein.",
     );
   });
@@ -278,7 +278,7 @@ test.describe("exclusion management", () => {
       .locator('button:has-text("Ausschluss hinzufügen")')
       .click();
 
-    await expect(authedPage.locator("p.text-destructive")).toContainText(
+    await expect(authedPage.locator("p.text-danger-text")).toContainText(
       "Bitte wähle zwei verschiedene Personen.",
       { timeout: 10_000 },
     );

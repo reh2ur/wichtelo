@@ -20,7 +20,7 @@ test.describe("authentication", () => {
       (form.querySelector("#email") as HTMLInputElement).value = "notanemail";
       form.requestSubmit();
     });
-    await expect(page.locator("p.text-destructive")).toContainText(
+    await expect(page.locator("p.text-danger-text")).toContainText(
       "Bitte gib eine gültige E-Mail-Adresse ein.",
     );
   });
@@ -112,7 +112,7 @@ test.describe("OTP sign-in flow", () => {
     // indistinguishable from the known-account case: OTP screen shown,
     // no error message revealing account (non-)existence (see issue #104).
     await expect(page.locator("#otp")).toBeVisible();
-    await expect(page.locator("p.text-destructive")).not.toBeVisible();
+    await expect(page.locator("p.text-danger-text")).not.toBeVisible();
   });
 
   test("OTP input has an accessible label and receives focus when the step appears", async ({
@@ -151,7 +151,7 @@ test.describe("OTP sign-in flow", () => {
     await expect(page.locator('button[type="submit"]')).toBeEnabled();
     await page.locator('button[type="submit"]').click();
 
-    await expect(page.locator("p.text-destructive")).toContainText(
+    await expect(page.locator("p.text-danger-text")).toContainText(
       "Der Code ist ungültig oder abgelaufen.",
     );
     await expect(page.locator("#otp")).toHaveValue("");

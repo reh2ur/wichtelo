@@ -491,7 +491,11 @@ test.describe("draw trigger", () => {
         "text=Die Auslosung ist mit den aktuellen Ausschlüssen nicht möglich.",
       ),
     ).toBeVisible({ timeout: 10_000 });
-    // Group stays open — draw button remains visible.
+    // Group stays open — confirm panel remains so the admin can retry or cancel.
+    await expect(
+      authedPage.locator('button:has-text("Jetzt auslosen")'),
+    ).toBeVisible();
+    await authedPage.locator('button:has-text("Abbrechen")').click();
     await expect(
       authedPage.locator('button:has-text("Auslosung starten")'),
     ).toBeVisible();

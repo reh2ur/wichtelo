@@ -199,7 +199,7 @@ test.describe("invite page", () => {
     // Wrong code clears the field and refocuses it
     await guestPage.locator("#otp").fill("000000");
     await guestPage.locator('button[type="submit"]').click();
-    await expect(guestPage.locator("p.text-destructive")).toBeVisible();
+    await expect(guestPage.locator("p.text-danger-text")).toBeVisible();
     await expect(guestPage.locator("#otp")).toHaveValue("");
 
     await guestCtx.close();
