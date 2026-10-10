@@ -511,6 +511,7 @@ function focusById(id: string) {
 function RemoveMemberConfirmPanel({
   slug,
   member,
+  groupState,
   state,
   action,
   pending,
@@ -518,6 +519,7 @@ function RemoveMemberConfirmPanel({
 }: {
   slug: string;
   member: Member;
+  groupState: "open" | "drawn";
   state: TrackedRemoveState;
   action: (formData: FormData) => void;
   pending: boolean;
@@ -532,13 +534,11 @@ function RemoveMemberConfirmPanel({
     state.status === "error" && state.membershipId === member.id
       ? state.error === "last_admin"
         ? t("errors.lastAdmin")
-        : state.error === "drawn"
-          ? t("errors.drawn")
-          : state.error === "not_admin"
-            ? t("errors.notAdmin")
-            : state.error === "group_not_found"
-              ? t("errors.groupNotFound")
-              : t("errors.generic")
+        : state.error === "not_admin"
+          ? t("errors.notAdmin")
+          : state.error === "group_not_found"
+            ? t("errors.groupNotFound")
+            : t("errors.generic")
       : null;
 
   return (
@@ -547,7 +547,9 @@ function RemoveMemberConfirmPanel({
         {t("participants.confirmTitle")}
       </p>
       <p className="text-muted-foreground text-sm">
-        {t("participants.confirmMessage")}
+        {groupState === "drawn"
+          ? t("participants.confirmMessageDrawn")
+          : t("participants.confirmMessage")}
       </p>
       {errorMsg && (
         <p role="alert" className="text-danger-text text-sm">
@@ -625,7 +627,9 @@ export function ParticipantsSection({
           data-testid="removed-invite-hint"
           className="border-border bg-muted/30 mb-3 rounded-lg border p-3 text-sm"
         >
-          {t("participants.removedInviteHint")}
+          {groupState === "drawn"
+            ? t("participants.removedRedrawHint")
+            : t("participants.removedInviteHint")}
         </p>
       )}
       <ul className="border-border bg-card divide-y rounded-lg border">
@@ -651,7 +655,7 @@ export function ParticipantsSection({
                     {t("participants.deletedAccount")}
                   </span>
                 )}
-                {groupState === "open" && m.id !== currentMembershipId && (
+                {m.id !== currentMembershipId && (
                   <Button
                     id={`remove-${m.id}`}
                     type="button"
@@ -668,6 +672,7 @@ export function ParticipantsSection({
               <RemoveMemberConfirmPanel
                 slug={slug}
                 member={m}
+                groupState={groupState}
                 state={removeState}
                 action={removeAction}
                 pending={removePending}

@@ -20,9 +20,12 @@ export { UserActionsProvider };
 
 function errorMessage(
   t: ReturnType<typeof useUserActionsT>,
-  error: "not_admin" | "user_not_found" | "generic" | undefined,
+  error: "not_admin" | "user_not_found" | "sole_admin" | "generic" | undefined,
+  groups?: string[],
 ): string | null {
   if (!error) return null;
+  if (error === "sole_admin")
+    return t("errors.soleAdmin", { groups: (groups ?? []).join(", ") });
   if (error === "not_admin") return t("errors.notAdmin");
   if (error === "user_not_found") return t("errors.userNotFound");
   return t("errors.generic");
@@ -118,7 +121,9 @@ function DeleteUserButton({ userId }: { userId: string }) {
   );
 
   const errorMsg =
-    state.status === "error" ? errorMessage(t, state.error) : null;
+    state.status === "error"
+      ? errorMessage(t, state.error, state.groups)
+      : null;
 
   if (!confirming) {
     return (

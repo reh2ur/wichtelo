@@ -164,42 +164,34 @@ describe.skipIf(!hasSupabase)(
       expect(rows).toHaveLength(0);
     });
 
-    it("group creator can self-insert as the group's first admin (regression: createGroup flow)", async () => {
+    it("group creator can still create a group via create_group RPC (createGroup flow)", async () => {
       const anon = anonClient();
       const { error: signInError } = await signInAs(anon, attackerEmail);
       expect(signInError).toBeNull();
 
-      const ownGroupId = crypto.randomUUID();
-      const { error: groupError } = await anon.from("groups").insert({
-        id: ownGroupId,
-        name: "Own Gruppe",
-        slug: `own-gruppe-${Date.now()}`,
-        year: 2099,
-        state: "open",
-        created_by: attackerId,
-      });
-      expect(groupError).toBeNull();
+      const { data, error } = await anon
+        .rpc("create_group", {
+          p_name: "Own Gruppe",
+          p_year: 2099,
+          p_budget_hint: null,
+          p_note: null,
+          p_slugs: [`own-gruppe-${Date.now()}`],
+        })
+        .single<{ group_id: string }>();
+      expect(error).toBeNull();
 
-      const { error: membershipError } = await anon.from("memberships").insert({
-        group_id: ownGroupId,
-        profile_id: attackerId,
-        name_snapshot: "Attacker One",
-        role: "admin",
-      });
-      expect(membershipError).toBeNull();
+      const { data: members } = await admin
+        .from("memberships")
+        .select("profile_id, role")
+        .eq("group_id", data!.group_id);
+      expect(members).toEqual([{ profile_id: attackerId, role: "admin" }]);
 
-      await admin.from("memberships").delete().eq("group_id", ownGroupId);
-      await admin.from("groups").delete().eq("id", ownGroupId);
+      await admin.from("groups").delete().eq("id", data!.group_id);
     });
 
     it("anon cannot call SECURITY DEFINER helpers via RPC (#191)", async () => {
       const anon = anonClient();
-      for (const fn of [
-        "is_member",
-        "is_admin",
-        "is_group_creator",
-        "group_has_members",
-      ]) {
+      for (const fn of ["is_member", "is_admin"]) {
         const { data, error } = await anon.rpc(fn, { p_group_id: groupId });
         expect(error, fn).not.toBeNull();
         expect(data, fn).toBeNull();
@@ -223,111 +215,43 @@ describe.skipIf(!hasSupabase)(
       expect(data).toBeInstanceOf(Array);
     });
 
-    describe("admin write bypasses (#178)", () => {
+    describe("no direct writes via PostgREST (#17, #178)", () => {
       let client: ReturnType<typeof anonClient>;
       let ownGroupId: string;
+      let ownSlug: string;
+      let ownMembershipId: string;
+      let victimMembershipId: string;
 
       beforeAll(async () => {
         client = anonClient();
         const { error: signInError } = await signInAs(client, attackerEmail);
         expect(signInError).toBeNull();
 
-        ownGroupId = crypto.randomUUID();
-        const { error: groupError } = await client.from("groups").insert({
-          id: ownGroupId,
-          name: "Admin Gruppe",
-          slug: `admin-gruppe-${Date.now()}`,
-          year: 2099,
-          state: "open",
-          created_by: attackerId,
-        });
-        expect(groupError).toBeNull();
-        const { error: memberError } = await client.from("memberships").insert({
-          group_id: ownGroupId,
-          profile_id: attackerId,
-          name_snapshot: "Attacker One",
-          role: "admin",
-        });
-        expect(memberError).toBeNull();
-      });
-
-      afterAll(async () => {
-        await admin.from("memberships").delete().eq("group_id", ownGroupId);
-        await admin.from("groups").delete().eq("id", ownGroupId);
-      });
-
-      it("admin cannot change groups.created_by, slug or state", async () => {
-        for (const patch of [
-          { created_by: victimId },
-          { slug: "hijacked-slug" },
-          { state: "drawn" },
-        ]) {
-          const { error } = await client
-            .from("groups")
-            .update(patch)
-            .eq("id", ownGroupId);
-          expect(error, JSON.stringify(patch)).not.toBeNull();
-        }
-        const { data } = await admin
-          .from("groups")
-          .select("created_by, slug, state")
-          .eq("id", ownGroupId)
-          .single();
-        expect(data?.created_by).toBe(attackerId);
-        expect(data?.slug).not.toBe("hijacked-slug");
-        expect(data?.state).toBe("open");
-      });
-
-      it("admin can still edit name / note / budget_hint", async () => {
-        const { error } = await client
-          .from("groups")
-          .update({ name: "Neuer Name", note: "n", budget_hint: "10 EUR" })
-          .eq("id", ownGroupId);
+        // The only supported way for a user JWT to create a group.
+        const { data, error } = await client
+          .rpc("create_group", {
+            p_name: "Admin Gruppe",
+            p_year: 2099,
+            p_budget_hint: null,
+            p_note: null,
+            p_slugs: [`admin-gruppe-${Date.now()}`],
+          })
+          .single<{ group_id: string; slug: string }>();
         expect(error).toBeNull();
-      });
+        ownGroupId = data!.group_id;
+        ownSlug = data!.slug;
 
-      it("admin cannot exceed length limits on groups", async () => {
-        const { error } = await client
-          .from("groups")
-          .update({ name: "x".repeat(101) })
-          .eq("id", ownGroupId);
-        expect(error).not.toBeNull();
-      });
-
-      it("admin cannot insert a membership for another profile", async () => {
-        const { error } = await client.from("memberships").insert({
-          group_id: ownGroupId,
-          profile_id: victimId,
-          name_snapshot: "Victim Admin",
-          role: "participant",
-        });
-        expect(error).not.toBeNull();
-        const { data } = await admin
+        const { data: own } = await admin
           .from("memberships")
           .select("id")
           .eq("group_id", ownGroupId)
-          .eq("profile_id", victimId);
-        expect(data).toHaveLength(0);
-      });
+          .eq("profile_id", attackerId)
+          .single();
+        ownMembershipId = own!.id as string;
 
-      it("admin cannot insert a membership with no profile (admin INSERT policy dropped)", async () => {
-        const { error } = await client.from("memberships").insert({
-          group_id: ownGroupId,
-          profile_id: null,
-          name_snapshot: "Ghost",
-          role: "participant",
-        });
-        expect(error).not.toBeNull();
-        const { data } = await admin
-          .from("memberships")
-          .select("id")
-          .eq("group_id", ownGroupId)
-          .eq("name_snapshot", "Ghost");
-        expect(data).toHaveLength(0);
-      });
-
-      it("admin UPDATE on memberships is limited to the role column", async () => {
-        const { data: other, error: insertError } = await admin
+        // Second member + a drawn state, seeded with the service role. State
+        // flips to drawn only after the memberships exist (join guard).
+        const { data: victimMember, error: vErr } = await admin
           .from("memberships")
           .insert({
             group_id: ownGroupId,
@@ -337,53 +261,265 @@ describe.skipIf(!hasSupabase)(
           })
           .select("id")
           .single();
-        expect(insertError).toBeNull();
+        expect(vErr).toBeNull();
+        victimMembershipId = victimMember!.id as string;
+
+        const { error: aErr } = await admin.from("assignments").insert([
+          {
+            group_id: ownGroupId,
+            giver_id: ownMembershipId,
+            receiver_id: victimMembershipId,
+          },
+          {
+            group_id: ownGroupId,
+            giver_id: victimMembershipId,
+            receiver_id: ownMembershipId,
+          },
+        ]);
+        expect(aErr).toBeNull();
+        await admin
+          .from("groups")
+          .update({ state: "drawn" })
+          .eq("id", ownGroupId);
+      });
+
+      afterAll(async () => {
+        // Group delete cascades memberships (guard lets cascades through).
+        await admin.from("groups").delete().eq("id", ownGroupId);
+      });
+
+      it("create_group via RPC works and makes the caller admin", async () => {
+        const { data } = await admin
+          .from("memberships")
+          .select("role")
+          .eq("id", ownMembershipId)
+          .single();
+        expect(data?.role).toBe("admin");
+        const { data: token } = await client
+          .from("invite_tokens")
+          .select("token")
+          .eq("group_id", ownGroupId);
+        expect(token).toHaveLength(1);
+      });
+
+      it("admin sees only their own assignment row, not the whole draw", async () => {
+        const { data, error } = await client
+          .from("assignments")
+          .select("giver_id, receiver_id")
+          .eq("group_id", ownGroupId);
+        expect(error).toBeNull();
+        expect(data).toEqual([
+          { giver_id: ownMembershipId, receiver_id: victimMembershipId },
+        ]);
+      });
+
+      it("admin cannot insert, update or delete assignments", async () => {
+        const { error: updateError } = await client
+          .from("assignments")
+          .update({ receiver_id: ownMembershipId })
+          .eq("giver_id", victimMembershipId);
+        expect(updateError).not.toBeNull();
+
+        const { error: deleteError } = await client
+          .from("assignments")
+          .delete()
+          .eq("group_id", ownGroupId);
+        expect(deleteError).not.toBeNull();
+
+        const { error: insertError } = await client.from("assignments").insert({
+          group_id: ownGroupId,
+          giver_id: ownMembershipId,
+          receiver_id: victimMembershipId,
+        });
+        expect(insertError).not.toBeNull();
+
+        const { count } = await admin
+          .from("assignments")
+          .select("*", { count: "exact", head: true })
+          .eq("group_id", ownGroupId);
+        expect(count).toBe(2);
+      });
+
+      it("user cannot delete their own profile row", async () => {
+        const { error } = await client
+          .from("profiles")
+          .delete()
+          .eq("id", attackerId);
+        expect(error).not.toBeNull();
+        const { data } = await admin
+          .from("profiles")
+          .select("id")
+          .eq("id", attackerId);
+        expect(data).toHaveLength(1);
+      });
+
+      it("admin cannot delete, demote or promote memberships", async () => {
+        const { error: deleteError } = await client
+          .from("memberships")
+          .delete()
+          .eq("id", victimMembershipId);
+        expect(deleteError).not.toBeNull();
 
         const { error: roleError } = await client
           .from("memberships")
           .update({ role: "admin" })
-          .eq("id", other!.id);
-        expect(roleError).toBeNull();
-        const { data: promoted } = await admin
-          .from("memberships")
-          .select("role")
-          .eq("id", other!.id)
-          .single();
-        expect(promoted?.role).toBe("admin");
+          .eq("id", victimMembershipId);
+        expect(roleError).not.toBeNull();
 
-        const { error: nameError } = await client
+        const { error: demoteError } = await client
           .from("memberships")
-          .update({ name_snapshot: "Renamed" })
-          .eq("id", other!.id);
-        expect(nameError).not.toBeNull();
-        const { data: after } = await admin
-          .from("memberships")
-          .select("name_snapshot")
-          .eq("id", other!.id)
-          .single();
-        expect(after?.name_snapshot).toBe("Victim Admin");
+          .update({ role: "participant" })
+          .eq("id", ownMembershipId);
+        expect(demoteError).not.toBeNull();
 
-        await admin.from("memberships").delete().eq("id", other!.id);
+        const { data } = await admin
+          .from("memberships")
+          .select("id, role")
+          .eq("group_id", ownGroupId);
+        expect(data).toHaveLength(2);
+        expect(data!.find((m) => m.id === ownMembershipId)?.role).toBe("admin");
+        expect(data!.find((m) => m.id === victimMembershipId)?.role).toBe(
+          "participant",
+        );
       });
 
-      it("admin cannot re-point a membership's profile_id or group_id", async () => {
-        const { data: own } = await admin
-          .from("memberships")
-          .select("id")
-          .eq("group_id", ownGroupId)
-          .eq("profile_id", attackerId)
-          .single();
-        for (const patch of [
-          { profile_id: victimId },
-          { group_id: groupId },
-          { name_snapshot: "Someone Else" },
+      it("admin cannot insert memberships (self, other profile or ghost)", async () => {
+        for (const row of [
+          { profile_id: victimId, name_snapshot: "Victim Admin" },
+          { profile_id: null, name_snapshot: "Ghost" },
         ]) {
           const { error } = await client
             .from("memberships")
+            .insert({ group_id: ownGroupId, role: "participant", ...row });
+          expect(error, JSON.stringify(row)).not.toBeNull();
+        }
+      });
+
+      it("admin cannot update or delete the group", async () => {
+        for (const patch of [
+          { name: "Neuer Name" },
+          { year: 3000 },
+          { created_by: victimId },
+          { slug: "hijacked-slug" },
+          { state: "open" },
+        ]) {
+          const { error } = await client
+            .from("groups")
             .update(patch)
-            .eq("id", own!.id);
+            .eq("id", ownGroupId);
           expect(error, JSON.stringify(patch)).not.toBeNull();
         }
+        const { error: deleteError } = await client
+          .from("groups")
+          .delete()
+          .eq("id", ownGroupId);
+        expect(deleteError).not.toBeNull();
+
+        const { data } = await admin
+          .from("groups")
+          .select("name, year, created_by, slug, state")
+          .eq("id", ownGroupId)
+          .single();
+        expect(data).toEqual({
+          name: "Admin Gruppe",
+          year: 2099,
+          created_by: attackerId,
+          slug: ownSlug,
+          state: "drawn",
+        });
+      });
+
+      it("user cannot create a group by direct insert", async () => {
+        const id = crypto.randomUUID();
+        const { error } = await client.from("groups").insert({
+          id,
+          name: "Direct",
+          slug: `direct-${Date.now()}`,
+          year: 2099,
+          created_by: attackerId,
+        });
+        expect(error).not.toBeNull();
+        const { data } = await admin.from("groups").select("id").eq("id", id);
+        expect(data).toHaveLength(0);
+      });
+
+      it("admin cannot write invite_tokens or exclusions", async () => {
+        const { error: tokenUpdate } = await client
+          .from("invite_tokens")
+          .update({ token: "chosen-by-attacker" })
+          .eq("group_id", ownGroupId);
+        expect(tokenUpdate).not.toBeNull();
+        const { error: tokenInsert } = await client
+          .from("invite_tokens")
+          .insert({ group_id: ownGroupId, token: "another-one" });
+        expect(tokenInsert).not.toBeNull();
+        const { error: tokenDelete } = await client
+          .from("invite_tokens")
+          .delete()
+          .eq("group_id", ownGroupId);
+        expect(tokenDelete).not.toBeNull();
+
+        const [a, b] =
+          ownMembershipId < victimMembershipId
+            ? [ownMembershipId, victimMembershipId]
+            : [victimMembershipId, ownMembershipId];
+        const { error: exclusionInsert } = await client
+          .from("exclusions")
+          .insert({ group_id: ownGroupId, member_a: a, member_b: b });
+        expect(exclusionInsert).not.toBeNull();
+
+        const { data: tokens } = await admin
+          .from("invite_tokens")
+          .select("token")
+          .eq("group_id", ownGroupId);
+        expect(tokens).toHaveLength(1);
+        expect(tokens![0].token).not.toBe("chosen-by-attacker");
+        const { data: exclusions } = await admin
+          .from("exclusions")
+          .select("id")
+          .eq("group_id", ownGroupId);
+        expect(exclusions).toHaveLength(0);
+      });
+
+      it("dropped helper RPCs are no longer callable", async () => {
+        for (const fn of ["is_group_creator", "group_has_members"]) {
+          const { error } = await client.rpc(fn, { p_group_id: ownGroupId });
+          expect(error, fn).not.toBeNull();
+        }
+      });
+
+      it("authenticated cannot call remove_membership or perform_draw", async () => {
+        const { error: removeError } = await client.rpc("remove_membership", {
+          p_group_id: ownGroupId,
+          p_membership_id: victimMembershipId,
+          p_allow_drawn: true,
+        });
+        expect(removeError).not.toBeNull();
+        const { error: drawError } = await client.rpc("perform_draw", {
+          p_group_id: ownGroupId,
+          p_pairs: [],
+          p_expected_state: "drawn",
+          p_expected_version: 0,
+        });
+        expect(drawError).not.toBeNull();
+        const { data } = await admin
+          .from("memberships")
+          .select("id")
+          .eq("group_id", ownGroupId);
+        expect(data).toHaveLength(2);
+      });
+
+      it("user can still read and edit their own profile", async () => {
+        const { data } = await client
+          .from("profiles")
+          .select("id")
+          .eq("id", attackerId);
+        expect(data).toHaveLength(1);
+        const { error } = await client
+          .from("profiles")
+          .update({ first_name: "Attacker" })
+          .eq("id", attackerId);
+        expect(error).toBeNull();
       });
 
       it("user cannot set profile names beyond the length limit or change profile id", async () => {
@@ -398,12 +534,268 @@ describe.skipIf(!hasSupabase)(
           .update({ id: crypto.randomUUID() })
           .eq("id", attackerId);
         expect(idError).not.toBeNull();
+      });
+    });
 
-        const { error: okError } = await client
-          .from("profiles")
-          .update({ first_name: "Attacker" })
-          .eq("id", attackerId);
-        expect(okError).toBeNull();
+    describe("create_group input validation (#17)", () => {
+      let client: ReturnType<typeof anonClient>;
+      const created: string[] = [];
+
+      beforeAll(async () => {
+        client = anonClient();
+        const { error } = await signInAs(client, attackerEmail);
+        expect(error).toBeNull();
+      });
+
+      afterAll(async () => {
+        if (created.length > 0)
+          await admin.from("groups").delete().in("id", created);
+      });
+
+      const call = (args: { name?: string; year?: number; slugs?: string[] }) =>
+        client
+          .rpc("create_group", {
+            p_name: args.name ?? "Valid Gruppe",
+            p_year: args.year ?? 2099,
+            p_budget_hint: null,
+            p_note: null,
+            p_slugs: args.slugs ?? [
+              `valid-${Date.now()}-${Math.random().toString(36).slice(2)}`,
+            ],
+          })
+          .single<{ group_id: string; slug: string }>();
+
+      it("rejects empty and over-long names", async () => {
+        for (const name of ["", "   ", "x".repeat(101)]) {
+          const { error } = await call({ name });
+          expect(error, JSON.stringify(name)).not.toBeNull();
+        }
+      });
+
+      it("rejects years outside 2000-2100", async () => {
+        for (const year of [1999, 2101, 30000]) {
+          const { error } = await call({ year });
+          expect(error, String(year)).not.toBeNull();
+        }
+      });
+
+      it("rejects malformed slugs", async () => {
+        for (const slug of [
+          "Upper",
+          "with space",
+          "under_score",
+          "x".repeat(121),
+          "",
+        ]) {
+          const { error } = await call({ slugs: [slug] });
+          expect(error, slug).not.toBeNull();
+        }
+      });
+
+      it("skips the reserved slug 'neu' and uses the next candidate", async () => {
+        const next = `neu-${Date.now()}`;
+        const { data, error } = await call({ slugs: ["neu", next] });
+        expect(error).toBeNull();
+        expect(data!.slug).toBe(next);
+        created.push(data!.group_id);
+      });
+
+      it("fails when the only candidate is reserved", async () => {
+        const { error } = await call({ slugs: ["neu"] });
+        expect(error).not.toBeNull();
+      });
+
+      it("accepts valid input", async () => {
+        const { data, error } = await call({ name: "Gültig", year: 2100 });
+        expect(error).toBeNull();
+        created.push(data!.group_id);
+      });
+    });
+
+    describe("membership delete guard + remove_membership (#17, #18)", () => {
+      let guardGroupId: string;
+      let adminMemberId: string;
+      let memberAId: string;
+      let memberBId: string;
+      let ghostId: string;
+
+      beforeAll(async () => {
+        guardGroupId = crypto.randomUUID();
+        const { error } = await admin.from("groups").insert({
+          id: guardGroupId,
+          name: "Guard Gruppe",
+          slug: `guard-${Date.now()}`,
+          year: 2099,
+          created_by: victimId,
+        });
+        expect(error).toBeNull();
+        const { data: rows, error: mErr } = await admin
+          .from("memberships")
+          .insert([
+            {
+              group_id: guardGroupId,
+              profile_id: victimId,
+              name_snapshot: "Victim Admin",
+              role: "admin",
+            },
+            {
+              group_id: guardGroupId,
+              profile_id: attackerId,
+              name_snapshot: "Attacker One",
+              role: "participant",
+            },
+            {
+              group_id: guardGroupId,
+              name_snapshot: "Ghost",
+              role: "participant",
+            },
+          ])
+          .select("id, name_snapshot");
+        expect(mErr).toBeNull();
+        const byName = (n: string) =>
+          rows!.find((r) => r.name_snapshot === n)!.id as string;
+        adminMemberId = byName("Victim Admin");
+        memberAId = byName("Attacker One");
+        ghostId = byName("Ghost");
+        const { data: b } = await admin
+          .from("memberships")
+          .insert({
+            group_id: guardGroupId,
+            name_snapshot: "B",
+            role: "participant",
+          })
+          .select("id")
+          .single();
+        memberBId = b!.id as string;
+      });
+
+      afterAll(async () => {
+        await admin.from("groups").delete().eq("id", guardGroupId);
+      });
+
+      const remove = (id: string, allowDrawn = false, enforce = true) =>
+        admin.rpc("remove_membership", {
+          p_group_id: guardGroupId,
+          p_membership_id: id,
+          p_allow_drawn: allowDrawn,
+          p_enforce_last_admin: enforce,
+        });
+
+      it("open group: removal works, last admin is protected, unknown ids reported", async () => {
+        const { data: last } = await remove(adminMemberId);
+        expect(last).toBe("last_admin");
+
+        const { data: missing } = await remove(crypto.randomUUID());
+        expect(missing).toBe("member_not_found");
+
+        const { data: ok } = await remove(memberBId);
+        expect(ok).toBe("ok");
+        const { data: gone } = await admin
+          .from("memberships")
+          .select("id")
+          .eq("id", memberBId);
+        expect(gone).toHaveLength(0);
+      });
+
+      it("open group: wrong group id is not found", async () => {
+        const { data } = await admin.rpc("remove_membership", {
+          p_group_id: crypto.randomUUID(),
+          p_membership_id: memberAId,
+        });
+        expect(data).toBe("group_not_found");
+      });
+
+      it("drawn group: plain delete is rejected, assignments stay intact", async () => {
+        // Ghost is removed first so the drawn state is reachable (open guard).
+        await remove(ghostId);
+        const { error: aErr } = await admin.from("assignments").insert([
+          {
+            group_id: guardGroupId,
+            giver_id: adminMemberId,
+            receiver_id: memberAId,
+          },
+          {
+            group_id: guardGroupId,
+            giver_id: memberAId,
+            receiver_id: adminMemberId,
+          },
+        ]);
+        expect(aErr).toBeNull();
+        await admin
+          .from("groups")
+          .update({ state: "drawn" })
+          .eq("id", guardGroupId);
+
+        const { error } = await admin
+          .from("memberships")
+          .delete()
+          .eq("id", memberAId);
+        expect(error?.message).toContain("already drawn");
+
+        const { count } = await admin
+          .from("assignments")
+          .select("*", { count: "exact", head: true })
+          .eq("group_id", guardGroupId);
+        expect(count).toBe(2);
+      });
+
+      it("drawn group: RPC without allow_drawn refuses", async () => {
+        const { data } = await remove(memberAId);
+        expect(data).toBe("already_drawn");
+      });
+
+      it("drawn group: admin removal with allow_drawn works and cascades assignments", async () => {
+        const { data } = await remove(memberAId, true);
+        expect(data).toBe("ok");
+        const { data: m } = await admin
+          .from("memberships")
+          .select("id")
+          .eq("id", memberAId);
+        expect(m).toHaveLength(0);
+        const { count } = await admin
+          .from("assignments")
+          .select("*", { count: "exact", head: true })
+          .eq("group_id", guardGroupId);
+        expect(count).toBe(0);
+      });
+
+      it("drawn group: allow flag does not leak to later plain deletes", async () => {
+        const { data: extra } = await admin
+          .from("groups")
+          .select("state")
+          .eq("id", guardGroupId)
+          .single();
+        expect(extra?.state).toBe("drawn");
+        const { error } = await admin
+          .from("memberships")
+          .delete()
+          .eq("id", adminMemberId);
+        expect(error?.message).toContain("already drawn");
+      });
+
+      it("group delete still cascades memberships of a drawn group", async () => {
+        const id = crypto.randomUUID();
+        await admin.from("groups").insert({
+          id,
+          name: "Cascade",
+          slug: `cascade-${Date.now()}`,
+          year: 2099,
+          created_by: victimId,
+        });
+        await admin.from("memberships").insert({
+          group_id: id,
+          profile_id: victimId,
+          name_snapshot: "Victim Admin",
+          role: "admin",
+        });
+        await admin.from("groups").update({ state: "drawn" }).eq("id", id);
+        const { error } = await admin.from("groups").delete().eq("id", id);
+        expect(error).toBeNull();
+        const { data } = await admin
+          .from("memberships")
+          .select("id")
+          .eq("group_id", id);
+        expect(data).toHaveLength(0);
       });
     });
 

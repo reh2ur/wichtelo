@@ -179,3 +179,126 @@ describe.skipIf(!hasSupabase)("perform_draw", () => {
     expect(error?.message).toContain("already drawn");
   });
 });
+
+describe.skipIf(!hasSupabase)(
+  "perform_draw re-draw with ghost members (#18)",
+  () => {
+    const admin = hasSupabase ? createAdminClient() : (null as never);
+    const userIds: string[] = [];
+    let groupId: string;
+    let memberIds: string[] = []; // [live1, live2, live3, ghost-to-be]
+
+    const draw = (ids: string[], state: string, version: number) =>
+      admin.rpc("perform_draw", {
+        p_group_id: groupId,
+        p_pairs: ids.map((giver, i) => ({
+          group_id: groupId,
+          giver_id: giver,
+          receiver_id: ids[(i + 1) % ids.length],
+        })),
+        p_expected_state: state,
+        p_expected_version: version,
+      });
+
+    beforeAll(async () => {
+      const run = Date.now();
+      for (const n of ["1", "2", "3", "4"]) {
+        const { data, error } = await admin.auth.admin.createUser({
+          email: `perform-draw-ghost-${n}-${run}@example.com`,
+          email_confirm: true,
+        });
+        if (error) throw error;
+        userIds.push(data.user.id);
+        await admin
+          .from("profiles")
+          .insert({ id: data.user.id, first_name: n, last_name: "Ghost" });
+      }
+      groupId = crypto.randomUUID();
+      const { error: gErr } = await admin.from("groups").insert({
+        id: groupId,
+        name: "Ghost Draw Test",
+        slug: `perform-draw-ghost-${run}`,
+        year: 2099,
+        created_by: userIds[0],
+      });
+      if (gErr) throw gErr;
+      const { data: members, error: mErr } = await admin
+        .from("memberships")
+        .insert(
+          userIds.map((id, i) => ({
+            group_id: groupId,
+            profile_id: id,
+            name_snapshot: `M${i}`,
+          })),
+        )
+        .select("id, name_snapshot");
+      if (mErr) throw mErr;
+      memberIds = ["M0", "M1", "M2", "M3"].map(
+        (n) => members!.find((m) => m.name_snapshot === n)!.id as string,
+      );
+      const { data: first } = await draw(memberIds, "open", 0);
+      expect(first).toBe("ok");
+      // Account deletion after the draw: profile cascades, membership is nulled.
+      await admin.auth.admin.deleteUser(userIds[3]);
+    });
+
+    afterAll(async () => {
+      await admin.from("groups").delete().eq("id", groupId);
+      for (const id of userIds) await admin.auth.admin.deleteUser(id);
+    });
+
+    it("keeps the nulled membership after the account is deleted", async () => {
+      const { data } = await admin
+        .from("memberships")
+        .select("profile_id")
+        .eq("id", memberIds[3])
+        .single();
+      expect(data!.profile_id).toBeNull();
+    });
+
+    it("rejects a re-draw that still includes the ghost and keeps its row", async () => {
+      const { data } = await draw(memberIds, "drawn", 1);
+      expect(data).toBe("membership_changed");
+      const { data: ghost } = await admin
+        .from("memberships")
+        .select("id")
+        .eq("id", memberIds[3]);
+      expect(ghost).toHaveLength(1);
+    });
+
+    it("re-draws live members only and removes the ghost atomically", async () => {
+      const { data } = await draw(memberIds.slice(0, 3), "drawn", 1);
+      expect(data).toBe("ok");
+
+      const { data: ghost } = await admin
+        .from("memberships")
+        .select("id")
+        .eq("id", memberIds[3]);
+      expect(ghost).toHaveLength(0);
+
+      const { data: rows } = await admin
+        .from("assignments")
+        .select("giver_id, receiver_id")
+        .eq("group_id", groupId);
+      expect(rows).toHaveLength(3);
+      for (const r of rows!) {
+        expect(memberIds.slice(0, 3)).toContain(r.giver_id);
+        expect(memberIds.slice(0, 3)).toContain(r.receiver_id);
+      }
+      const { data: group } = await admin
+        .from("groups")
+        .select("state, draw_version")
+        .eq("id", groupId)
+        .single();
+      expect(group).toMatchObject({ state: "drawn", draw_version: 2 });
+    });
+
+    it("plain membership deletes stay blocked after the re-draw", async () => {
+      const { error } = await admin
+        .from("memberships")
+        .delete()
+        .eq("id", memberIds[0]);
+      expect(error?.message).toContain("already drawn");
+    });
+  },
+);

@@ -8,9 +8,9 @@ import {
   deleteAccount,
   findSoleAdminGroups,
 } from "@/lib/account";
+import { notifyAccountDeleted } from "@/lib/account/notify";
 import { getUser } from "@/lib/auth/get-user";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { notify } from "@/lib/notification";
 import { logger } from "@/lib/logger";
 import { serializeError } from "@/lib/serialize-error";
 import { groupTag } from "@/lib/cache-tags";
@@ -74,27 +74,7 @@ export async function confirmAccountDeletion(formData: FormData) {
 
   for (const slug of deleteResult.affectedSlugs) updateTag(groupTag(slug));
 
-  if (email) {
-    await notify({ type: "account.deletion_confirmed", to: email, name });
-  }
-
-  for (const group of deleteResult.affectedDrawnGroups) {
-    await notify({
-      type: "account.deletion_admin_notice",
-      groupName: group.name,
-      adminEmails: group.adminEmails,
-      postDraw: true,
-    });
-  }
-
-  for (const group of deleteResult.affectedOpenGroups) {
-    await notify({
-      type: "account.deletion_admin_notice",
-      groupName: group.name,
-      adminEmails: group.adminEmails,
-      postDraw: false,
-    });
-  }
+  await notifyAccountDeleted(deleteResult, email, name);
 
   logger
     .withMetadata({

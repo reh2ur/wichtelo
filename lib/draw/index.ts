@@ -14,6 +14,16 @@ export function hasGhostMembers(
   return members.some((m) => m.profile_id === null);
 }
 
+/**
+ * Re-draw of a drawn group: deleted accounts (profile_id null) keep their row
+ * after the draw but must not take part. perform_draw removes them atomically.
+ */
+export function liveMembers<T extends { profile_id: string | null }>(
+  members: T[],
+): T[] {
+  return members.filter((m) => m.profile_id !== null);
+}
+
 const MAX_ATTEMPTS = 200;
 const MIN_PARTICIPANTS = 3;
 /** Max DFS nodes in backtracking before giving up with `TOO_COMPLEX`. */

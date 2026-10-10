@@ -178,6 +178,8 @@
       "removing": "Wird entfernt…",
       "confirmTitle": "Teilnehmer wirklich entfernen?",
       "confirmMessage": "Die Person wird aus der Gruppe entfernt.",
+      "confirmMessageDrawn": "Die Person wird aus der Gruppe entfernt. Ihre Zuteilung und die Zuteilung an sie entfallen. Starte danach auf der Gruppenseite „Neu auslosen“, damit alle wieder eine Zuteilung haben.",
+      "removedRedrawHint": "Teilnehmer entfernt. Bitte starte jetzt auf der Gruppenseite „Neu auslosen“, damit alle wieder eine Zuteilung haben.",
       "removedInviteHint": "Teilnehmer entfernt. Hat die Person den Einladungslink weitergegeben, erneuere ihn unten unter „Einladungslink“.",
       "confirm": "Endgültig entfernen",
       "cancel": "Abbrechen"
@@ -205,7 +207,6 @@
     "errors": {
       "noAccount": "Diese Person hat kein Konto mehr und kann nicht befördert werden.",
       "lastAdmin": "Dieser Teilnehmer ist der letzte Admin. Befördere zuerst eine andere Person.",
-      "drawn": "Nach der Auslosung können keine Teilnehmer mehr entfernt werden.",
       "notAdmin": "Nur Admins können die Einstellungen ändern.",
       "groupNotFound": "Diese Gruppe wurde nicht gefunden.",
       "missingName": "Bitte gib einen Gruppennamen ein.",
@@ -240,6 +241,8 @@
       "notDrawn": "Der Gruppenstatus hat sich geändert. Bitte lade die Seite neu.",
       "tooComplex": "Die Auslosung ist mit diesen Ausschlüssen zu komplex, um sie zu prüfen. Bitte entferne einzelne Ausschlüsse und versuche es erneut.",
       "notAdmin": "Nur Admins können die Auslosung wiederholen.",
+      "notEnoughMembers": "Nach dem Entfernen gelöschter Konten bleiben weniger als 3 Teilnehmer. Es werden mindestens 3 benötigt.",
+      "membershipChanged": "Die Teilnehmerliste hat sich während der Auslosung geändert. Bitte versuche es erneut.",
       "groupNotFound": "Diese Gruppe wurde nicht gefunden.",
       "generic": "Etwas ist schiefgelaufen. Bitte versuche es erneut.",
       "rateLimited": "Zu viele Versuche. Bitte warte einen Moment und versuche es erneut."
@@ -421,6 +424,7 @@
     "errors": {
       "notAdmin": "Nur der Super-Admin kann diese Aktion ausführen.",
       "userNotFound": "Dieser Benutzer wurde nicht gefunden.",
+      "soleAdmin": "Dieser Benutzer ist der einzige Admin von: {groups}. Befördere zuerst eine andere Person zum Admin oder lösche die Gruppe(n).",
       "generic": "Etwas ist schiefgelaufen. Bitte versuche es erneut."
     }
   },

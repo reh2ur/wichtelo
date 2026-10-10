@@ -1,6 +1,11 @@
 import { config } from "dotenv";
 import { expect, test } from "@playwright/test";
-import { BASE_URL, testApiHeaders, browserExtraHeaders } from "./helpers";
+import {
+  BASE_URL,
+  testApiHeaders,
+  browserExtraHeaders,
+  createFreshAuthedContext,
+} from "./helpers";
 
 config({ path: ".env.local", quiet: true });
 
@@ -89,6 +94,53 @@ test.describe("super admin user management", () => {
     await page.getByRole("button", { name: "Benutzer löschen" }).click();
     await page.getByRole("button", { name: "Bestätigen" }).click();
     await expect(page).toHaveURL(/\/admin\/benutzer$/);
+
+    await context.close();
+  });
+  test("deleting the sole admin of a group is blocked with the group listed (#18)", async ({
+    browser,
+  }) => {
+    // Target user creates a group and is its only admin.
+    const { ctx: targetCtx, email: targetEmail } =
+      await createFreshAuthedContext(browser);
+    const targetPage = await targetCtx.newPage();
+    await targetPage.goto("/gruppen/neu");
+    await expect(targetPage.locator("#name")).toBeVisible();
+    if (await targetPage.locator("#firstName").isVisible()) {
+      await targetPage.locator("#firstName").fill("Sole");
+      await targetPage.locator("#lastName").fill("Admin");
+    }
+    await targetPage.locator("#name").fill("Sole Admin Gruppe");
+    await targetPage.locator('button[type="submit"]').click();
+    await expect(targetPage).toHaveURL(/\/gruppen\/(?!neu$)[^/]+$/, {
+      timeout: 15_000,
+    });
+    await targetCtx.close();
+
+    const adminRes = await fetch(`${BASE_URL}/api/test/auth`, {
+      method: "POST",
+      headers: testApiHeaders(),
+      body: JSON.stringify({ email: SUPER_ADMIN_EMAIL }),
+    });
+    if (!adminRes.ok)
+      throw new Error(`Admin auth setup failed: ${adminRes.status}`);
+    const context = await browser.newContext(guestContextOptions());
+    await context.addCookies(parseCookies(adminRes));
+    const page = await context.newPage();
+
+    await page.goto("/admin/benutzer");
+    await page
+      .getByPlaceholder("Nach E-Mail oder Name filtern…")
+      .fill(targetEmail);
+    await page.getByRole("link", { name: targetEmail }).click();
+    await expect(page).toHaveURL(/\/admin\/benutzer\/[^/]+$/);
+
+    await page.getByRole("button", { name: "Benutzer löschen" }).click();
+    await page.getByRole("button", { name: "Bestätigen" }).click();
+    await expect(
+      page.getByText("einziger Admin von: Sole Admin Gruppe"),
+    ).toBeVisible({ timeout: 10_000 });
+    await expect(page).toHaveURL(/\/admin\/benutzer\/[^/]+$/);
 
     await context.close();
   });
