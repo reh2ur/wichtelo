@@ -90,8 +90,10 @@ test.describe("group overview", () => {
     await expect(
       authedPage.getByRole("heading", { name: "Neu", exact: true }),
     ).toBeVisible();
-    // Not the create form
-    await expect(authedPage.locator("#name")).toHaveCount(0);
+    // Not the create form. cacheComponents keeps the previous route (the
+    // create form) mounted but hidden after the client-side redirect, so
+    // check visibility, not DOM presence.
+    await expect(authedPage.locator("#name")).toBeHidden();
   });
 });
 
