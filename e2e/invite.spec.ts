@@ -79,7 +79,19 @@ test.describe("invite page", () => {
       "/einladung/00000000-0000-0000-0000-000000000000",
     );
     expect(response?.status()).toBe(404);
-    await expect(page.locator("h1")).toContainText("Ungültiger Einladungslink");
+    await expect(page.locator("h1")).toContainText("Seite nicht gefunden");
+  });
+
+  test("invalid token 404 is server-rendered without JS", async ({
+    request,
+  }) => {
+    const response = await request.get(`/einladung/${crypto.randomUUID()}`);
+    expect(response.status()).toBe(404);
+    const html = await response.text();
+    expect(html).toContain('lang="de"');
+    expect(html).toContain('rel="stylesheet"');
+    expect(html).toMatch(/<h1[^>]*>Seite nicht gefunden/);
+    expect(html).not.toContain("__next_error__");
   });
 
   test("new user joins group via OTP invite", async ({
