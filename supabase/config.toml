@@ -224,11 +224,16 @@ enable_signup = true
 # addresses. If disabled, only the new email is required to confirm.
 double_confirm_changes = true
 # If enabled, users need to confirm their email address before signing in.
-enable_confirmations = false
+# MUST stay true: with false, POST /auth/v1/signup {email,password} returns a
+# confirmed session without proof of inbox ownership (issue #15). Passwords are
+# additionally blanked by the blank_auth_password trigger (migration
+# 20261010100000), the app is OTP-only.
+enable_confirmations = true
 # If enabled, users will need to reauthenticate or have logged in recently to change their password.
-secure_password_change = false
+secure_password_change = true
 # Controls the minimum amount of time that must pass before sending another signup confirmation or password reset email.
-max_frequency = "1s"
+# 60s per address: stops mail-bombing a victim and burning the project-wide email_sent quota.
+max_frequency = "60s"
 # Number of characters used in the email OTP.
 otp_length = 6
 # Seconds before email OTP expires (15 min). Mirror text in supabase/templates/*.html.
@@ -252,6 +257,14 @@ sender_name = "Wichtelo"
 # subject = "You have been invited"
 # content_path = "./supabase/templates/invite.html"
 
+# Button in both templates links to `{{ .RedirectTo }}?token_hash={{ .TokenHash }}&type=email`
+# (an app confirm page that only calls verifyOtp on explicit POST), NOT
+# {{ .ConfirmationURL }}: that GET would consume the one-time token on
+# prefetch by link scanners and needs the PKCE verifier of the requesting
+# browser (issue #24). RedirectTo = emailRedirectTo from the app
+# (/auth/callback or /einladung/<token>/magiclink); both must be matched by
+# additional_redirect_urls (the `/**` wildcards in the blocks below cover them).
+#
 # signInWithOtp() sends the "magic link" template for existing users, custom
 # HTML mirrors the Glacier Mark styling from
 # emails/components/wichtel-layout.tsx since Supabase Auth mail can't reuse
@@ -450,9 +463,19 @@ project_id = "aaaaaaaaaaaaaaaaaaaa"
 site_url = "env(LIVE_SITE_URL)"
 additional_redirect_urls = ["env(LIVE_REDIRECT_URL)"]
 
+[remotes.live.auth.email]
+enable_confirmations = true
+secure_password_change = true
+max_frequency = "60s"
+
 [remotes.live.auth.rate_limit]
 # Hosted default 2/h too low for real OTP/magic-link mail. Needs custom SMTP.
 email_sent = 100
+# Per-IP limits (5 min window) count Vercel egress IPs, not users: every
+# signInWithOtp/verifyOtp call is server-side. Default 30 would throttle all
+# users at once. App-level Upstash limits (per email + per IP) are the real guard.
+sign_in_sign_ups = 300
+token_verifications = 300
 
 [remotes.live.auth.email.smtp]
 enabled = true
@@ -475,8 +498,15 @@ additional_redirect_urls = [
   "env(STAGING_PREVIEW_REDIRECT_URL)",
 ]
 
+[remotes.staging.auth.email]
+enable_confirmations = true
+secure_password_change = true
+max_frequency = "60s"
+
 [remotes.staging.auth.rate_limit]
 email_sent = 100
+sign_in_sign_ups = 300
+token_verifications = 300
 
 [remotes.staging.auth.email.smtp]
 enabled = true

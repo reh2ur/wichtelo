@@ -60,7 +60,7 @@ function ReopenGroupButton({ groupId }: { groupId: string }) {
       <p className="text-muted-foreground text-sm">
         {t("actions.reopenConfirmMessage")}
       </p>
-      {errorMsg && <p className="text-destructive text-sm">{errorMsg}</p>}
+      {errorMsg && <p className="text-danger-text text-sm">{errorMsg}</p>}
       <form action={action} className="flex gap-2">
         <input type="hidden" name="groupId" value={groupId} />
         <Button type="submit" disabled={pending}>
@@ -108,7 +108,7 @@ function DeleteGroupButton({ groupId }: { groupId: string }) {
       <p className="text-muted-foreground text-sm">
         {t("actions.deleteConfirmMessage")}
       </p>
-      {errorMsg && <p className="text-destructive text-sm">{errorMsg}</p>}
+      {errorMsg && <p className="text-danger-text text-sm">{errorMsg}</p>}
       <form action={action} className="flex gap-2">
         <input type="hidden" name="groupId" value={groupId} />
         <Button type="submit" variant="destructive" disabled={pending}>

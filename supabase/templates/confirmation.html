@@ -129,7 +129,7 @@
                   <tr>
                     <td style="background-color: #df4a5e; border-radius: 20px">
                       <a
-                        href="{{ .ConfirmationURL }}"
+                        href="{{ .RedirectTo }}?token_hash={{ .TokenHash }}&amp;type=email"
                         style="
                           display: inline-block;
                           padding: 10px 24px;

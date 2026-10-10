@@ -18,7 +18,7 @@ Back-office dashboard at `/admin` for platform operator (super-admin = account c
 ## Architecture
 
 - All `/admin/**` routes: Server Components, `createAdminClient()` (service role key, bypasses RLS).
-- `proxy.ts` guard: for `/admin` paths, check `user.email === process.env.SUPER_ADMIN_EMAIL` → 404 on mismatch/unauthenticated. Runs before `updateSession`.
+- `proxy.ts` guard: for `/admin` paths, check `isSuperAdminEmail(user.email)` (case-insensitive) → 404; `app/admin/layout.tsx` re-checks on mismatch/unauthenticated. Runs before `updateSession`.
 - `@tanstack/react-table` for all data tables (not yet installed — pulled in when #53/#54 build tables).
 - `lib/admin/audit.ts` deep module: `logAdminAction(action, targetType, targetId, metadata?)`. Actor always `process.env.SUPER_ADMIN_EMAIL` — single-admin system, no actor param needed.
 

@@ -38,7 +38,8 @@ vi.mock("@/lib/rate-limit", async () => {
     // make them indistinguishable in assertions.
     anmeldenOtpRequestLimiter: { name: "anmelden-email" },
     anmeldenOtpRequestIpLimiter: { name: "anmelden-ip" },
-    anmeldenOtpVerifyLimiter: { name: "anmelden-verify" },
+    anmeldenOtpVerifyLimiter: { name: "anmelden-verify-email" },
+    anmeldenOtpVerifyIpLimiter: { name: "anmelden-verify-ip" },
   };
 });
 
@@ -47,6 +48,8 @@ import {
   checkRateLimit,
   anmeldenOtpRequestLimiter,
   anmeldenOtpRequestIpLimiter,
+  anmeldenOtpVerifyLimiter,
+  anmeldenOtpVerifyIpLimiter,
 } from "@/lib/rate-limit";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
@@ -213,22 +216,54 @@ describe("requestOtp", () => {
     vi.unstubAllEnvs();
   });
 
-  it("returns generic error when signInWithOtp fails with a genuine send failure in prod (e.g. Supabase's own email rate limit) instead of masking it as otp_sent", async () => {
+  function prodSignInError(error: Record<string, unknown>) {
     vi.stubEnv("NODE_ENV", "production");
     vi.stubEnv("E2E_TEST_MODE", "");
     vi.stubEnv("VERCEL_ENV", "");
     vi.mocked(createClient).mockResolvedValue({
-      auth: {
-        signInWithOtp: vi.fn().mockResolvedValue({
-          error: {
-            message: "Email rate limit exceeded",
-            status: 429,
-            code: "over_email_send_rate_limit",
-          },
-        }),
-      },
+      auth: { signInWithOtp: vi.fn().mockResolvedValue({ error }) },
     } as unknown as SupabaseClient);
+  }
 
+  it("masks the per-address email throttle as otp_sent (second quick request must not reveal an existing account)", async () => {
+    prodSignInError({
+      message:
+        "For security purposes, you can only request this after 59 seconds.",
+      status: 429,
+      code: "over_email_send_rate_limit",
+    });
+    const result = await requestOtp(
+      { status: "idle" },
+      fd({ email: "known@example.com" }),
+    );
+    expect(result).toEqual({ status: "otp_sent", email: "known@example.com" });
+    vi.unstubAllEnvs();
+  });
+
+  it("maps other Supabase rate limits (429 / over_request_rate_limit) to rate_limited", async () => {
+    prodSignInError({
+      message: "Request rate limit reached",
+      status: 429,
+      code: "over_request_rate_limit",
+    });
+    const result = await requestOtp(
+      { status: "idle" },
+      fd({ email: "fresh@example.com" }),
+    );
+    expect(result).toEqual({
+      status: "error",
+      error: "rate_limited",
+      email: "fresh@example.com",
+    });
+    vi.unstubAllEnvs();
+  });
+
+  it("returns generic error for a genuine send failure / provider outage instead of masking it as otp_sent", async () => {
+    prodSignInError({
+      message: "Error sending magic link email",
+      status: 500,
+      code: "unexpected_failure",
+    });
     const result = await requestOtp(
       { status: "idle" },
       fd({ email: "fresh@example.com" }),
@@ -278,6 +313,25 @@ describe("requestOtp", () => {
       fd({ email: "admin@example.com" }),
     );
     expect(result).toEqual({ status: "otp_sent", email: "admin@example.com" });
+    expect(signInWithOtp).toHaveBeenCalledWith(
+      expect.objectContaining({
+        options: expect.objectContaining({ shouldCreateUser: true }),
+      }),
+    );
+    vi.unstubAllEnvs();
+  });
+
+  it("matches SUPER_ADMIN_EMAIL case-insensitively for shouldCreateUser", async () => {
+    vi.stubEnv("NODE_ENV", "production");
+    vi.stubEnv("E2E_TEST_MODE", "");
+    vi.stubEnv("VERCEL_ENV", "");
+    vi.stubEnv("SUPER_ADMIN_EMAIL", "Admin@Example.com");
+    const signInWithOtp = vi.fn().mockResolvedValue({ error: null });
+    vi.mocked(createClient).mockResolvedValue({
+      auth: { signInWithOtp },
+    } as unknown as SupabaseClient);
+
+    await requestOtp({ status: "idle" }, fd({ email: "admin@example.com" }));
     expect(signInWithOtp).toHaveBeenCalledWith(
       expect.objectContaining({
         options: expect.objectContaining({ shouldCreateUser: true }),
@@ -412,5 +466,92 @@ describe("verifyOtp", () => {
       error: "invalid_otp",
       email: "user@example.com",
     });
+  });
+});
+
+describe("verifyOtp rate limiting and error mapping", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    vi.mocked(checkRateLimit).mockResolvedValue(true);
+  });
+
+  it("limits per normalized email plus a per-IP backstop", async () => {
+    vi.mocked(createClient).mockResolvedValue({
+      auth: {
+        verifyOtp: vi.fn().mockResolvedValue({ error: { status: 400 } }),
+      },
+    } as unknown as SupabaseClient);
+    await verifyOtp(
+      { status: "idle" },
+      fd({ email: " User@Example.COM ", token: "123456" }),
+    );
+    const calls = vi.mocked(checkRateLimit).mock.calls;
+    expect(calls).toContainEqual([
+      anmeldenOtpVerifyLimiter,
+      "user@example.com",
+    ]);
+    expect(calls).toContainEqual([
+      anmeldenOtpVerifyIpLimiter,
+      expect.any(String),
+    ]);
+  });
+
+  it("returns rate_limited without calling Supabase when the email limit is hit", async () => {
+    vi.mocked(checkRateLimit).mockImplementation(
+      async (l) => l !== anmeldenOtpVerifyLimiter,
+    );
+    const verify = vi.fn();
+    vi.mocked(createClient).mockResolvedValue({
+      auth: { verifyOtp: verify },
+    } as unknown as SupabaseClient);
+    const result = await verifyOtp(
+      { status: "idle" },
+      fd({ email: "user@example.com", token: "123456" }),
+    );
+    expect(result).toEqual({
+      status: "error",
+      error: "rate_limited",
+      email: "user@example.com",
+    });
+    expect(verify).not.toHaveBeenCalled();
+  });
+
+  it("returns rate_limited when only the IP backstop is exceeded", async () => {
+    vi.mocked(checkRateLimit).mockImplementation(
+      async (l) => l !== anmeldenOtpVerifyIpLimiter,
+    );
+    const result = await verifyOtp(
+      { status: "idle" },
+      fd({ email: "user@example.com", token: "123456" }),
+    );
+    expect(result).toMatchObject({ status: "error", error: "rate_limited" });
+  });
+
+  it("maps a Supabase 429 on verify to rate_limited, not invalid_otp", async () => {
+    vi.mocked(createClient).mockResolvedValue({
+      auth: {
+        verifyOtp: vi.fn().mockResolvedValue({
+          error: { status: 429, code: "over_request_rate_limit" },
+        }),
+      },
+    } as unknown as SupabaseClient);
+    const result = await verifyOtp(
+      { status: "idle" },
+      fd({ email: "user@example.com", token: "123456" }),
+    );
+    expect(result).toMatchObject({ status: "error", error: "rate_limited" });
+  });
+
+  it("rejects a malformed email without verifying", async () => {
+    const verify = vi.fn();
+    vi.mocked(createClient).mockResolvedValue({
+      auth: { verifyOtp: verify },
+    } as unknown as SupabaseClient);
+    const result = await verifyOtp(
+      { status: "idle" },
+      fd({ email: "nope", token: "123456" }),
+    );
+    expect(result).toMatchObject({ status: "error", error: "invalid_otp" });
+    expect(verify).not.toHaveBeenCalled();
   });
 });

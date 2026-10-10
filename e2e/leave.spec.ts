@@ -239,6 +239,7 @@ test.describe("admin remove participant", () => {
     // Trigger draw
     await authedPage.goto(`/gruppen/${slug}`);
     await authedPage.locator('button:has-text("Auslosung starten")').click();
+    await authedPage.locator('button:has-text("Jetzt auslosen")').click();
     await expect(
       authedPage.getByText("Ausgelost", { exact: true }),
     ).toBeVisible({
@@ -352,6 +353,7 @@ test.describe("leave after draw", () => {
 
       await authedPage.goto(`/gruppen/${slug}`);
       await authedPage.locator('button:has-text("Auslosung starten")').click();
+      await authedPage.locator('button:has-text("Jetzt auslosen")').click();
       await expect(
         authedPage.getByText("Ausgelost", { exact: true }),
       ).toBeVisible({

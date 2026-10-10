@@ -9,6 +9,7 @@
 import { describe, it, expect, beforeAll, afterAll } from "vitest";
 import { createClient as createSupabaseClient } from "@supabase/supabase-js";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { signInAs } from "@/lib/supabase/test-sign-in";
 
 const hasSupabase = !!process.env.NEXT_PUBLIC_SUPABASE_URL;
 
@@ -18,7 +19,6 @@ describe.skipIf(!hasSupabase)("create_group RPC", () => {
   let noProfileId: string;
   let userEmail: string;
   let noProfileEmail: string;
-  const password = "correct-horse-battery-staple-1";
   const run = Date.now();
   const blockerSlugs = [`cg-taken-${run}`, `cg-taken-${run}-2`];
 
@@ -27,10 +27,7 @@ describe.skipIf(!hasSupabase)("create_group RPC", () => {
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
       process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY!,
     );
-    const { error } = await client.auth.signInWithPassword({
-      email,
-      password,
-    });
+    const { error } = await signInAs(client, email);
     if (error) throw error;
     return client;
   }
@@ -42,7 +39,6 @@ describe.skipIf(!hasSupabase)("create_group RPC", () => {
 
     const { data: u, error: uErr } = await admin.auth.admin.createUser({
       email: userEmail,
-      password,
       email_confirm: true,
     });
     if (uErr) throw uErr;
@@ -53,7 +49,6 @@ describe.skipIf(!hasSupabase)("create_group RPC", () => {
 
     const { data: n, error: nErr } = await admin.auth.admin.createUser({
       email: noProfileEmail,
-      password,
       email_confirm: true,
     });
     if (nErr) throw nErr;

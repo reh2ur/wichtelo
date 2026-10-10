@@ -15,6 +15,7 @@ import {
   useStoredEmailWarning,
 } from "./email-warning";
 import { createIntlContext } from "@/lib/create-intl-context";
+import { CONFIRM_TITLE_CLASS, useConfirmFocus } from "@/lib/use-confirm-focus";
 
 const { Provider: RedrawProvider, useT: useRedrawT } =
   createIntlContext("redraw");
@@ -28,6 +29,9 @@ export function RedrawButtonClient({ slug }: { slug: string }) {
   const [state, action, pending] = useActionState<RetriggerDrawState, FormData>(
     retriggerDraw,
     { status: "idle" },
+  );
+  const { triggerRef, titleRef } = useConfirmFocus(
+    confirming && state.status !== "success",
   );
 
   const [resendState, resendAction, resending] = useActionState<
@@ -76,24 +80,26 @@ export function RedrawButtonClient({ slug }: { slug: string }) {
         ? t("errors.unsolvable")
         : state.error === "too_complex"
           ? t("errors.tooComplex")
-          : state.error === "not_admin"
-            ? t("errors.notAdmin")
-            : state.error === "group_not_found"
-              ? t("errors.groupNotFound")
-              : state.error === "rate_limited"
-                ? t("errors.rateLimited")
-                : state.error === "not_enough_members"
-                  ? t("errors.notEnoughMembers")
-                  : state.error === "membership_changed"
-                    ? t("errors.membershipChanged")
-                    : t("errors.generic")
+          : state.error === "not_drawn"
+            ? t("errors.notDrawn")
+            : state.error === "not_admin"
+              ? t("errors.notAdmin")
+              : state.error === "group_not_found"
+                ? t("errors.groupNotFound")
+                : state.error === "rate_limited"
+                  ? t("errors.rateLimited")
+                  : state.error === "not_enough_members"
+                    ? t("errors.notEnoughMembers")
+                    : state.error === "membership_changed"
+                      ? t("errors.membershipChanged")
+                      : t("errors.generic")
       : null;
 
   if (!confirming || state.status === "success") {
     return (
       <div className="space-y-2">
         {warning && (
-          <p role="status" className="text-destructive text-sm">
+          <p role="status" className="text-danger-text text-sm">
             {t("emailFailure", {
               failed: warning.failed,
               total: warning.total,
@@ -121,7 +127,7 @@ export function RedrawButtonClient({ slug }: { slug: string }) {
           </form>
         )}
         {resendError && (
-          <p role="alert" className="text-destructive text-sm">
+          <p role="alert" className="text-danger-text text-sm">
             {resendError}
           </p>
         )}
@@ -131,6 +137,7 @@ export function RedrawButtonClient({ slug }: { slug: string }) {
           </p>
         )}
         <Button
+          ref={triggerRef}
           type="button"
           variant="outline"
           onClick={() => {
@@ -146,9 +153,15 @@ export function RedrawButtonClient({ slug }: { slug: string }) {
 
   return (
     <div className="border-border bg-muted/30 space-y-3 rounded-lg border p-4">
-      <p className="text-sm font-medium">{t("confirm.title")}</p>
+      <p ref={titleRef} tabIndex={-1} className={CONFIRM_TITLE_CLASS}>
+        {t("confirm.title")}
+      </p>
       <p className="text-muted-foreground text-sm">{t("confirm.message")}</p>
-      {errorMsg && <p className="text-destructive text-sm">{errorMsg}</p>}
+      {errorMsg && (
+        <p role="alert" className="text-danger-text text-sm">
+          {errorMsg}
+        </p>
+      )}
       <form action={action} className="flex gap-2">
         <input type="hidden" name="slug" value={slug} />
         <Button type="submit" disabled={pending}>

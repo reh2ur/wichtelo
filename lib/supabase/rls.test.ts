@@ -11,6 +11,7 @@
 import { describe, it, expect, beforeAll, afterAll } from "vitest";
 import { createClient as createSupabaseClient } from "@supabase/supabase-js";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { signInAs } from "@/lib/supabase/test-sign-in";
 
 const hasSupabase = !!process.env.NEXT_PUBLIC_SUPABASE_URL;
 
@@ -22,7 +23,6 @@ describe.skipIf(!hasSupabase)(
     let victimId: string;
     let attackerId: string;
     let attackerEmail: string;
-    const password = "correct-horse-battery-staple-1";
 
     beforeAll(async () => {
       admin = createAdminClient();
@@ -58,7 +58,6 @@ describe.skipIf(!hasSupabase)(
       const { data: attacker, error: attackerError } =
         await admin.auth.admin.createUser({
           email: attackerEmail,
-          password,
           email_confirm: true,
         });
       if (attackerError) throw attackerError;
@@ -97,10 +96,7 @@ describe.skipIf(!hasSupabase)(
 
     it("authenticated user cannot self-insert as admin of an existing group they didn't create", async () => {
       const anon = anonClient();
-      const { error: signInError } = await anon.auth.signInWithPassword({
-        email: attackerEmail,
-        password,
-      });
+      const { error: signInError } = await signInAs(anon, attackerEmail);
       expect(signInError).toBeNull();
 
       const { error } = await anon.from("memberships").insert({
@@ -122,10 +118,7 @@ describe.skipIf(!hasSupabase)(
 
     it("authenticated user cannot create a group with created_by spoofed to another user", async () => {
       const anon = anonClient();
-      const { error: signInError } = await anon.auth.signInWithPassword({
-        email: attackerEmail,
-        password,
-      });
+      const { error: signInError } = await signInAs(anon, attackerEmail);
       expect(signInError).toBeNull();
 
       const spoofedGroupId = crypto.randomUUID();
@@ -149,10 +142,7 @@ describe.skipIf(!hasSupabase)(
 
     it("authenticated user cannot create a group pre-set to state 'drawn'", async () => {
       const anon = anonClient();
-      const { error: signInError } = await anon.auth.signInWithPassword({
-        email: attackerEmail,
-        password,
-      });
+      const { error: signInError } = await signInAs(anon, attackerEmail);
       expect(signInError).toBeNull();
 
       const drawnGroupId = crypto.randomUUID();
@@ -176,10 +166,7 @@ describe.skipIf(!hasSupabase)(
 
     it("group creator can still create a group via create_group RPC (createGroup flow)", async () => {
       const anon = anonClient();
-      const { error: signInError } = await anon.auth.signInWithPassword({
-        email: attackerEmail,
-        password,
-      });
+      const { error: signInError } = await signInAs(anon, attackerEmail);
       expect(signInError).toBeNull();
 
       const { data, error } = await anon
@@ -222,7 +209,7 @@ describe.skipIf(!hasSupabase)(
 
     it("authenticated can still evaluate helpers via RLS (#191)", async () => {
       const anon = anonClient();
-      await anon.auth.signInWithPassword({ email: attackerEmail, password });
+      await signInAs(anon, attackerEmail);
       const { data, error } = await anon.from("groups").select("id");
       expect(error).toBeNull();
       expect(data).toBeInstanceOf(Array);
@@ -237,10 +224,7 @@ describe.skipIf(!hasSupabase)(
 
       beforeAll(async () => {
         client = anonClient();
-        const { error: signInError } = await client.auth.signInWithPassword({
-          email: attackerEmail,
-          password,
-        });
+        const { error: signInError } = await signInAs(client, attackerEmail);
         expect(signInError).toBeNull();
 
         // The only supported way for a user JWT to create a group.
@@ -559,10 +543,7 @@ describe.skipIf(!hasSupabase)(
 
       beforeAll(async () => {
         client = anonClient();
-        const { error } = await client.auth.signInWithPassword({
-          email: attackerEmail,
-          password,
-        });
+        const { error } = await signInAs(client, attackerEmail);
         expect(error).toBeNull();
       });
 
@@ -827,7 +808,6 @@ describe.skipIf(!hasSupabase)(
       beforeAll(async () => {
         const { data, error } = await admin.auth.admin.createUser({
           email: participantEmail,
-          password,
           email_confirm: true,
         });
         if (error) throw error;
@@ -863,11 +843,10 @@ describe.skipIf(!hasSupabase)(
         ]);
 
         participant = anonClient();
-        const { error: signInError } =
-          await participant.auth.signInWithPassword({
-            email: participantEmail,
-            password,
-          });
+        const { error: signInError } = await signInAs(
+          participant,
+          participantEmail,
+        );
         expect(signInError).toBeNull();
       });
 
@@ -908,10 +887,7 @@ describe.skipIf(!hasSupabase)(
 
       it("group admin still sees all membership rows with full names", async () => {
         const adminClient = anonClient();
-        await adminClient.auth.signInWithPassword({
-          email: attackerEmail,
-          password,
-        });
+        await signInAs(adminClient, attackerEmail);
         const { data } = await adminClient
           .from("memberships")
           .select("name_snapshot")

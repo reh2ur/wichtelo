@@ -27,7 +27,7 @@ Tick each before public launch / before draw season. Env var names in `.env.exam
 
 ## Upstash (required)
 
-- [ ] Redis DB (EU region). `UPSTASH_REDIS_REST_URL` + `UPSTASH_REDIS_REST_TOKEN` in production env. Unset = rate limiting OFF (allows all) — not enforced by env check, set it.
+- [ ] Redis DB (EU region). `UPSTASH_REDIS_REST_URL` + `UPSTASH_REDIS_REST_TOKEN` in production env. Enforced by prod env check (build + boot) — missing = build fails.
 
 ## Sentry (EU)
 

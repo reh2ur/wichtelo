@@ -26,7 +26,12 @@ export async function POST(request: Request) {
     );
   }
 
-  return NextResponse.json({ action_link: data.properties.action_link });
+  // hashed_token: what the emailed button carries as ?token_hash= (lets E2E
+  // drive the confirm page without an inbox).
+  return NextResponse.json({
+    action_link: data.properties.action_link,
+    token_hash: data.properties.hashed_token,
+  });
 }
 
 export async function DELETE(request: Request) {

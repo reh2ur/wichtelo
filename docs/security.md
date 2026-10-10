@@ -13,6 +13,16 @@ Private paths (`/gruppen/*`, `/einladung/*`) also send `X-Robots-Tag: noindex, n
 - `poweredByHeader: false` → no `X-Powered-By`.
 - Auth OTP lifetime 900s (15 min) in `supabase/config.toml`; mail templates say "15 Minuten". Change one → change other, `supabase config push`.
 
+## Auth hardening (issue #15, #23, #24)
+
+- App = OTP/magic-link only. GoTrue password endpoints still reachable w/ publishable key → migration `20261010100000` trigger `blank_auth_password` on `auth.users` wipes any written password (can't reject: GoTrue gives OTP-created users random temp password). Password login impossible whoever picked password. Integration tests sign in via OTP (`lib/supabase/test-sign-in.ts`), never password.
+- `enable_confirmations = true` (base + remotes) → password signup yields no session. `max_frequency = "60s"` per address. No captcha yet (needs Turnstile account).
+- Super-admin = `isSuperAdminEmail` (`lib/admin/super-admin-email.ts`), case-insensitive; used in `proxy.ts`, `isSuperAdmin()`, `/anmelden`. `app/admin/layout.tsx` also guards (`notFound()`) — proxy matcher skips `.png/.svg` paths. Sign in once as super-admin before go-live.
+- Emailed button → `{{ .RedirectTo }}?token_hash={{ .TokenHash }}&type=email` (both templates), NOT `{{ .ConfirmationURL }}`. Targets `/auth/callback` + `/einladung/[token]/magiclink` = GET confirm page only; POST Server Action → `verifyEmailLink` (`lib/auth/email-link.ts`, `verifyOtp({token_hash,type:"email"})`). Scanner prefetch can't burn token, works cross-device, no PKCE verifier. Failure → `?error=link_invalid|rate_limited` + German message. Redirect allow-list `/**` wildcards cover both routes.
+- Rate limits (Upstash, required in prod via `lib/env.ts`): OTP request = per email + per-IP backstop; OTP verify = per email 10/15 min + per-IP 30/15 min; link confirm = per-IP. IP key = `x-vercel-forwarded-for`, IPv6 collapsed to /64 (`normalizeIpKey`).
+- Supabase 429 / `over_*_rate_limit` → `rate_limited` (`lib/supabase/auth-errors.ts`). `/anmelden` masks per-address email throttle as `otp_sent` (else existing accounts leak on 2nd quick request); logged as `auth.sign_in_otp_failed`.
+- Hosted Supabase per-IP auth limits (`sign_in_sign_ups`, `token_verifications`, 5 min window) count Vercel egress IPs, not users → raised to 300 in `[remotes.*.auth.rate_limit]`. Plan caps may apply; check dashboard after `supabase config push`. `email_sent` sized for peak (100/h now).
+
 ## Observability
 
 - `instrumentation.ts` `onRequestError` → structured pino error (`request.unhandled_error`): serialized error, method, `routePath`, `routeType`. No request path/headers (invite token in path, cookies in headers).

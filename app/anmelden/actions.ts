@@ -10,12 +10,19 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { isTestBackdoorEnabled } from "@/lib/test-backdoor";
 import { safeNext, NEXT_COOKIE } from "@/lib/safe-next";
 import { getClientIp } from "@/lib/request-ip";
+import { isSuperAdminEmail } from "@/lib/admin/super-admin-email";
 import {
   checkRateLimit,
   anmeldenOtpRequestLimiter,
   anmeldenOtpRequestIpLimiter,
   anmeldenOtpVerifyLimiter,
+  anmeldenOtpVerifyIpLimiter,
 } from "@/lib/rate-limit";
+import {
+  isAuthEmailThrottleError,
+  isAuthRateLimitError,
+} from "@/lib/supabase/auth-errors";
+import { logger } from "@/lib/logger";
 
 type AdminClient = ReturnType<typeof createAdminClient>;
 
@@ -137,26 +144,32 @@ export async function requestOtp(
     options: {
       // Super admin can create their account on a fresh deployment without
       // needing a pre-existing user.
-      shouldCreateUser: email === process.env.SUPER_ADMIN_EMAIL,
+      shouldCreateUser: isSuperAdminEmail(email),
       emailRedirectTo: `${siteUrl}/auth/callback`,
     },
   });
   if (error) {
-    console.error(
-      "[requestOtp] signInWithOtp failed:",
-      error.message,
-      error.status,
-      error.code,
-    );
-    // "No account for this email" (invite-only, sign-up disabled) is the
-    // only case masked as otp_sent, so the response gives no signal about
-    // account existence (see issue #104). Every other failure — Supabase's
-    // own email-send rate limit, provider outages, unexpected errors — is a
-    // genuine send failure and must surface as an error. Masking those too
-    // left users staring at a code-entry screen for an email that was never
-    // sent, with no indication anything went wrong (see issue #139).
-    if (error.code === "otp_disabled") {
+    logger
+      .withMetadata({
+        status: error.status,
+        code: error.code,
+        message: error.message,
+      })
+      .error("auth.sign_in_otp_failed");
+    // Two cases are masked as otp_sent so the response gives no signal about
+    // account existence (see issue #104):
+    //  - "No account for this email" (invite-only, sign-up disabled).
+    //  - Per-address email throttle (max_frequency): only an existing account
+    //    can hit it on a second quick request, unknown addresses never send.
+    // Logged above, so provider-wide quota exhaustion stays visible to ops.
+    // Every other failure is a genuine send failure and must surface:
+    // masking those left users staring at a code-entry screen for an email
+    // that was never sent (see issue #139).
+    if (error.code === "otp_disabled" || isAuthEmailThrottleError(error)) {
       return { status: "otp_sent", email };
+    }
+    if (isAuthRateLimitError(error)) {
+      return { status: "error", error: "rate_limited", email };
     }
     return { status: "error", error: "generic", email };
   }
@@ -170,12 +183,20 @@ export async function verifyOtp(
   const email = ((formData.get("email") as string) ?? "").trim();
   const token = ((formData.get("token") as string) ?? "").trim();
 
-  if (!otpSchema.safeParse(token).success) {
+  if (
+    !otpSchema.safeParse(token).success ||
+    !emailSchema.safeParse(email).success
+  ) {
     return { status: "error", error: "invalid_otp", email };
   }
 
+  // Per-email limit caps guesses at one code regardless of source IPs;
+  // per-IP backstop is looser so a shared Wi-Fi/CGNAT doesn't lock users out.
   const ip = await getClientIp();
-  if (!(await checkRateLimit(anmeldenOtpVerifyLimiter, ip))) {
+  if (
+    !(await checkRateLimit(anmeldenOtpVerifyIpLimiter, ip)) ||
+    !(await checkRateLimit(anmeldenOtpVerifyLimiter, email.toLowerCase()))
+  ) {
     return { status: "error", error: "rate_limited", email };
   }
 
@@ -186,7 +207,12 @@ export async function verifyOtp(
     type: "email",
   });
 
-  if (error) return { status: "error", error: "invalid_otp", email };
+  if (error) {
+    if (isAuthRateLimitError(error)) {
+      return { status: "error", error: "rate_limited", email };
+    }
+    return { status: "error", error: "invalid_otp", email };
+  }
 
   redirect((safeNext(formData.get("next")) ?? "/gruppen") as Route);
 }
