@@ -612,6 +612,8 @@ test.describe("re-draw after a member deleted their account (#18)", () => {
     authedPage,
     browser,
   }) => {
+    // 3 invites + draw + account deletion + re-draw: too long for the default 30s.
+    test.setTimeout(120_000);
     const { slug, inviteUrl } = await setupGroup(authedPage, "Ghost Redraw");
 
     const run = Date.now();
