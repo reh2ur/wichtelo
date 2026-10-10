@@ -60,19 +60,21 @@ Create an API key and verify your sending domain at resend.com. Supabase Auth ma
 
 ### 3. Environment variables
 
-| Variable                                                                                      | Required                | Purpose                                                     |
-| --------------------------------------------------------------------------------------------- | ----------------------- | ----------------------------------------------------------- |
-| `NEXT_PUBLIC_SUPABASE_URL`                                                                    | always                  | Supabase project URL                                        |
-| `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`                                                        | always                  | Supabase publishable key                                    |
-| `SUPABASE_SERVICE_ROLE_KEY`                                                                   | always                  | Server-only admin key, never expose                         |
-| `NEXT_PUBLIC_SITE_URL`                                                                        | production              | Canonical origin used for links in email                    |
-| `RESEND_API_KEY`, `RESEND_FROM_EMAIL`                                                         | production              | Transactional email                                         |
-| `ACCOUNT_DELETION_SECRET`                                                                     | production              | HMAC secret for deletion links, at least 32 chars           |
-| `OPERATOR_NAME`, `OPERATOR_ADDRESS_LINE1`, `OPERATOR_ADDRESS_LINE2`, `OPERATOR_CONTACT_EMAIL` | production              | Legally required Impressum (§ 5 DDG), shown on `/impressum` |
-| `SUPER_ADMIN_EMAIL`                                                                           | optional                | Account allowed into the `/admin` back-office               |
-| `UPSTASH_REDIS_REST_URL`, `UPSTASH_REDIS_REST_TOKEN`                                          | optional                | Rate limiting; all requests allowed when unset              |
-| `SUPABASE_PROJECT_REF_LIVE`                                                                   | recommended on previews | E2E backdoors refuse to run against this project            |
-| `E2E_TEST_MODE`, `E2E_TEST_SECRET`                                                            | previews/local E2E only | Enables test-only endpoints. **Never set in production**    |
+| Variable                                                                                      | Required                | Purpose                                                                             |
+| --------------------------------------------------------------------------------------------- | ----------------------- | ----------------------------------------------------------------------------------- |
+| `NEXT_PUBLIC_SUPABASE_URL`                                                                    | always                  | Supabase project URL                                                                |
+| `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`                                                        | always                  | Supabase publishable key                                                            |
+| `SUPABASE_SERVICE_ROLE_KEY`                                                                   | always                  | Server-only admin key, never expose                                                 |
+| `NEXT_PUBLIC_SITE_URL`                                                                        | production              | Canonical origin used for links in email                                            |
+| `RESEND_API_KEY`, `RESEND_FROM_EMAIL`                                                         | production              | Transactional email                                                                 |
+| `ACCOUNT_DELETION_SECRET`                                                                     | production              | HMAC secret for deletion links, at least 32 chars                                   |
+| `OPERATOR_NAME`, `OPERATOR_ADDRESS_LINE1`, `OPERATOR_ADDRESS_LINE2`, `OPERATOR_CONTACT_EMAIL` | production              | Legally required Impressum (§ 5 DDG), shown on `/impressum`                         |
+| `SUPER_ADMIN_EMAIL`                                                                           | optional                | Account allowed into the `/admin` back-office                                       |
+| `UPSTASH_REDIS_REST_URL`, `UPSTASH_REDIS_REST_TOKEN`                                          | optional                | Rate limiting; all requests allowed when unset                                      |
+| `NEXT_PUBLIC_SENTRY_DSN`                                                                      | optional                | Sentry error monitoring (use an EU org, `ingest.de.sentry.io`); disabled when unset |
+| `SENTRY_ORG`, `SENTRY_PROJECT`, `SENTRY_AUTH_TOKEN`                                           | optional                | Build-time source map upload; token is secret, set in Vercel env only               |
+| `SUPABASE_PROJECT_REF_LIVE`                                                                   | recommended on previews | E2E backdoors refuse to run against this project                                    |
+| `E2E_TEST_MODE`, `E2E_TEST_SECRET`                                                            | previews/local E2E only | Enables test-only endpoints. **Never set in production**                            |
 
 In production the app validates required variables at boot and fails with a list of what is missing. Previews and local dev are more lenient (placeholders for the Impressum, dry-run mail).
 
@@ -87,7 +89,7 @@ Optional, add to your instance's Supabase dashboard: Auth → Email → turn **o
 Be aware before forking:
 
 - **Branding and copy:** the name "Wichtelo", the logo/brand assets in `public/brand/` and all German copy in `messages/de.json` are the original deployment's. Change them to taste.
-- **Legal texts:** `/datenschutz` (privacy policy) describes the original processors (Supabase EU, Resend, Vercel incl. Speed Insights, optional Upstash). Review and adapt it to your setup and jurisdiction. The Impressum content comes from the `OPERATOR_*` variables.
+- **Legal texts:** `/datenschutz` (privacy policy) describes the original processors (Supabase EU, Resend, Vercel incl. Speed Insights, Sentry, optional Upstash). Review and adapt it to your setup and jurisdiction. The Impressum content comes from the `OPERATOR_*` variables.
 - **Vercel Speed Insights** is enabled in the app and disclosed in the privacy policy. Remove it if you do not use Vercel.
 - The app is German-only (next-intl without locale prefix).
 
