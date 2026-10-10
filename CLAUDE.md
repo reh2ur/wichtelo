@@ -134,7 +134,7 @@ Extract all complex business logic into pure or near-pure modules. Do not embed 
 
 | Module                       | Signature                                                                |
 | ---------------------------- | ------------------------------------------------------------------------ |
-| **Draw Engine**              | `computeDraw(members, exclusions) → assignment \| null`                  |
+| **Draw Engine**              | `computeDraw(members, exclusions) → assignment \| null \| TOO_COMPLEX`   |
 | **Slug Generator**           | `generateSlug(name, existingSlugs) → string`                             |
 | **Name Abbreviator**         | `abbreviateNames(members[]) → DisplayName[]`                             |
 | **Invite Token**             | `createToken(groupId)`, `resolveToken(token) → {group,state} \| 'drawn'` |
@@ -144,7 +144,7 @@ Extract all complex business logic into pure or near-pure modules. Do not embed 
 
 ## Draw algorithm
 
-`computeDraw` must produce **derangement** (no self-assignment) with **no mutual pairs** (if A→B then B cannot→A) and all **exclusion pairs** respected (bidirectional). Two-stage: fast path = rejection sampling (Fisher-Yates + retry, 200 attempts), fallback = exhaustive randomized backtracking (MRV-ordered, prunes self/mutual/exclusion conflicts) — proves true infeasibility, not just retry exhaustion. Returns `null` **iff** no valid assignment exists — draw blocked, admin sees German error. Minimum 3 participants enforced before draw triggers.
+`computeDraw` must produce **derangement** (no self-assignment) with **no mutual pairs** (if A→B then B cannot→A) and all **exclusion pairs** respected (bidirectional). Two-stage: fast path = rejection sampling (Fisher-Yates + retry, 200 attempts), fallback = exhaustive randomized backtracking (MRV-ordered, prunes self/mutual/exclusion conflicts) — proves true infeasibility, not just retry exhaustion. Pre-stage: bipartite perfect-matching check (Kuhn) on allowed giver→receiver graph — no match → `null` instantly (catches household/Hall cases). Mutual-pair rule not matchable → matching = necessary condition only. Backtracking has node budget (`MAX_BACKTRACK_NODES`); exhausted → distinct `TOO_COMPLEX` (`"too_complex"`), NOT `null`. Returns `null` **iff** no valid assignment exists — draw blocked, admin sees German error. `TOO_COMPLEX` → separate German admin msg (`errors.tooComplex`, `exclusions.tooComplexWarning`) at draw, re-draw, addExclusion warning; every `computeDraw` call site must handle it. Minimum 3 participants enforced before draw triggers.
 
 ## Name display
 
