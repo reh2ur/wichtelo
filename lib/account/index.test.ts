@@ -64,7 +64,7 @@ describe.skipIf(!hasSupabase)("deleteAccount", () => {
       .insert({
         slug,
         name: "Test Gruppe",
-        state: "drawn",
+        state: "open",
         created_by: adminUserId,
         year: 2024,
       })
@@ -90,6 +90,8 @@ describe.skipIf(!hasSupabase)("deleteAccount", () => {
       .select("id")
       .single();
     const membershipId = mem.id;
+    // Trigger rejects membership inserts into a drawn group: draw after seeding.
+    await supabase.from("groups").update({ state: "drawn" }).eq("id", groupId);
 
     const result = await deleteAccount(testUserId);
 
@@ -125,7 +127,7 @@ describe.skipIf(!hasSupabase)("deleteAccount", () => {
       .insert({
         slug,
         name: "Ausgelost Gruppe",
-        state: "drawn",
+        state: "open",
         created_by: adminUserId,
         year: 2024,
       })
@@ -142,6 +144,8 @@ describe.skipIf(!hasSupabase)("deleteAccount", () => {
       profile_id: secondUserId,
       name_snapshot: "Zweiter Nutzer",
     });
+    // Trigger rejects membership inserts into a drawn group: draw after seeding.
+    await supabase.from("groups").update({ state: "drawn" }).eq("id", group.id);
 
     const result = await deleteAccount(secondUserId);
 
