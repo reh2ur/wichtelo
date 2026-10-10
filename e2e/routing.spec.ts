@@ -4,6 +4,7 @@ import {
   BASE_URL,
   browserExtraHeaders,
   createFreshAuthedContext,
+  testApiHeaders,
 } from "./helpers";
 
 function guestContextOptions() {
@@ -198,6 +199,40 @@ test.describe("return-to after login", () => {
         timeout: 10_000,
       });
       await page.locator('button[type="submit"]').click();
+      await expect(page).toHaveURL(/\/konto$/, { timeout: 15_000 });
+    } finally {
+      await ctx.close();
+    }
+  });
+
+  test("emailed-link confirm (token_hash) returns to the protected page", async ({
+    browser,
+  }) => {
+    const { ctx: setupCtx, email } = await createFreshAuthedContext(browser);
+    await setupCtx.close();
+
+    const ctx = await browser.newContext(guestContextOptions());
+    try {
+      const page = await ctx.newPage();
+      await page.goto("/konto");
+      await expect(page).toHaveURL(/\/anmelden\?next=%2Fkonto/);
+
+      // Requesting the code sets the return-to cookie (path /auth).
+      await page.locator("#email").fill(email);
+      await page.locator('button[type="submit"]').click();
+      await expect(page.locator("#otp")).toBeVisible();
+
+      // Same browser then opens the emailed button (token_hash link).
+      const res = await fetch(`${BASE_URL}/api/test/session`, {
+        method: "POST",
+        headers: testApiHeaders(),
+        body: JSON.stringify({ email }),
+      });
+      if (!res.ok) throw new Error(`Token hash setup failed: ${res.status}`);
+      const { token_hash } = await res.json();
+
+      await page.goto(`/auth/callback?token_hash=${token_hash}&type=email`);
+      await page.getByRole("button", { name: "Jetzt anmelden" }).click();
       await expect(page).toHaveURL(/\/konto$/, { timeout: 15_000 });
     } finally {
       await ctx.close();

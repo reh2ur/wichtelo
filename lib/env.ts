@@ -27,6 +27,10 @@ const productionSchema = baseSchema.extend({
   RESEND_API_KEY: required("RESEND_API_KEY"),
   RESEND_FROM_EMAIL: required("RESEND_FROM_EMAIL"),
   NEXT_PUBLIC_SITE_URL: z.url({ error: "NEXT_PUBLIC_SITE_URL must be a URL" }),
+  // Rate limiting fails open without Redis (OTP, verify, join, draw,
+  // deletion limits all disabled), so a prod deploy must not boot without it.
+  UPSTASH_REDIS_REST_URL: required("UPSTASH_REDIS_REST_URL"),
+  UPSTASH_REDIS_REST_TOKEN: required("UPSTASH_REDIS_REST_TOKEN"),
   // Impressum (§ 5 DDG) — legally required on the live site, so no fallback.
   OPERATOR_NAME: required("OPERATOR_NAME"),
   OPERATOR_ADDRESS_LINE1: required("OPERATOR_ADDRESS_LINE1"),

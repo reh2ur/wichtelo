@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 
 vi.mock("next/navigation", () => ({
   redirect: vi.fn().mockImplementation((url: string) => {
@@ -53,7 +53,8 @@ vi.mock("@/lib/rate-limit", async () => {
     // make them indistinguishable in assertions.
     inviteOtpRequestLimiter: { name: "invite-email" },
     inviteOtpRequestIpLimiter: { name: "invite-ip" },
-    inviteOtpVerifyLimiter: { name: "invite-verify" },
+    inviteOtpVerifyLimiter: { name: "invite-verify-email" },
+    inviteOtpVerifyIpLimiter: { name: "invite-verify-ip" },
   };
 });
 
@@ -66,6 +67,8 @@ import {
   checkRateLimit,
   inviteOtpRequestLimiter,
   inviteOtpRequestIpLimiter,
+  inviteOtpVerifyLimiter,
+  inviteOtpVerifyIpLimiter,
 } from "@/lib/rate-limit";
 
 type SupabaseClient = Awaited<ReturnType<typeof createClient>>;
@@ -282,6 +285,114 @@ describe("verifyInviteOtp", () => {
         fd({ email: "guest@example.com", otp: "123456" }),
       ),
     ).rejects.toThrow("REDIRECT:/einladung/valid-token");
+  });
+});
+
+describe("requestInviteOtp Supabase throttling", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    vi.mocked(checkRateLimit).mockResolvedValue(true);
+    vi.mocked(resolveToken).mockResolvedValue(openGroup);
+    vi.stubEnv("NODE_ENV", "production");
+    vi.stubEnv("E2E_TEST_MODE", "");
+    vi.stubEnv("VERCEL_ENV", "");
+  });
+
+  afterEach(() => {
+    vi.unstubAllEnvs();
+  });
+
+  it("maps Supabase 429 / over_*_rate_limit to rate_limited", async () => {
+    vi.mocked(createClient).mockResolvedValue({
+      auth: {
+        signInWithOtp: vi.fn().mockResolvedValue({
+          error: { status: 429, code: "over_email_send_rate_limit" },
+        }),
+      },
+    } as unknown as SupabaseClient);
+    const result = await requestInviteOtp(
+      "valid-token",
+      { status: "idle" },
+      fd({ email: "guest@example.com" }),
+    );
+    expect(result).toEqual({
+      status: "error",
+      error: "rate_limited",
+      email: "guest@example.com",
+    });
+  });
+
+  it("keeps other failures generic", async () => {
+    vi.mocked(createClient).mockResolvedValue({
+      auth: {
+        signInWithOtp: vi.fn().mockResolvedValue({
+          error: { status: 500, code: "unexpected_failure" },
+        }),
+      },
+    } as unknown as SupabaseClient);
+    const result = await requestInviteOtp(
+      "valid-token",
+      { status: "idle" },
+      fd({ email: "guest@example.com" }),
+    );
+    expect(result).toMatchObject({ status: "error", error: "generic" });
+  });
+});
+
+describe("verifyInviteOtp rate limiting", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    vi.mocked(checkRateLimit).mockResolvedValue(true);
+    vi.mocked(resolveToken).mockResolvedValue(openGroup);
+  });
+
+  it("limits per normalized email plus a per-IP backstop", async () => {
+    vi.mocked(createClient).mockResolvedValue({
+      auth: {
+        verifyOtp: vi.fn().mockResolvedValue({ error: { status: 400 } }),
+      },
+    } as unknown as SupabaseClient);
+    await verifyInviteOtp(
+      "valid-token",
+      { status: "idle" },
+      fd({ email: " Guest@Example.COM ", otp: "123456" }),
+    );
+    const calls = vi.mocked(checkRateLimit).mock.calls;
+    expect(calls).toContainEqual([inviteOtpVerifyLimiter, "guest@example.com"]);
+    expect(calls).toContainEqual([inviteOtpVerifyIpLimiter, "1.2.3.4"]);
+  });
+
+  it("returns rate_limited when the email limit is exceeded, even from a fresh IP", async () => {
+    vi.mocked(checkRateLimit).mockImplementation(
+      async (l) => l !== inviteOtpVerifyLimiter,
+    );
+    const verify = vi.fn();
+    vi.mocked(createClient).mockResolvedValue({
+      auth: { verifyOtp: verify },
+    } as unknown as SupabaseClient);
+    const result = await verifyInviteOtp(
+      "valid-token",
+      { status: "idle" },
+      fd({ email: "guest@example.com", otp: "123456" }),
+    );
+    expect(result).toMatchObject({ status: "error", error: "rate_limited" });
+    expect(verify).not.toHaveBeenCalled();
+  });
+
+  it("maps a Supabase 429 on verify to rate_limited, not invalid_otp", async () => {
+    vi.mocked(createClient).mockResolvedValue({
+      auth: {
+        verifyOtp: vi.fn().mockResolvedValue({
+          error: { status: 429, code: "over_request_rate_limit" },
+        }),
+      },
+    } as unknown as SupabaseClient);
+    const result = await verifyInviteOtp(
+      "valid-token",
+      { status: "idle" },
+      fd({ email: "guest@example.com", otp: "123456" }),
+    );
+    expect(result).toMatchObject({ status: "error", error: "rate_limited" });
   });
 });
 

@@ -40,7 +40,8 @@
       "generic": "Etwas ist schiefgelaufen. Bitte versuche es erneut.",
       "invalidOtp": "Der Code ist ungültig oder abgelaufen.",
       "invalidEmail": "Bitte gib eine gültige E-Mail-Adresse ein.",
-      "rateLimited": "Zu viele Versuche. Bitte warte einen Moment und versuche es erneut."
+      "rateLimited": "Zu viele Versuche. Bitte warte einen Moment und versuche es erneut.",
+      "linkInvalid": "Der Link ist abgelaufen oder wurde in einem anderen Browser geöffnet. Gib den Code aus der E-Mail ein oder fordere einen neuen an."
     }
   },
   "groups": {
@@ -356,7 +357,8 @@
       "invalidOtp": "Der Code ist ungültig oder abgelaufen.",
       "drawn": "Diese Gruppe hat bereits ausgelost. Du kannst nicht mehr beitreten.",
       "missingName": "Bitte gib Vor- und Nachnamen ein.",
-      "rateLimited": "Zu viele Versuche. Bitte warte einen Moment und versuche es erneut."
+      "rateLimited": "Zu viele Versuche. Bitte warte einen Moment und versuche es erneut.",
+      "linkInvalid": "Der Link ist abgelaufen oder wurde in einem anderen Browser geöffnet. Gib den Code aus der E-Mail ein oder fordere einen neuen an."
     },
     "signedInAs": "Angemeldet als {name} ({email})",
     "notYou": "Nicht du? Abmelden"
@@ -647,5 +649,13 @@
     "home": "Zur Startseite",
     "notFoundTitle": "Seite nicht gefunden",
     "notFoundMessage": "Diese Seite existiert nicht oder du hast keinen Zugriff darauf."
+  },
+  "emailLink": {
+    "signInTitle": "Anmeldung bestätigen",
+    "signInMessage": "Mit Klick auf den Button meldest du dich in diesem Browser bei Wichtelo an.",
+    "signInSubmit": "Jetzt anmelden",
+    "inviteTitle": "Anmeldung bestätigen",
+    "inviteMessage": "Mit Klick auf den Button meldest du dich in diesem Browser an und kannst danach der Gruppe beitreten.",
+    "inviteSubmit": "Anmeldung bestätigen"
   }
 }
