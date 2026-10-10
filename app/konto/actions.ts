@@ -54,10 +54,22 @@ export async function updateProfile(
   } = await supabase.auth.getUser();
   if (!user) return { status: "error", error: "not_authenticated" };
 
-  const { error } = await supabase
+  // Check the affected rows: users without a profile row (super-admin first
+  // login, abandoned invite name step) match 0 rows on update and would
+  // otherwise still see "Gespeichert". Not an upsert: authenticated only has
+  // UPDATE on first_name/last_name, so ON CONFLICT DO UPDATE touching id is
+  // denied.
+  const { data: updated, error: updateError } = await supabase
     .from("profiles")
     .update({ first_name: firstName, last_name: lastName })
-    .eq("id", user.id);
+    .eq("id", user.id)
+    .select("id");
+  let error = updateError;
+  if (!error && (updated ?? []).length === 0) {
+    ({ error } = await supabase
+      .from("profiles")
+      .insert({ id: user.id, first_name: firstName, last_name: lastName }));
+  }
 
   if (error) {
     logger

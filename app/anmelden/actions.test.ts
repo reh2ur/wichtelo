@@ -15,6 +15,7 @@ vi.mock("next/headers", () => ({
       return null;
     },
   }),
+  cookies: vi.fn().mockResolvedValue({ set: vi.fn(), delete: vi.fn() }),
 }));
 
 vi.mock("@/lib/supabase/server", () => ({
@@ -359,6 +360,36 @@ describe("verifyOtp", () => {
       verifyOtp(
         { status: "idle" },
         fd({ email: "user@example.com", token: "123456" }),
+      ),
+    ).rejects.toThrow("REDIRECT:/gruppen");
+  });
+
+  it("redirects to a valid next path on success", async () => {
+    vi.mocked(createClient).mockResolvedValue({
+      auth: { verifyOtp: vi.fn().mockResolvedValue({ error: null }) },
+    } as unknown as SupabaseClient);
+
+    await expect(
+      verifyOtp(
+        { status: "idle" },
+        fd({
+          email: "user@example.com",
+          token: "123456",
+          next: "/gruppen/familie-2026",
+        }),
+      ),
+    ).rejects.toThrow("REDIRECT:/gruppen/familie-2026");
+  });
+
+  it("ignores an off-origin next on success", async () => {
+    vi.mocked(createClient).mockResolvedValue({
+      auth: { verifyOtp: vi.fn().mockResolvedValue({ error: null }) },
+    } as unknown as SupabaseClient);
+
+    await expect(
+      verifyOtp(
+        { status: "idle" },
+        fd({ email: "user@example.com", token: "123456", next: "//evil.com" }),
       ),
     ).rejects.toThrow("REDIRECT:/gruppen");
   });

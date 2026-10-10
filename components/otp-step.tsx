@@ -27,6 +27,7 @@ export function OtpStep({
   sentEmail,
   description,
   tokenFieldName,
+  hiddenFields,
   devOtp,
   devMode,
   verifyAction,
@@ -41,6 +42,8 @@ export function OtpStep({
   sentEmail: string;
   description: ReactNode;
   tokenFieldName: string;
+  /** Extra hidden inputs submitted with the code (e.g. a return-to path). */
+  hiddenFields?: Record<string, string>;
   devOtp: string | undefined;
   devMode: boolean;
   verifyAction: (formData: FormData) => void;
@@ -98,6 +101,9 @@ export function OtpStep({
 
       <form action={verifyAction} className="space-y-4">
         <input type="hidden" name="email" value={sentEmail} />
+        {Object.entries(hiddenFields ?? {}).map(([name, value]) => (
+          <input key={name} type="hidden" name={name} value={value} />
+        ))}
 
         <div className="space-y-2">
           <label htmlFor="otp" className="text-sm font-bold">

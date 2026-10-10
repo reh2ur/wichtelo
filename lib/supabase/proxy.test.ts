@@ -57,7 +57,7 @@ describe("updateSession", () => {
   beforeEach(() => {
     userResult = { id: "u1" };
     results.groups = { data: { id: "g1" }, error: null };
-    results.memberships = { data: { id: "m1" }, error: null };
+    results.memberships = { data: { id: "m1", role: "admin" }, error: null };
   });
 
   it("rewrites to not-found when group has no rows", async () => {
@@ -102,5 +102,55 @@ describe("updateSession", () => {
     const res = await updateSession(req("/anmelden"));
     expect(res.headers.get("location")).toContain("/gruppen");
     expect(res.cookies.get("sb-rotated")?.value).toBe("new-token");
+  });
+
+  it("rewrites settings to not-found for a non-admin member", async () => {
+    results.memberships = {
+      data: { id: "m1", role: "participant" },
+      error: null,
+    };
+    const res = await updateSession(req("/gruppen/abc/einstellungen"));
+    expect(isNotFoundRewrite(res)).toBe(true);
+  });
+
+  it("rewrites settings to not-found for a non-member and unknown slug alike", async () => {
+    results.memberships = { data: null, error: null };
+    const a = await updateSession(req("/gruppen/abc/einstellungen"));
+    results.groups = { data: null, error: null };
+    const b = await updateSession(req("/gruppen/weg/einstellungen"));
+    expect(isNotFoundRewrite(a)).toBe(true);
+    expect(isNotFoundRewrite(b)).toBe(true);
+  });
+
+  it("lets an admin through to settings", async () => {
+    const res = await updateSession(req("/gruppen/abc/einstellungen"));
+    expect(isNotFoundRewrite(res)).toBe(false);
+    expect(res.headers.get("location")).toBeNull();
+  });
+
+  it("passes the original path as next on the login redirect", async () => {
+    userResult = null;
+    const res = await updateSession(req("/gruppen/abc?x=1"));
+    const loc = new URL(res.headers.get("location")!);
+    expect(loc.pathname).toBe("/anmelden");
+    expect(loc.searchParams.get("next")).toBe("/gruppen/abc?x=1");
+  });
+
+  it("omits next for the plain groups overview", async () => {
+    userResult = null;
+    const res = await updateSession(req("/gruppen"));
+    expect(new URL(res.headers.get("location")!).search).toBe("");
+  });
+
+  it("honors a valid next on the guest-only redirect", async () => {
+    const res = await updateSession(req("/anmelden?next=/gruppen/abc"));
+    expect(new URL(res.headers.get("location")!).pathname).toBe("/gruppen/abc");
+  });
+
+  it("ignores an off-origin next on the guest-only redirect", async () => {
+    const res = await updateSession(req("/anmelden?next=//evil.com"));
+    const loc = new URL(res.headers.get("location")!);
+    expect(loc.host).toBe("localhost");
+    expect(loc.pathname).toBe("/gruppen");
   });
 });

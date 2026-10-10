@@ -65,7 +65,9 @@ async function EinladungContent({
       ? `${profile.first_name} ${profile.last_name}`.trim()
       : "";
 
-    if (hasProfile && group.state !== "drawn") {
+    // Members go to their group in any state; only non-members hit the
+    // drawn dead end below.
+    if (hasProfile) {
       const { data: membership } = await supabase
         .from("memberships")
         .select("id")

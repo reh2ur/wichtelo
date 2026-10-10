@@ -4,6 +4,7 @@
   },
   "app": {
     "name": "Wichtelo",
+    "accountDeleted": "Dein Konto wurde gelöscht.",
     "hero": {
       "title": "Eure Wichtel-Runde, organisiert.",
       "subtitle": "Gruppe anlegen, Einladungslink teilen, Los auslösen. Wichtelo übernimmt die Zuteilung – fair und geheim.",
@@ -92,6 +93,7 @@
     "adminBadge": "Admin",
     "settings": "Einstellungen",
     "youGiveTo": "Du beschenkst",
+    "waitingForDraw": "Die Auslosung steht noch aus. Du bekommst eine E-Mail, sobald ausgelost wurde.",
     "adminAssignmentsTitle": "Auslosung",
     "adminLookupNotice": "Hinweis: Der Admin dieser Gruppe kann bei Bedarf einzelne Zuordnungen einsehen, z. B. für Rückfragen.",
     "inviteLink": {

@@ -143,7 +143,8 @@ async function fetchGroupData(slug: string) {
       "id, name_snapshot, first_name_snapshot, last_name_snapshot, role, profile_id",
     )
     .eq("group_id", (group as Group).id)
-    .order("joined_at", { ascending: true });
+    .order("joined_at", { ascending: true })
+    .order("id", { ascending: true });
   if (membersError) {
     throw new Error(
       `[fetchGroupData] members lookup failed: ${membersError.message}`,
@@ -346,7 +347,13 @@ async function AssignmentSection({
   const draw = await getTranslations("draw");
 
   if (state === "open") {
-    if (!isAdmin) return null;
+    if (!isAdmin) {
+      return (
+        <p className="text-muted-foreground mb-6 text-sm">
+          {t("waitingForDraw")}
+        </p>
+      );
+    }
 
     const canDraw = memberCount >= 3;
     return (
@@ -419,7 +426,9 @@ async function MyAssignment({
     .select(
       "id, name_snapshot, first_name_snapshot, last_name_snapshot, profile_id",
     )
-    .eq("group_id", groupId);
+    .eq("group_id", groupId)
+    .order("joined_at", { ascending: true })
+    .order("id", { ascending: true });
 
   const memberships = (membersRaw ?? []) as {
     id: string;
