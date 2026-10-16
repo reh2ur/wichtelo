@@ -23,6 +23,7 @@ import {
   resendEventType,
   type MembershipRow,
 } from "@/lib/draw-mail";
+import { recordDrawMailResult } from "@/lib/draw-mail-status";
 import {
   checkRateLimit,
   drawTriggerLimiter,
@@ -331,11 +332,19 @@ export async function triggerDraw(
     assignments,
   });
 
-  return {
-    status: "success",
-    emailsFailed: emailResult.failed + skipped,
-    emailsTotal: emailResult.sent + emailResult.failed + skipped,
-  };
+  const emailsFailed = emailResult.failed + skipped;
+  const emailsTotal = emailResult.sent + emailResult.failed + skipped;
+  // Persisted so the resend option survives tab close / other devices; a
+  // clean send clears any warning left over from the previous draw.
+  await recordDrawMailResult(
+    admin,
+    groupId,
+    postDrawVersion(group.draw_version as number),
+    emailsFailed,
+    emailsTotal,
+  );
+
+  return { status: "success", emailsFailed, emailsTotal };
 }
 
 export type RetriggerDrawState =
@@ -521,11 +530,19 @@ export async function retriggerDraw(
     assignments,
   });
 
-  return {
-    status: "success",
-    emailsFailed: emailResult.failed + skipped,
-    emailsTotal: emailResult.sent + emailResult.failed + skipped,
-  };
+  const emailsFailed = emailResult.failed + skipped;
+  const emailsTotal = emailResult.sent + emailResult.failed + skipped;
+  // Persisted so the resend option survives tab close / other devices; a
+  // clean send clears any warning left over from the previous draw.
+  await recordDrawMailResult(
+    admin,
+    groupId,
+    postDrawVersion(group.draw_version as number),
+    emailsFailed,
+    emailsTotal,
+  );
+
+  return { status: "success", emailsFailed, emailsTotal };
 }
 
 export type OracleState =
@@ -731,9 +748,70 @@ export async function resendDrawEmails(
     })
     .info("draw.emails_resent");
 
-  return {
-    status: "success",
-    emailsFailed: emailResult.failed + skipped,
-    emailsTotal: emailResult.sent + emailResult.failed + skipped,
-  };
+  const emailsFailed = emailResult.failed + skipped;
+  const emailsTotal = emailResult.sent + emailResult.failed + skipped;
+  await recordDrawMailResult(
+    admin,
+    groupId,
+    drawVersion,
+    emailsFailed,
+    emailsTotal,
+  );
+
+  return { status: "success", emailsFailed, emailsTotal };
+}
+
+export type DismissDrawMailWarningState =
+  | { status: "idle" }
+  | { status: "success" }
+  | { status: "error"; error: "not_authenticated" | "not_admin" | "generic" };
+
+/** Admin hides the pending draw-mail warning (clears the stored failure). */
+export async function dismissDrawMailWarning(
+  _prev: DismissDrawMailWarningState,
+  formData: FormData,
+): Promise<DismissDrawMailWarningState> {
+  const slug = (formData.get("slug") as string | null)?.trim() ?? "";
+  if (!slug) return { status: "error", error: "generic" };
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { status: "error", error: "not_authenticated" };
+
+  const admin = createAdminClient();
+
+  const { data: group } = await admin
+    .from("groups")
+    .select("id")
+    .eq("slug", slug)
+    .single();
+  // Same error as "not an admin" so slug existence isn't revealed (#181).
+  if (!group) return { status: "error", error: "not_admin" };
+
+  const groupId = group.id as string;
+
+  const { data: callerMembership } = await admin
+    .from("memberships")
+    .select("id, role")
+    .eq("group_id", groupId)
+    .eq("profile_id", user.id)
+    .single();
+  if (!callerMembership || callerMembership.role !== "admin") {
+    return { status: "error", error: "not_admin" };
+  }
+
+  const { error } = await admin
+    .from("draw_mail_failures")
+    .delete()
+    .eq("group_id", groupId);
+  if (error) {
+    logger
+      .withMetadata({ groupId, reason: error.message })
+      .error("draw.mail_warning_dismiss_failed");
+    return { status: "error", error: "generic" };
+  }
+
+  return { status: "success" };
 }
