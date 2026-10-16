@@ -133,13 +133,16 @@ describe("deleteAccount - open vs drawn groups", () => {
 
     const result = await deleteAccount("user-1");
 
-    // Only the open group goes through the locking removal RPC.
-    expect(rpc).toHaveBeenCalledTimes(1);
-    expect(rpc).toHaveBeenCalledWith("remove_membership", {
+    // Open group: locking removal RPC. Drawn groups: ghosting RPC (#105).
+    expect(rpc).toHaveBeenCalledTimes(2);
+    expect(rpc).toHaveBeenNthCalledWith(1, "remove_membership", {
       p_group_id: "g-open",
       p_membership_id: "m-open",
       p_allow_drawn: false,
       p_enforce_last_admin: false,
+    });
+    expect(rpc).toHaveBeenNthCalledWith(2, "ghost_drawn_memberships", {
+      p_profile_id: "user-1",
     });
     expect(result.affectedOpenGroups.map((g) => g.slug)).toEqual(["offen"]);
     expect(result.affectedOpenGroups[0].adminEmails).toEqual([
@@ -148,7 +151,7 @@ describe("deleteAccount - open vs drawn groups", () => {
     expect(result.affectedDrawnGroups.map((g) => g.slug)).toEqual(["gezogen"]);
     expect(result.affectedSlugs).toEqual(["gezogen", "offen"]);
     // membership removal happens BEFORE the auth user is deleted (#244)
-    expect(rpc.mock.invocationCallOrder[0]).toBeLessThan(
+    expect(rpc.mock.invocationCallOrder[1]).toBeLessThan(
       deleteUser.mock.invocationCallOrder[0],
     );
   });
@@ -222,6 +225,48 @@ describe("deleteAccount - open vs drawn groups", () => {
     } as unknown as AdminClient);
 
     await expect(deleteAccount("user-1")).rejects.toThrow("already_drawn");
+    expect(deleteUser).not.toHaveBeenCalled();
+  });
+
+  it("aborts without deleting the user when drawn-membership ghosting fails (#105)", async () => {
+    const memberships = [
+      {
+        id: "m-drawn",
+        group_id: "g-drawn",
+        groups: {
+          id: "g-drawn",
+          name: "Gezogen",
+          slug: "gezogen",
+          state: "drawn",
+        },
+      },
+    ];
+    const rpc = vi
+      .fn()
+      .mockResolvedValue({ data: null, error: { message: "db down" } });
+    const from = vi.fn().mockReturnValue({
+      select: vi.fn((cols: string) =>
+        cols.startsWith("id, group_id")
+          ? { eq: vi.fn().mockResolvedValue({ data: memberships }) }
+          : {
+              eq: vi.fn().mockReturnValue({
+                eq: vi.fn().mockReturnValue({
+                  neq: vi.fn().mockResolvedValue({ data: [] }),
+                }),
+              }),
+            },
+      ),
+    });
+    const deleteUser = vi.fn().mockResolvedValue({ error: null });
+    vi.mocked(createAdminClient).mockReturnValue({
+      from,
+      rpc,
+      auth: { admin: { deleteUser, getUserById: vi.fn() } },
+    } as unknown as AdminClient);
+
+    await expect(deleteAccount("user-1")).rejects.toThrow(
+      "drawn membership cleanup failed: db down",
+    );
     expect(deleteUser).not.toHaveBeenCalled();
   });
 });

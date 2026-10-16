@@ -132,6 +132,9 @@ export async function createGroup(
     })
     .single<{ group_id: string; slug: string; invite_token: string }>();
 
+  // 54000 = DB-level cap inside create_group (backstop for the limiter above).
+  if (error?.code === "54000") return fail("rate_limited");
+
   if (error || !data) {
     console.error("[createGroup] create_group rpc failed:", error?.message);
     return fail("generic");
