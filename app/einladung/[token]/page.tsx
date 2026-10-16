@@ -133,7 +133,7 @@ async function EinladungContent({
           ) : (
             <>
               {linkError && (
-                <p role="alert" className="text-destructive mb-4 text-sm">
+                <p role="alert" className="text-danger-text mb-4 text-sm">
                   {linkError === "rate_limited"
                     ? t("errors.rateLimited")
                     : t("errors.linkInvalid")}

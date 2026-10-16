@@ -129,7 +129,6 @@ export async function leaveGroup(
       groupName: (group as { name: string }).name,
       participantName: membership.name_snapshot,
       participantEmail: user.email,
-      postDraw: (group as { state: string }).state === "drawn",
       adminEmails,
     });
   }

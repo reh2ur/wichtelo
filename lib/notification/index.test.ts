@@ -284,13 +284,12 @@ describe("notify", () => {
     expect(batchSendMock).not.toHaveBeenCalled();
   });
 
-  it("participant.left: confirms to participant and notifies admins, with postDraw flag", async () => {
+  it("participant.left: confirms to participant and notifies admins", async () => {
     await notify({
       type: "participant.left",
       groupName: "Familie Muster",
       participantName: "Max Mustermann",
       participantEmail: "max@example.com",
-      postDraw: true,
       adminEmails: ["anna@example.com"],
     });
 
@@ -301,7 +300,6 @@ describe("notify", () => {
     expect(payloads[0].react.type).toBe(ParticipantLeftConfirmationEmail);
     expect(payloads[1].to).toBe("anna@example.com");
     expect(payloads[1].react.type).toBe(ParticipantLeftAdminNoticeEmail);
-    expect(payloads[1].react.props.postDraw).toBe(true);
   });
 
   it("participant.left: one admin notice per admin", async () => {
@@ -310,7 +308,6 @@ describe("notify", () => {
       groupName: "Familie Muster",
       participantName: "Max Mustermann",
       participantEmail: "max@example.com",
-      postDraw: false,
       adminEmails: ["anna@example.com", "bert@example.com"],
     });
 
@@ -349,7 +346,6 @@ describe("notify", () => {
       groupName: "Familie Muster",
       participantName: "Max Mustermann",
       participantEmail: "max@example.com",
-      postDraw: false,
       adminEmails: [],
     });
 

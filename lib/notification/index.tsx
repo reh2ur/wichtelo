@@ -60,7 +60,6 @@ export type DomainEvent =
       groupName: string;
       participantName: string;
       participantEmail: string;
-      postDraw: boolean;
       adminEmails: string[];
     }
   | {
@@ -177,7 +176,6 @@ function buildPayloads(event: DomainEvent): EmailPayload[] {
             <ParticipantLeftAdminNoticeEmail
               groupName={event.groupName}
               participantName={event.participantName}
-              postDraw={event.postDraw}
             />
           ),
         });

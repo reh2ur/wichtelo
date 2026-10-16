@@ -179,8 +179,8 @@ describe("abbreviateNames edge cases", () => {
       m("3", "Bob", "Klein"),
     ]);
     expect(result.map((r) => r.displayName)).toEqual([
-      "Anna Meier. (1)",
-      "Anna Meier. (2)",
+      "Anna Meier (1)",
+      "Anna Meier (2)",
       "Bob",
     ]);
   });
@@ -189,6 +189,29 @@ describe("abbreviateNames edge cases", () => {
     const result = abbreviateNames([m("1", "Anna", ""), m("2", "Anna", "")]);
     expect(result.map((r) => r.displayName)).toEqual(["Anna (1)", "Anna (2)"]);
     expect(new Set(result.map((r) => r.displayName)).size).toBe(2);
+  });
+
+  it("omits the trailing period when the last name is shown in full", () => {
+    // "Mu" is a prefix of "Mustermann", so it cannot be shortened further.
+    const result = abbreviateNames([
+      m("1", "Max", "Mu"),
+      m("2", "Max", "Mustermann"),
+    ]);
+    expect(result).toEqual([
+      { id: "1", displayName: "Max Mu" },
+      { id: "2", displayName: "Max Mus." },
+    ]);
+  });
+
+  it("keeps the trailing period for a one-character last name only when truncated", () => {
+    const result = abbreviateNames([
+      m("1", "Max", "M"),
+      m("2", "Max", "Schmidt"),
+    ]);
+    expect(result).toEqual([
+      { id: "1", displayName: "Max M" },
+      { id: "2", displayName: "Max S." },
+    ]);
   });
 
   it("never splits surrogate pairs when abbreviating", () => {

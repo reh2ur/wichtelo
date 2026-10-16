@@ -102,10 +102,10 @@ export function abbreviateNames(members: Member[]): DisplayName[] {
 
   const result = members.map((m) => {
     const suffix = suffixById.get(m.id);
-    return {
-      id: m.id,
-      displayName: suffix ? `${m.firstName} ${suffix}.` : m.firstName,
-    };
+    if (!suffix) return { id: m.id, displayName: m.firstName };
+    // Period marks truncation only; a full last name stays unmarked.
+    const marker = suffix === m.lastName ? "" : ".";
+    return { id: m.id, displayName: `${m.firstName} ${suffix}${marker}` };
   });
 
   // Identical names (same full name, or same first name with empty last

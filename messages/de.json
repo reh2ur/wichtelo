@@ -95,7 +95,6 @@
     "settings": "Einstellungen",
     "youGiveTo": "Du beschenkst",
     "waitingForDraw": "Die Auslosung steht noch aus. Du bekommst eine E-Mail, sobald ausgelost wurde.",
-    "adminAssignmentsTitle": "Auslosung",
     "adminLookupNotice": "Hinweis: Der Admin dieser Gruppe kann bei Bedarf einzelne Zuordnungen einsehen, z. B. für Rückfragen.",
     "inviteLink": {
       "copy": "Link kopieren",
@@ -400,9 +399,6 @@
       "statusLabel": "Status",
       "groupsSection": "Gruppen",
       "groupsEmpty": "Ist in keiner Gruppe Mitglied.",
-      "groupName": "Name",
-      "groupRole": "Rolle",
-      "groupJoinedAt": "Beigetreten am",
       "roleAdmin": "Admin",
       "roleParticipant": "Teilnehmer",
       "actionsSection": "Aktionen"
@@ -505,10 +501,7 @@
     "recentActivity": {
       "title": "Letzte Aktivitäten",
       "viewAll": "Alle anzeigen →",
-      "empty": "Noch keine Aktivitäten.",
-      "columnTimestamp": "Zeitpunkt",
-      "columnAction": "Aktion",
-      "columnTarget": "Ziel"
+      "empty": "Noch keine Aktivitäten."
     }
   },
   "adminAuditLog": {

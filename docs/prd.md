@@ -63,7 +63,7 @@ Secret Santa is a German-language web app that lets a group admin create a Grupp
 37. As a participant, I want to receive a confirmation email when I leave a Gruppe, so that I have a record of my action.
 38. As a participant, I want to receive a confirmation email when I delete my account, so that I have a record of the deletion.
 39. As a Gruppe admin, I want to receive an email when a new participant joins my Gruppe before the draw, so that I know who has accepted the invite.
-40. As a Gruppe admin, I want to receive an email when a participant leaves my Gruppe after the draw has happened, so that I know manual action may be needed.
+40. As a Gruppe admin, I want post-draw removal of a participant to be admin-mediated (`removeMember`, then re-draw) — self-service leave after draw stays forbidden, would orphan assignments — and want account deletion by a participant to notify me (see 41), so that I know manual action may be needed.
 41. As a Gruppe admin, I want to receive an email when a participant deletes their account and had an active assignment in my Gruppe, so that I know manual action may be needed.
 
 ### Account Management

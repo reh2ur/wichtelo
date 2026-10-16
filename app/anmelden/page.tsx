@@ -37,7 +37,7 @@ async function LinkError({
   if (!error) return null;
   const t = await getTranslations("signIn");
   return (
-    <p role="alert" className="text-destructive text-sm">
+    <p role="alert" className="text-danger-text text-sm">
       {error === "rate_limited"
         ? t("errors.rateLimited")
         : t("errors.linkInvalid")}

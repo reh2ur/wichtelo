@@ -297,7 +297,7 @@ function AddExclusionForm({
         </p>
       )}
       {state.status === "success" && state.warning === "too_complex" && (
-        <p className="text-destructive text-sm" role="alert">
+        <p className="text-danger-text text-sm" role="alert">
           {t("exclusions.tooComplexWarning")}
         </p>
       )}
