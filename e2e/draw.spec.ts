@@ -10,6 +10,15 @@ function guestContextOptions() {
   };
 }
 
+async function seedMailFailure(slug: string, failed: number, total: number) {
+  const res = await fetch(`${BASE_URL}/api/test/draw-mail-failure`, {
+    method: "POST",
+    headers: testApiHeaders(),
+    body: JSON.stringify({ slug, failed, total }),
+  });
+  expect(res.ok).toBe(true);
+}
+
 async function setupGroup(
   authedPage: Page,
   groupName: string,
@@ -268,6 +277,7 @@ test.describe("draw trigger", () => {
     authedPage,
     browser,
   }) => {
+    test.setTimeout(90_000);
     const { slug, inviteUrl } = await setupGroup(authedPage, "Resend Test");
 
     const ctxB = await browser.newContext(guestContextOptions());
@@ -300,29 +310,105 @@ test.describe("draw trigger", () => {
       authedPage.locator('button:has-text("erneut senden")'),
     ).toHaveCount(0);
 
-    // Real provider failures can't be forced; simulate the stored warning the
-    // draw button sets after a partial failure, then reload.
-    await authedPage.evaluate((s) => {
-      sessionStorage.setItem(
-        `draw-email-warning:${s}`,
-        JSON.stringify({ failed: 1, total: 3 }),
+    // Real provider failures can't be forced; seed the persisted failure a
+    // partial send leaves behind (server-side, not sessionStorage).
+    await seedMailFailure(slug, 1, 3);
+
+    // A brand-new tab (no sessionStorage, as after closing the browser or on
+    // another device) still shows the warning and the resend option.
+    const freshTab = await authedPage.context().newPage();
+    try {
+      await freshTab.goto(`/gruppen/${slug}`);
+      await expect(
+        freshTab.locator("text=1 von 3 E-Mails konnten nicht zugestellt"),
+      ).toBeVisible({ timeout: 15_000 });
+      await freshTab
+        .locator('button:has-text("Fehlgeschlagene E-Mails erneut senden")')
+        .click();
+
+      await expect(
+        freshTab.locator("text=Alle E-Mails wurden zugestellt."),
+      ).toBeVisible({ timeout: 15_000 });
+      await expect(
+        freshTab.locator("text=1 von 3 E-Mails konnten nicht zugestellt"),
+      ).toHaveCount(0);
+
+      // Cleared server-side after the successful resend: stays gone on reload.
+      await freshTab.reload();
+      await expect(freshTab.locator("text=Zuweisung nachschlagen")).toBeVisible(
+        { timeout: 15_000 },
       );
-    }, slug);
+      await expect(
+        freshTab.locator("text=1 von 3 E-Mails konnten nicht zugestellt"),
+      ).toHaveCount(0);
+    } finally {
+      await freshTab.close();
+    }
+  });
+
+  test("persisted mail failure can be dismissed and resets on re-draw", async ({
+    authedPage,
+    browser,
+  }) => {
+    test.setTimeout(90_000);
+    const { slug, inviteUrl } = await setupGroup(authedPage, "Mail Reset Test");
+
+    const ctxB = await browser.newContext(guestContextOptions());
+    const ctxC = await browser.newContext(guestContextOptions());
+    try {
+      await joinViaInvite(ctxB, inviteUrl, slug, {
+        firstName: "Bernd",
+        lastName: "Becker",
+        email: `e2e+mailreset-b-${Date.now()}@example.com`,
+      });
+      await joinViaInvite(ctxC, inviteUrl, slug, {
+        firstName: "Clara",
+        lastName: "Conrad",
+        email: `e2e+mailreset-c-${Date.now()}@example.com`,
+      });
+    } finally {
+      await ctxB.close();
+      await ctxC.close();
+    }
+
+    await authedPage.goto(`/gruppen/${slug}`);
+    await authedPage.locator('button:has-text("Auslosung starten")').click();
+    await authedPage.locator('button:has-text("Jetzt auslosen")').click();
+    await expect(authedPage.locator("text=Zuweisung nachschlagen")).toBeVisible(
+      { timeout: 15_000 },
+    );
+
+    const warning = authedPage.locator(
+      "text=1 von 3 E-Mails konnten nicht zugestellt",
+    );
+
+    // Dismiss clears the stored failure.
+    await seedMailFailure(slug, 1, 3);
     await authedPage.reload();
+    await expect(warning).toBeVisible({ timeout: 15_000 });
+    await authedPage.locator('button:has-text("Ausblenden")').click();
+    await expect(warning).toHaveCount(0);
+    await authedPage.reload();
+    await expect(authedPage.locator("text=Zuweisung nachschlagen")).toBeVisible(
+      { timeout: 15_000 },
+    );
+    await expect(warning).toHaveCount(0);
 
-    await expect(
-      authedPage.locator("text=1 von 3 E-Mails konnten nicht zugestellt"),
-    ).toBeVisible({ timeout: 15_000 });
-    await authedPage
-      .locator('button:has-text("Fehlgeschlagene E-Mails erneut senden")')
-      .click();
-
-    await expect(
-      authedPage.locator("text=Alle E-Mails wurden zugestellt."),
-    ).toBeVisible({ timeout: 15_000 });
-    await expect(
-      authedPage.locator("text=1 von 3 E-Mails konnten nicht zugestellt"),
-    ).toHaveCount(0);
+    // A re-draw supersedes a failure of the previous draw.
+    await seedMailFailure(slug, 1, 3);
+    await authedPage.reload();
+    await expect(warning).toBeVisible({ timeout: 15_000 });
+    await authedPage.locator('button:has-text("Neu auslosen")').click();
+    await authedPage.locator('button:has-text("Wiederholen")').click();
+    await expect(authedPage.locator("text=Zuweisung nachschlagen")).toBeVisible(
+      { timeout: 15_000 },
+    );
+    await expect(warning).toHaveCount(0);
+    await authedPage.reload();
+    await expect(authedPage.locator("text=Zuweisung nachschlagen")).toBeVisible(
+      { timeout: 15_000 },
+    );
+    await expect(warning).toHaveCount(0);
   });
 
   test("participant does not see the resend button", async ({
@@ -355,12 +441,7 @@ test.describe("draw trigger", () => {
         authedPage.locator("text=Zuweisung nachschlagen"),
       ).toBeVisible({ timeout: 15_000 });
 
-      await pageB.evaluate((s) => {
-        sessionStorage.setItem(
-          `draw-email-warning:${s}`,
-          JSON.stringify({ failed: 1, total: 3 }),
-        );
-      }, slug);
+      await seedMailFailure(slug, 1, 3);
       await pageB.reload();
       await expect(pageB.locator("h1")).toBeVisible();
       await expect(

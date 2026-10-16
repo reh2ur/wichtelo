@@ -380,7 +380,7 @@ async function AssignmentSection({
           label={t("youGiveTo")}
         />
         <AdminOracle slug={slug} members={members} />
-        <RedrawButton slug={slug} />
+        <RedrawButton slug={slug} groupId={groupId} />
       </div>
     );
   }

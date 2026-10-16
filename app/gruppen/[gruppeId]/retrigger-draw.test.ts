@@ -114,8 +114,9 @@ describe("retriggerDraw with deleted-account members (#18)", () => {
     const res = await retriggerDraw({ status: "idle" }, fd("familie"));
     expect(res).toMatchObject({ status: "success" });
 
-    expect(rpc).toHaveBeenCalledTimes(1);
-    const [name, args] = rpc.mock.calls[0];
+    const drawCalls = rpc.mock.calls.filter(([n]) => n === "perform_draw");
+    expect(drawCalls).toHaveLength(1);
+    const [name, args] = drawCalls[0];
     expect(name).toBe("perform_draw");
     expect(args.p_expected_state).toBe("drawn");
     const pairs = args.p_pairs as { giver_id: string; receiver_id: string }[];
@@ -131,6 +132,33 @@ describe("retriggerDraw with deleted-account members (#18)", () => {
     expect(event.assignments.map((a) => a.giverName)).not.toContain(
       "Name ghost",
     );
+  });
+
+  it("persists the mail outcome for the post-draw version (clean send clears)", async () => {
+    const { rpc } = setup({
+      members: [
+        member("m1", "p1", "admin"),
+        member("m2", "p2"),
+        member("m3", "p3"),
+      ],
+    });
+    vi.mocked(notify).mockResolvedValueOnce({ sent: 2, failed: 1 });
+    await retriggerDraw({ status: "idle" }, fd("familie"));
+    expect(rpc).toHaveBeenCalledWith("record_draw_mail_result", {
+      p_group_id: "g1",
+      p_draw_version: 4,
+      p_failed: 1,
+      p_total: 3,
+    });
+
+    vi.mocked(notify).mockResolvedValueOnce({ sent: 3, failed: 0 });
+    await retriggerDraw({ status: "idle" }, fd("familie"));
+    expect(rpc).toHaveBeenLastCalledWith("record_draw_mail_result", {
+      p_group_id: "g1",
+      p_draw_version: 4,
+      p_failed: 0,
+      p_total: 3,
+    });
   });
 
   it("refuses when fewer than 3 live members remain", async () => {
