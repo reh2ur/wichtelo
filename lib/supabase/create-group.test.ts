@@ -186,4 +186,82 @@ describe.skipIf(!hasSupabase)("create_group RPC", () => {
     });
     expect(error).not.toBeNull();
   });
+
+  describe("DB-level cap (#107)", () => {
+    let capUserId: string;
+    let capEmail: string;
+
+    beforeAll(async () => {
+      capEmail = `cg-test-cap-${run}@example.com`;
+      const { data, error } = await admin.auth.admin.createUser({
+        email: capEmail,
+        email_confirm: true,
+      });
+      if (error) throw error;
+      capUserId = data.user.id;
+      await admin
+        .from("profiles")
+        .insert({ id: capUserId, first_name: "Cap", last_name: "User" });
+    });
+
+    afterAll(async () => {
+      await admin.from("groups").delete().eq("created_by", capUserId);
+      await admin.from("profiles").delete().eq("id", capUserId);
+      await admin.auth.admin.deleteUser(capUserId);
+    });
+
+    it("allows 5 groups per 24h even under parallel calls, refuses the rest", async () => {
+      const client = await signedIn(capEmail);
+      const results = await Promise.all(
+        Array.from({ length: 8 }, (_, i) =>
+          client.rpc("create_group", {
+            p_name: "Cap",
+            p_year: 2099,
+            p_budget_hint: null,
+            p_note: null,
+            p_slugs: [`cg-cap-${run}-${i}`],
+          }),
+        ),
+      );
+      const ok = results.filter((r) => !r.error);
+      const refused = results.filter((r) => r.error);
+      expect(ok).toHaveLength(5);
+      expect(refused).toHaveLength(3);
+      for (const r of refused) expect(r.error?.code).toBe("54000");
+
+      const { count } = await admin
+        .from("groups")
+        .select("id", { count: "exact", head: true })
+        .eq("created_by", capUserId);
+      expect(count).toBe(5);
+    });
+
+    it("only counts groups created within the last 24h", async () => {
+      const client = await signedIn(capEmail);
+      const attempt = (slug: string) =>
+        client.rpc("create_group", {
+          p_name: "Cap",
+          p_year: 2099,
+          p_budget_hint: null,
+          p_note: null,
+          p_slugs: [slug],
+        });
+      expect((await attempt(`cg-cap-${run}-x`)).error?.code).toBe("54000");
+
+      const { data: oldest } = await admin
+        .from("groups")
+        .select("id")
+        .eq("created_by", capUserId)
+        .limit(1)
+        .single();
+      await admin
+        .from("groups")
+        .update({
+          created_at: new Date(Date.now() - 25 * 3600 * 1000).toISOString(),
+        })
+        .eq("id", oldest!.id);
+
+      expect((await attempt(`cg-cap-${run}-y`)).error).toBeNull();
+    });
+  });
 });

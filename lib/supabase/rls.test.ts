@@ -23,13 +23,14 @@ describe.skipIf(!hasSupabase)(
     let victimId: string;
     let attackerId: string;
     let attackerEmail: string;
+    let victimEmail: string;
 
     beforeAll(async () => {
       admin = createAdminClient();
 
       const { data: victim, error: victimError } =
         await admin.auth.admin.createUser({
-          email: `rls-test-victim-${Date.now()}@example.com`,
+          email: (victimEmail = `rls-test-victim-${Date.now()}@example.com`),
           email_confirm: true,
         });
       if (victimError) throw victimError;
@@ -83,15 +84,15 @@ describe.skipIf(!hasSupabase)(
       );
     }
 
-    it("unauthenticated anon key cannot list invite_tokens", async () => {
+    it("unauthenticated anon key cannot read invite_tokens (#107)", async () => {
       const anon = anonClient();
       const { data, error } = await anon
         .from("invite_tokens")
         .select("token, group_id");
 
-      // RLS returns an empty set rather than an error for a disallowed select.
-      expect(error).toBeNull();
-      expect(data).toEqual([]);
+      // SELECT is revoked: permission error, never rows.
+      expect(error?.code).toBe("42501");
+      expect(data).toBeNull();
     });
 
     it("authenticated user cannot self-insert as admin of an existing group they didn't create", async () => {
@@ -295,11 +296,32 @@ describe.skipIf(!hasSupabase)(
           .eq("id", ownMembershipId)
           .single();
         expect(data?.role).toBe("admin");
-        const { data: token } = await client
+        const { data: token } = await admin
           .from("invite_tokens")
           .select("token")
           .eq("group_id", ownGroupId);
         expect(token).toHaveLength(1);
+      });
+
+      it("admin and members cannot read invite_tokens via PostgREST (#107)", async () => {
+        // Even the group admin: the app reads tokens with the service role.
+        const { data, error } = await client
+          .from("invite_tokens")
+          .select("token")
+          .eq("group_id", ownGroupId);
+        expect(error?.code).toBe("42501");
+        expect(data).toBeNull();
+
+        // Non-admin participant (victim is a participant of ownGroupId).
+        const participant = anonClient();
+        const { error: signInError } = await signInAs(participant, victimEmail);
+        expect(signInError).toBeNull();
+        const { data: pData, error: pError } = await participant
+          .from("invite_tokens")
+          .select("token")
+          .eq("group_id", ownGroupId);
+        expect(pError?.code).toBe("42501");
+        expect(pData).toBeNull();
       });
 
       it("admin sees only their own assignment row, not the whole draw", async () => {
@@ -486,6 +508,19 @@ describe.skipIf(!hasSupabase)(
           const { error } = await client.rpc(fn, { p_group_id: ownGroupId });
           expect(error, fn).not.toBeNull();
         }
+      });
+
+      it("authenticated cannot call ghost_drawn_memberships (#105)", async () => {
+        const { error } = await client.rpc("ghost_drawn_memberships", {
+          p_profile_id: victimId,
+        });
+        expect(error).not.toBeNull();
+        const { data } = await admin
+          .from("memberships")
+          .select("profile_id")
+          .eq("id", victimMembershipId)
+          .single();
+        expect(data?.profile_id).toBe(victimId);
       });
 
       it("authenticated cannot call remove_membership or perform_draw", async () => {
