@@ -237,6 +237,22 @@ export async function deleteAccount(
     }
   }
 
+  // Drawn groups: null the membership under the group row lock (same lock
+  // perform_draw takes) instead of leaving it to the FK cascade inside
+  // deleteUser, which locks nothing and could land between a re-draw's member
+  // snapshot and perform_draw's own member read (#105).
+  if (affectedDrawnGroups.length > 0) {
+    const { error: ghostError } = await admin.rpc("ghost_drawn_memberships", {
+      p_profile_id: userId,
+    });
+    if (ghostError) {
+      logger
+        .withMetadata({ userId, reason: ghostError.message })
+        .error("account.drawn_membership_cleanup_failed");
+      throw new Error(`drawn membership cleanup failed: ${ghostError.message}`);
+    }
+  }
+
   const { error: deleteError } = await admin.auth.admin.deleteUser(userId);
   if (deleteError) throw deleteError;
 

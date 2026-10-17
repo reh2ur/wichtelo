@@ -244,6 +244,22 @@ describe("createGroup", () => {
       );
     });
 
+    it("returns rate_limited when the RPC's DB-level cap trips (54000)", async () => {
+      vi.mocked(createClient).mockResolvedValue(
+        makeSupabase({
+          rpcError: { message: "group creation limit reached", code: "54000" },
+        }) as unknown as SupabaseClient,
+      );
+
+      const result = await createGroup(
+        { status: "idle" },
+        fd({ name: "Test Group", year: "2025" }),
+      );
+      expect(result).toEqual(
+        expect.objectContaining({ status: "error", error: "rate_limited" }),
+      );
+    });
+
     it("passes up to 30 slug candidates for the RPC to retry over", async () => {
       const supabase = makeSupabase({});
       vi.mocked(createClient).mockResolvedValue(

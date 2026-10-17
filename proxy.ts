@@ -1,6 +1,6 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, userAgent, type NextRequest } from "next/server";
-import { updateSession } from "@/lib/supabase/proxy";
+import { updateSession, withSessionCookies } from "@/lib/supabase/proxy";
 import { resolveToken } from "@/lib/invite";
 import { isSuperAdminEmail } from "@/lib/admin/super-admin-email";
 
@@ -35,7 +35,14 @@ export async function proxy(request: NextRequest) {
       // SSR'd 404 (real status, h1, lang, stylesheet). A rewrite to a
       // prerendered page that calls notFound() yields 404 but an empty
       // `__next_error__` HTML shell; a rewrite status option is ignored.
-      return NextResponse.rewrite(new URL("/__not_found__", request.url));
+      //
+      // updateSession still runs so a rotated refresh token is persisted on
+      // this response too, not lost until the next navigation.
+      const session = await updateSession(request);
+      return withSessionCookies(
+        NextResponse.rewrite(new URL("/__not_found__", request.url)),
+        session,
+      );
     }
   }
 

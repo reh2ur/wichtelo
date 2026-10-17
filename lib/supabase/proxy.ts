@@ -145,7 +145,7 @@ function redirectToLogin(request: NextRequest): NextResponse {
 
 // Redirect/rewrite responses are fresh objects: copy the cookies Supabase set
 // on supabaseResponse (e.g. a rotated refresh token) or they are lost.
-function withSessionCookies(
+export function withSessionCookies(
   response: NextResponse,
   from: NextResponse,
 ): NextResponse {
