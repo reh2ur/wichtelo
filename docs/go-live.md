@@ -43,7 +43,7 @@ Tick each before public launch / before draw season. Env var names in `.env.exam
 
 - [ ] External uptime monitor on `GET /api/health` (real DB ping), alert to owner.
 - [ ] Backup route chosen + restore tested (`docs/backups.md`). Pro plan preferred before Nov.
-- [ ] Keep-alive: run `supabase-keep-alive` via `workflow_dispatch` once, confirm green both envs. Repo secrets `SUPABASE_URL_*`, `SUPABASE_PUBLISHABLE_KEY_*` set. GitHub disables schedules after 60 days repo inactivity; free project pauses after 7 days idle. Prefer ping `/api/health` over `/rest/v1/` (follow-up).
+- [ ] Keep-alive: run `supabase-keep-alive` via `workflow_dispatch` once, confirm green both envs. Repo secrets `SUPABASE_URL_*`, `SUPABASE_PUBLISHABLE_KEY_*` set. GitHub disables schedules after 60 days repo inactivity; free project pauses after 7 days idle. Keep-alive reads `groups` table, not `/rest/v1/` root (401 w/ publishable key).
 
 ## CI / supply chain
 
