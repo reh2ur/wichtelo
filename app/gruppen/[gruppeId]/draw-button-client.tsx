@@ -3,7 +3,6 @@
 import { useActionState, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { triggerDraw, type DrawState } from "./actions";
-import { setEmailWarning } from "./email-warning";
 import { createIntlContext } from "@/lib/create-intl-context";
 import { CONFIRM_TITLE_CLASS, useConfirmFocus } from "@/lib/use-confirm-focus";
 
@@ -42,15 +41,10 @@ export function DrawButtonClient({ slug }: { slug: string }) {
   const t = useDrawT();
   const [confirming, setConfirming] = useState(false);
   const { triggerRef, titleRef } = useConfirmFocus(confirming);
+  // Mail failures are persisted server-side by the action; once the group is
+  // drawn this button unmounts and the re-draw section shows the warning.
   const [state, action, pending] = useActionState<DrawState, FormData>(
-    async (prev, formData) => {
-      const next = await triggerDraw(prev, formData);
-      // Button unmounts once the group is drawn; hand warning to the page.
-      if (next.status === "success" && next.emailsFailed > 0) {
-        setEmailWarning(slug, next.emailsFailed, next.emailsTotal);
-      }
-      return next;
-    },
+    triggerDraw,
     { status: "idle" },
   );
   const error = errorMessage(state, t);

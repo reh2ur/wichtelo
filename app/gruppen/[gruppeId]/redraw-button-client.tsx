@@ -4,16 +4,14 @@ import { useActionState, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import {
+  dismissDrawMailWarning,
   resendDrawEmails,
   retriggerDraw,
+  type DismissDrawMailWarningState,
   type ResendDrawEmailsState,
   type RetriggerDrawState,
 } from "./actions";
-import {
-  clearEmailWarning,
-  setEmailWarning,
-  useStoredEmailWarning,
-} from "./email-warning";
+import type { DrawMailWarning } from "@/lib/draw-mail-status";
 import { createIntlContext } from "@/lib/create-intl-context";
 import { CONFIRM_TITLE_CLASS, useConfirmFocus } from "@/lib/use-confirm-focus";
 
@@ -22,7 +20,14 @@ const { Provider: RedrawProvider, useT: useRedrawT } =
 
 export { RedrawProvider };
 
-export function RedrawButtonClient({ slug }: { slug: string }) {
+export function RedrawButtonClient({
+  slug,
+  warning,
+}: {
+  slug: string;
+  /** Persisted failure of the current draw's mails (server-read, admin-only). */
+  warning: DrawMailWarning | null;
+}) {
   const t = useRedrawT();
   const router = useRouter();
   const [confirming, setConfirming] = useState(false);
@@ -37,32 +42,18 @@ export function RedrawButtonClient({ slug }: { slug: string }) {
   const [resendState, resendAction, resending] = useActionState<
     ResendDrawEmailsState,
     FormData
-  >(
-    async (prev, formData) => {
-      const next = await resendDrawEmails(prev, formData);
-      if (next.status === "success") {
-        if (next.emailsFailed > 0) {
-          setEmailWarning(slug, next.emailsFailed, next.emailsTotal);
-        } else {
-          clearEmailWarning(slug);
-        }
-      }
-      return next;
-    },
-    { status: "idle" },
-  );
+  >(resendDrawEmails, { status: "idle" });
+  const [dismissState, dismissAction, dismissing] = useActionState<
+    DismissDrawMailWarningState,
+    FormData
+  >(dismissDrawMailWarning, { status: "idle" });
 
-  const stored = useStoredEmailWarning(slug);
-  const warning =
-    resendState.status === "success"
-      ? resendState.emailsFailed > 0
-        ? { failed: resendState.emailsFailed, total: resendState.emailsTotal }
-        : null
-      : state.status === "success" && state.emailsFailed > 0
-        ? { failed: state.emailsFailed, total: state.emailsTotal }
-        : stored;
+  // `warning` (server-read) is the single source of truth; every mutation
+  // below refreshes the route to pick up the new value.
   const resendDone =
-    resendState.status === "success" && resendState.emailsFailed === 0;
+    resendState.status === "success" &&
+    resendState.emailsFailed === 0 &&
+    state.status !== "success";
   const resendError =
     resendState.status === "error"
       ? resendState.error === "rate_limited"
@@ -73,6 +64,14 @@ export function RedrawButtonClient({ slug }: { slug: string }) {
   useEffect(() => {
     if (state.status === "success") router.refresh();
   }, [state, router]);
+
+  useEffect(() => {
+    if (resendState.status === "success") router.refresh();
+  }, [resendState, router]);
+
+  useEffect(() => {
+    if (dismissState.status === "success") router.refresh();
+  }, [dismissState, router]);
 
   const errorMsg =
     state.status === "error"
@@ -104,14 +103,19 @@ export function RedrawButtonClient({ slug }: { slug: string }) {
               failed: warning.failed,
               total: warning.total,
             })}{" "}
+          </p>
+        )}
+        {warning && (
+          <form action={dismissAction}>
+            <input type="hidden" name="slug" value={slug} />
             <button
-              type="button"
-              className="underline"
-              onClick={() => clearEmailWarning(slug)}
+              type="submit"
+              className="text-danger-text text-sm underline"
+              disabled={dismissing}
             >
               {t("dismissWarning")}
             </button>
-          </p>
+          </form>
         )}
         {warning && (
           <form action={resendAction}>
@@ -140,10 +144,7 @@ export function RedrawButtonClient({ slug }: { slug: string }) {
           ref={triggerRef}
           type="button"
           variant="outline"
-          onClick={() => {
-            clearEmailWarning(slug);
-            setConfirming(true);
-          }}
+          onClick={() => setConfirming(true)}
         >
           {t("start")}
         </Button>
