@@ -15,7 +15,7 @@ import { fetchDrawMailWarning } from "@/lib/draw-mail-status";
 const hasSupabase = !!process.env.NEXT_PUBLIC_SUPABASE_URL;
 
 describe.skipIf(!hasSupabase)("draw_mail_failures (#106)", () => {
-  const admin = createAdminClient();
+  const admin = hasSupabase ? createAdminClient() : (null as never);
   const stamp = Date.now();
   let groupId: string;
   let adminUserId: string;
