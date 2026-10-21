@@ -39,18 +39,20 @@ export async function DELETE(request: Request) {
     return NextResponse.json({ error: "Not found" }, { status: 404 });
   }
 
-  const { email } = await request.json();
+  // groupsOnly: keep the user (and its session), drop just its groups — the
+  // shared per-worker E2E user stays under create_group's 5-groups/24 h cap.
+  const { email, groupsOnly } = await request.json();
   const admin = createAdminClient();
 
   const {
     data: { users },
-  } = await admin.auth.admin.listUsers();
+  } = await admin.auth.admin.listUsers({ perPage: 1000 });
   const user = users.find((u) => u.email === email);
   if (!user) return NextResponse.json({ ok: true });
 
   // Delete groups first (FK to auth.users has no cascade).
   await admin.from("groups").delete().eq("created_by", user.id);
-  await admin.auth.admin.deleteUser(user.id);
+  if (!groupsOnly) await admin.auth.admin.deleteUser(user.id);
 
   return NextResponse.json({ ok: true });
 }

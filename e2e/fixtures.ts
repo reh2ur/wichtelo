@@ -38,6 +38,8 @@ function parseSetCookies(headers: Headers, baseUrl: string) {
   });
 }
 
+const workerEmail = () => `e2e+worker-${process.pid}@test.local`;
+
 interface WorkerFixtures {
   authedContext: BrowserContext;
 }
@@ -49,7 +51,7 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
   // Runs once per worker process — all tests in that worker share the session.
   authedContext: [
     async ({ browser }, use) => {
-      const email = `e2e+worker-${process.pid}@test.local`;
+      const email = workerEmail();
 
       // Single request: creates user, verifies OTP, returns session as Set-Cookie headers.
       const res = await fetch(`${BASE_URL}/api/test/auth`, {
@@ -89,6 +91,14 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
     const page = await authedContext.newPage();
     await provide(page);
     await page.close();
+
+    // create_group caps a user at 5 groups / 24 h. The worker user is shared by
+    // every test, so drop its groups after each one (tests never share groups).
+    await fetch(`${BASE_URL}/api/test/session`, {
+      method: "DELETE",
+      headers: testApiHeaders(),
+      body: JSON.stringify({ email: workerEmail(), groupsOnly: true }),
+    }).catch(() => {});
   },
 });
 
