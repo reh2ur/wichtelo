@@ -11,6 +11,7 @@ import { isTestBackdoorEnabled } from "@/lib/test-backdoor";
 import { safeNext, NEXT_COOKIE } from "@/lib/safe-next";
 import { getClientIp } from "@/lib/request-ip";
 import { isSuperAdminEmail } from "@/lib/admin/super-admin-email";
+import { ensureAuthUser } from "@/lib/supabase/ensure-auth-user";
 import {
   checkRateLimit,
   anmeldenOtpRequestLimiter,
@@ -137,14 +138,28 @@ export async function requestOtp(
     return { status: "otp_sent", email, devOtp, devMode: true };
   }
 
+  // Self-signup is disabled in Supabase Auth (#130), so the super admin's
+  // account on a fresh deployment is bootstrapped server-side. Everyone else
+  // needs an existing account (created via an invite link).
+  if (isSuperAdminEmail(email)) {
+    try {
+      await ensureAuthUser(createAdminClient(), email);
+    } catch (err) {
+      logger
+        .withMetadata({
+          reason: err instanceof Error ? err.message : String(err),
+        })
+        .error("auth.super_admin_bootstrap_failed");
+      return { status: "error", error: "generic", email };
+    }
+  }
+
   const siteUrl = await getSiteUrl();
   const supabase = await createClient();
   const { error } = await supabase.auth.signInWithOtp({
     email,
     options: {
-      // Super admin can create their account on a fresh deployment without
-      // needing a pre-existing user.
-      shouldCreateUser: isSuperAdminEmail(email),
+      shouldCreateUser: false,
       emailRedirectTo: `${siteUrl}/auth/callback`,
     },
   });

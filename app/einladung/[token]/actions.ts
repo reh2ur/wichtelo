@@ -9,6 +9,7 @@ import { groupTag } from "@/lib/cache-tags";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { isTestBackdoorEnabled } from "@/lib/test-backdoor";
+import { ensureAuthUser } from "@/lib/supabase/ensure-auth-user";
 import { resolveToken } from "@/lib/invite";
 import { getGroupAdminEmails } from "@/lib/group-admins";
 import { notify } from "@/lib/notification";
@@ -89,10 +90,23 @@ export async function requestInviteOtp(
     return { status: "otp_sent", email };
   }
 
+  // Self-signup is disabled in Supabase Auth (#130): a valid open-group invite
+  // is the only way to get an account, created here server-side.
+  const admin = createAdminClient();
+  try {
+    await ensureAuthUser(admin, email);
+  } catch (err) {
+    logger
+      .withMetadata({
+        reason: err instanceof Error ? err.message : String(err),
+      })
+      .error("invite.ensure_user_failed");
+    return { status: "error", error: "generic", email };
+  }
+
   const useDevOtp = isTestBackdoorEnabled(await headers());
 
   if (useDevOtp) {
-    const admin = createAdminClient();
     const { data: linkData, error: linkError } =
       await admin.auth.admin.generateLink({
         type: "magiclink",
@@ -114,6 +128,7 @@ export async function requestInviteOtp(
   const { error } = await supabase.auth.signInWithOtp({
     email,
     options: {
+      shouldCreateUser: false,
       emailRedirectTo: `${siteUrl}/einladung/${token}/magiclink`,
     },
   });

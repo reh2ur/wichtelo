@@ -10,6 +10,7 @@ Tick each before public launch / before draw season. Env var names in `.env.exam
 - [ ] Staging: same with `:staging` scripts + `STAGING_PREVIEW_REDIRECT_URL` wildcard (`https://<project>-*-<team>-projects.vercel.app/**`).
 - [ ] Verify magic link + OTP mail arrive on live; link lands on `/auth/callback`.
 - [ ] Region Frankfurt (EU).
+- [ ] Self-signup off (#130): `config.toml` `[auth] enable_signup = false` + `[auth.email] enable_signup = false` (remotes inherit) → pushed w/ `db:config:push:live` AND `:staging`. Verify per project: dashboard Auth → Sign In / Providers → "Allow new users to sign up" OFF, email provider signups off. Check: `curl -X POST $URL/auth/v1/otp -H "apikey: $PUBLISHABLE" -d '{"email":"x@example.com","create_user":true}'` → 422 `otp_disabled` / `signup_disabled`, no user created. Push config BEFORE/with code merge: old code relied on signup for new invitees → new code creates users server-side (`ensureAuthUser`), so deploy code first or together; config alone breaks invite join on old code.
 
 ## Mail (Resend)
 
@@ -36,7 +37,7 @@ Tick each before public launch / before draw season. Env var names in `.env.exam
 
 ## Super-admin
 
-- [ ] `SUPER_ADMIN_EMAIL` set. Register that account immediately after first deploy (email can create account on fresh deployment; only it gets `/admin`).
+- [ ] `SUPER_ADMIN_EMAIL` set. Sign in with that account immediately after first deploy (`requestOtp` creates it server-side via `ensureAuthUser`, signup is off; only it gets `/admin`).
 - [x] Audit log writes best-effort, after action. `logAdminAction` never throws; insert failure logs `admin.audit_log_failed` (error level) → action succeeds, row missing. Check `admin_audit_log` rows after first admin action; grep prod logs for that key.
 
 ## Uptime, backups, keep-alive
