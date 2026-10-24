@@ -91,6 +91,14 @@ describe("deleteUser (super-admin, #18)", () => {
     expect(redirect).toHaveBeenCalledWith("/admin/benutzer");
   });
 
+  it("fails closed with generic when the sole-admin check throws (#138)", async () => {
+    vi.mocked(findSoleAdminGroups).mockRejectedValue(new Error("db down"));
+    const res = await deleteUser({ status: "idle" }, fd("u1"));
+    expect(res).toEqual({ status: "error", error: "generic" });
+    expect(deleteAccount).not.toHaveBeenCalled();
+    expect(notifyAccountDeleted).not.toHaveBeenCalled();
+  });
+
   it("sends no notices when the deletion fails", async () => {
     vi.mocked(findSoleAdminGroups).mockResolvedValue([]);
     vi.mocked(deleteAccount).mockRejectedValue(new Error("boom"));

@@ -53,7 +53,16 @@ export async function confirmAccountDeletion(formData: FormData) {
     ? `${profile.first_name} ${profile.last_name}`
     : (email ?? "");
 
-  if ((await findSoleAdminGroups(userId)).length > 0) return back("sole_admin");
+  let soleAdminGroups;
+  try {
+    soleAdminGroups = await findSoleAdminGroups(userId);
+  } catch (err) {
+    logger
+      .withMetadata({ userId, error: serializeError(err) })
+      .error("account.sole_admin_check_failed");
+    return back("generic");
+  }
+  if (soleAdminGroups.length > 0) return back("sole_admin");
 
   let deleteResult;
   try {
