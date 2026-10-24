@@ -30,6 +30,7 @@ import {
 import { recordDrawMailResult } from "@/lib/draw-mail-status";
 import {
   checkRateLimit,
+  assignmentLookupLimiter,
   drawTriggerLimiter,
   joinLeaveLimiter,
 } from "@/lib/rate-limit";
@@ -306,34 +307,52 @@ export async function triggerDraw(
     .withMetadata({ groupId, participantCount: memberRows.length })
     .info("draw.succeeded");
 
-  const contact = await resolveGroupContact(admin, groupId, user.id);
-  const { recipients: assignments, skipped } =
-    await buildDrawAssignmentRecipients(admin, memberRows, assignment);
-  const emailResult: NotifyResult = await notify({
-    type: "draw.completed",
-    groupId,
-    drawKey: String(postDrawVersion(group.draw_version as number)),
-    groupName: group.name as string,
-    groupSlug: slug,
-    year: group.year as number,
-    adminName: contact?.name ?? null,
-    adminEmail: contact?.email ?? null,
-    assignments,
-  });
+  // perform_draw left a pending draw_mail_failures row (failed = total = live
+  // members) in the same transaction. Any throw below (timeout, provider,
+  // lookup) keeps it, so the resend button stays; only a recorded result
+  // replaces it (#140).
+  try {
+    const contact = await resolveGroupContact(admin, groupId, user.id);
+    const { recipients: assignments, skipped } =
+      await buildDrawAssignmentRecipients(admin, memberRows, assignment);
+    const emailResult: NotifyResult = await notify({
+      type: "draw.completed",
+      groupId,
+      drawKey: String(postDrawVersion(group.draw_version as number)),
+      groupName: group.name as string,
+      groupSlug: slug,
+      year: group.year as number,
+      adminName: contact?.name ?? null,
+      adminEmail: contact?.email ?? null,
+      assignments,
+    });
 
-  const emailsFailed = emailResult.failed + skipped;
-  const emailsTotal = emailResult.sent + emailResult.failed + skipped;
-  // Persisted so the resend option survives tab close / other devices; a
-  // clean send clears any warning left over from the previous draw.
-  await recordDrawMailResult(
-    admin,
-    groupId,
-    postDrawVersion(group.draw_version as number),
-    emailsFailed,
-    emailsTotal,
-  );
+    const emailsFailed = emailResult.failed + skipped;
+    const emailsTotal = emailResult.sent + emailResult.failed + skipped;
+    // Persisted so the resend option survives tab close / other devices; a
+    // clean send clears any warning left over from the previous draw.
+    await recordDrawMailResult(
+      admin,
+      groupId,
+      postDrawVersion(group.draw_version as number),
+      emailsFailed,
+      emailsTotal,
+    );
 
-  return { status: "success", emailsFailed, emailsTotal };
+    return { status: "success", emailsFailed, emailsTotal };
+  } catch (err) {
+    logger
+      .withMetadata({
+        groupId,
+        reason: err instanceof Error ? err.message : String(err),
+      })
+      .error("draw.mail_step_failed");
+    return {
+      status: "success",
+      emailsFailed: memberRows.length,
+      emailsTotal: memberRows.length,
+    };
+  }
 }
 
 export type RetriggerDrawState =
@@ -495,34 +514,52 @@ export async function retriggerDraw(
     .withMetadata({ groupId, participantCount: memberRows.length })
     .info("draw.retrigger_succeeded");
 
-  const contact = await resolveGroupContact(admin, groupId, user.id);
-  const { recipients: assignments, skipped } =
-    await buildDrawAssignmentRecipients(admin, memberRows, assignment);
-  const emailResult: NotifyResult = await notify({
-    type: "draw.redrawn",
-    groupId,
-    drawKey: String(postDrawVersion(group.draw_version as number)),
-    groupName: group.name as string,
-    groupSlug: slug,
-    year: group.year as number,
-    adminName: contact?.name ?? null,
-    adminEmail: contact?.email ?? null,
-    assignments,
-  });
+  // perform_draw left a pending draw_mail_failures row (failed = total = live
+  // members) in the same transaction. Any throw below (timeout, provider,
+  // lookup) keeps it, so the resend button stays; only a recorded result
+  // replaces it (#140).
+  try {
+    const contact = await resolveGroupContact(admin, groupId, user.id);
+    const { recipients: assignments, skipped } =
+      await buildDrawAssignmentRecipients(admin, memberRows, assignment);
+    const emailResult: NotifyResult = await notify({
+      type: "draw.redrawn",
+      groupId,
+      drawKey: String(postDrawVersion(group.draw_version as number)),
+      groupName: group.name as string,
+      groupSlug: slug,
+      year: group.year as number,
+      adminName: contact?.name ?? null,
+      adminEmail: contact?.email ?? null,
+      assignments,
+    });
 
-  const emailsFailed = emailResult.failed + skipped;
-  const emailsTotal = emailResult.sent + emailResult.failed + skipped;
-  // Persisted so the resend option survives tab close / other devices; a
-  // clean send clears any warning left over from the previous draw.
-  await recordDrawMailResult(
-    admin,
-    groupId,
-    postDrawVersion(group.draw_version as number),
-    emailsFailed,
-    emailsTotal,
-  );
+    const emailsFailed = emailResult.failed + skipped;
+    const emailsTotal = emailResult.sent + emailResult.failed + skipped;
+    // Persisted so the resend option survives tab close / other devices; a
+    // clean send clears any warning left over from the previous draw.
+    await recordDrawMailResult(
+      admin,
+      groupId,
+      postDrawVersion(group.draw_version as number),
+      emailsFailed,
+      emailsTotal,
+    );
 
-  return { status: "success", emailsFailed, emailsTotal };
+    return { status: "success", emailsFailed, emailsTotal };
+  } catch (err) {
+    logger
+      .withMetadata({
+        groupId,
+        reason: err instanceof Error ? err.message : String(err),
+      })
+      .error("draw.mail_step_failed");
+    return {
+      status: "success",
+      emailsFailed: memberRows.length,
+      emailsTotal: memberRows.length,
+    };
+  }
 }
 
 export type OracleState =
@@ -530,7 +567,12 @@ export type OracleState =
   | { status: "success"; giverId: string; receiverName: string }
   | {
       status: "error";
-      error: "not_authenticated" | "not_admin" | "not_found" | "generic";
+      error:
+        | "not_authenticated"
+        | "not_admin"
+        | "not_found"
+        | "rate_limited"
+        | "generic";
     };
 
 export async function lookupAssignment(
@@ -567,6 +609,18 @@ export async function lookupAssignment(
     return { status: "error", error: "not_admin" };
   }
 
+  // Limiter after the admin check, keyed per admin and group: outsiders can't
+  // burn an admin's budget and one admin can't enumerate the whole draw (#135).
+  if (!(await checkRateLimit(assignmentLookupLimiter, `${slug}:${user.id}`))) {
+    return { status: "error", error: "rate_limited" };
+  }
+
+  // Open groups have no live draw; after a super-admin reopen the old rows
+  // are stale and must not be readable.
+  if ((group as { state: string }).state !== "drawn") {
+    return { status: "error", error: "not_found" };
+  }
+
   const { data: assignment } = await admin
     .from("assignments")
     .select("receiver_id")
@@ -577,6 +631,24 @@ export async function lookupAssignment(
   if (!assignment) return { status: "error", error: "not_found" };
 
   const receiverId = (assignment as { receiver_id: string }).receiver_id;
+
+  // Durable trace before anything is revealed; fail closed if it can't be
+  // written (#135).
+  const { error: auditError } = await admin.from("assignment_lookups").insert({
+    group_id: groupId,
+    actor_profile_id: user.id,
+    target_membership_id: membershipId,
+  });
+  if (auditError) {
+    logger
+      .withMetadata({
+        groupId,
+        giverId: membershipId,
+        reason: auditError.message,
+      })
+      .error("admin.oracle_audit_failed");
+    return { status: "error", error: "generic" };
+  }
 
   const { data: receiverMembership } = await admin
     .from("memberships")
@@ -605,7 +677,7 @@ export async function lookupAssignment(
   }
 
   logger
-    .withMetadata({ groupId, giverId: membershipId })
+    .withMetadata({ groupId, giverId: membershipId, actorId: user.id })
     .info("admin.oracle_lookup");
 
   return { status: "success", giverId: membershipId, receiverName };

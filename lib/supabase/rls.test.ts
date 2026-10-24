@@ -324,6 +324,57 @@ describe.skipIf(!hasSupabase)(
         expect(pData).toBeNull();
       });
 
+      it("assignment_lookups is service-role only (#135)", async () => {
+        const { error: seedError } = await admin
+          .from("assignment_lookups")
+          .insert({
+            group_id: ownGroupId,
+            actor_profile_id: attackerId,
+            target_membership_id: victimMembershipId,
+          });
+        expect(seedError).toBeNull();
+
+        // Group admin (the actor) cannot read, forge or wipe the trail.
+        const { data, error } = await client
+          .from("assignment_lookups")
+          .select("id")
+          .eq("group_id", ownGroupId);
+        expect(error?.code).toBe("42501");
+        expect(data).toBeNull();
+        const { error: insError } = await client
+          .from("assignment_lookups")
+          .insert({ group_id: ownGroupId, actor_profile_id: attackerId });
+        expect(insError?.code).toBe("42501");
+        const { error: delError } = await client
+          .from("assignment_lookups")
+          .delete()
+          .eq("group_id", ownGroupId);
+        expect(delError?.code).toBe("42501");
+
+        const { data: rows } = await admin
+          .from("assignment_lookups")
+          .select("actor_profile_id, target_membership_id")
+          .eq("group_id", ownGroupId);
+        expect(rows).toEqual([
+          {
+            actor_profile_id: attackerId,
+            target_membership_id: victimMembershipId,
+          },
+        ]);
+
+        // Participant and anon are locked out too.
+        const participant = anonClient();
+        await signInAs(participant, victimEmail);
+        const { error: pError } = await participant
+          .from("assignment_lookups")
+          .select("id");
+        expect(pError?.code).toBe("42501");
+        const { error: aError } = await anonClient()
+          .from("assignment_lookups")
+          .select("id");
+        expect(aError?.code).toBe("42501");
+      });
+
       it("admin sees only their own assignment row, not the whole draw", async () => {
         const { data, error } = await client
           .from("assignments")
