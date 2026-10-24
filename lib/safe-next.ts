@@ -3,6 +3,9 @@ export const NEXT_COOKIE = "wichtelo_next";
 
 const BASE = "http://safe-next.invalid";
 const CONTROL_CHARS = /[\u0000-\u001f\u007f]/;
+// Encoded dot / slash / backslash in the path: some layers decode these before
+// resolving, so never let them through.
+const ENCODED_PATH_CHARS = /%(2e|2f|5c)/i;
 
 /**
  * Validates a post-login return path. Accepts only same-origin relative paths
@@ -19,7 +22,14 @@ export function safeNext(raw: unknown): string | null {
   try {
     const url = new URL(raw, BASE);
     if (url.origin !== BASE) return null;
-    return url.pathname + url.search + url.hash;
+    // Normalization collapses dot segments ("/.//evil.com" -> "//evil.com"),
+    // so re-check the result: a protocol-relative path is an external redirect.
+    const path = url.pathname + url.search + url.hash;
+    if (!path.startsWith("/") || path.startsWith("//")) return null;
+    if (path.includes("\\") || ENCODED_PATH_CHARS.test(url.pathname)) {
+      return null;
+    }
+    return path;
   } catch {
     return null;
   }

@@ -239,24 +239,26 @@ test.describe("return-to after login", () => {
     }
   });
 
-  test("off-origin next is ignored", async ({ browser }) => {
-    const { ctx: setupCtx, email } = await createFreshAuthedContext(browser);
-    await setupCtx.close();
+  for (const next of ["//evil.example", "/.//evil.example"]) {
+    test(`off-origin next ${next} is ignored`, async ({ browser }) => {
+      const { ctx: setupCtx, email } = await createFreshAuthedContext(browser);
+      await setupCtx.close();
 
-    const ctx = await browser.newContext(guestContextOptions());
-    try {
-      const page = await ctx.newPage();
-      await page.goto("/anmelden?next=//evil.example");
-      await page.locator("#email").fill(email);
-      await page.locator('button[type="submit"]').click();
-      await expect(page.locator("#otp")).toBeVisible();
-      await expect(page.locator('button[type="submit"]')).toBeEnabled({
-        timeout: 10_000,
-      });
-      await page.locator('button[type="submit"]').click();
-      await expect(page).toHaveURL(/\/gruppen$/, { timeout: 15_000 });
-    } finally {
-      await ctx.close();
-    }
-  });
+      const ctx = await browser.newContext(guestContextOptions());
+      try {
+        const page = await ctx.newPage();
+        await page.goto(`/anmelden?next=${next}`);
+        await page.locator("#email").fill(email);
+        await page.locator('button[type="submit"]').click();
+        await expect(page.locator("#otp")).toBeVisible();
+        await expect(page.locator('button[type="submit"]')).toBeEnabled({
+          timeout: 10_000,
+        });
+        await page.locator('button[type="submit"]').click();
+        await expect(page).toHaveURL(/\/gruppen$/, { timeout: 15_000 });
+      } finally {
+        await ctx.close();
+      }
+    });
+  }
 });
