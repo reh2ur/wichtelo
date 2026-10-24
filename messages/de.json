@@ -94,6 +94,7 @@
     "adminBadge": "Admin",
     "settings": "Einstellungen",
     "youGiveTo": "Du beschenkst",
+    "assignmentPending": "Deine Zuteilung entfällt gerade, weil ein Teilnehmer entfernt wurde. Der Admin lost neu aus, du bekommst dann eine E-Mail.",
     "waitingForDraw": "Die Auslosung steht noch aus. Du bekommst eine E-Mail, sobald ausgelost wurde.",
     "adminLookupNotice": "Hinweis: Der Admin dieser Gruppe kann bei Bedarf einzelne Zuordnungen einsehen, z. B. für Rückfragen.",
     "inviteLink": {
@@ -221,6 +222,7 @@
   },
   "redraw": {
     "start": "Neu auslosen",
+    "needsRedraw": "Ein Teilnehmer wurde nach der Auslosung entfernt, deshalb haben einige keine Zuteilung mehr. Bitte starte „Neu auslosen“.",
     "starting": "Wird ausgelost…",
     "emailFailure": "{failed} von {total} E-Mails konnten nicht zugestellt werden – Teilnehmer können ihre Zuteilung jederzeit in der App sehen.",
     "dismissWarning": "Ausblenden",

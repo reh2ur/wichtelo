@@ -16,6 +16,7 @@ import {
   type Assignment,
   type ExclusionPair,
 } from "@/lib/draw";
+import { findCallerMembership, findGroupBySlug } from "@/lib/group-access";
 import { getGroupAdminEmails, resolveGroupContact } from "@/lib/group-admins";
 import { notify, type NotifyResult } from "@/lib/notification";
 import { logger } from "@/lib/logger";
@@ -66,38 +67,27 @@ export async function leaveGroup(
 
   const admin = createAdminClient();
 
-  const { data: group } = await admin
-    .from("groups")
-    .select("id, slug, name, state")
-    .eq("slug", slug)
-    .single();
+  const groupLookup = await findGroupBySlug(admin, slug);
+  if (groupLookup.failed) return { status: "error", error: "generic" };
+  const group = groupLookup.row;
 
   // Same code for unknown slug and non-member: no slug-existence oracle.
   if (!group) return { status: "error", error: "not_member" };
 
-  const groupId = (
-    group as { id: string; slug: string; name: string; state: string }
-  ).id;
+  const groupId = group.id;
 
-  const { data: callerMembership } = await admin
-    .from("memberships")
-    .select("id, role, name_snapshot")
-    .eq("group_id", groupId)
-    .eq("profile_id", user.id)
-    .single();
+  const membershipLookup = await findCallerMembership(admin, groupId, user.id);
+  if (membershipLookup.failed) return { status: "error", error: "generic" };
+  const callerMembership = membershipLookup.row;
 
   if (!callerMembership) return { status: "error", error: "not_member" };
 
   // Leaving after draw would cascade-delete assignment rows and break the draw.
-  if ((group as { state: string }).state === "drawn") {
+  if (group.state === "drawn") {
     return { status: "error", error: "already_drawn" };
   }
 
-  const membership = callerMembership as {
-    id: string;
-    role: string;
-    name_snapshot: string;
-  };
+  const membership = callerMembership;
 
   // Locks the group row: a draw cannot slip in between the checks and the delete.
   const { result, reason } = await removeMembership(
@@ -130,7 +120,7 @@ export async function leaveGroup(
     const adminEmails = await getGroupAdminEmails(admin, groupId, user.id);
     await notify({
       type: "participant.left",
-      groupName: (group as { name: string }).name,
+      groupName: group.name,
       participantName: membership.name_snapshot,
       participantEmail: user.email,
       adminEmails,
@@ -174,25 +164,20 @@ export async function triggerDraw(
 
   const admin = createAdminClient();
 
-  const { data: group, error: groupError } = await admin
-    .from("groups")
-    .select("id, slug, state, draw_version, name, year")
-    .eq("slug", slug)
-    .single();
+  const groupLookup = await findGroupBySlug(admin, slug);
+  if (groupLookup.failed) return { status: "error", error: "generic" };
+  const group = groupLookup.row;
 
   // Same error as "not an admin" so slug existence isn't revealed (#181).
-  if (groupError || !group) {
+  if (!group) {
     return { status: "error", error: "not_admin" };
   }
 
-  const groupId = group.id as string;
+  const groupId = group.id;
 
-  const { data: callerMembership } = await admin
-    .from("memberships")
-    .select("id, role")
-    .eq("group_id", groupId)
-    .eq("profile_id", user.id)
-    .single();
+  const membershipLookup = await findCallerMembership(admin, groupId, user.id);
+  if (membershipLookup.failed) return { status: "error", error: "generic" };
+  const callerMembership = membershipLookup.row;
 
   if (!callerMembership || callerMembership.role !== "admin") {
     return { status: "error", error: "not_admin" };
@@ -376,25 +361,20 @@ export async function retriggerDraw(
 
   const admin = createAdminClient();
 
-  const { data: group, error: groupError } = await admin
-    .from("groups")
-    .select("id, slug, state, draw_version, name, year")
-    .eq("slug", slug)
-    .single();
+  const groupLookup = await findGroupBySlug(admin, slug);
+  if (groupLookup.failed) return { status: "error", error: "generic" };
+  const group = groupLookup.row;
 
   // Same error as "not an admin" so slug existence isn't revealed (#181).
-  if (groupError || !group) {
+  if (!group) {
     return { status: "error", error: "not_admin" };
   }
 
-  const groupId = group.id as string;
+  const groupId = group.id;
 
-  const { data: callerMembership } = await admin
-    .from("memberships")
-    .select("id, role")
-    .eq("group_id", groupId)
-    .eq("profile_id", user.id)
-    .single();
+  const membershipLookup = await findCallerMembership(admin, groupId, user.id);
+  if (membershipLookup.failed) return { status: "error", error: "generic" };
+  const callerMembership = membershipLookup.row;
 
   if (!callerMembership || callerMembership.role !== "admin") {
     return { status: "error", error: "not_admin" };
@@ -562,23 +542,18 @@ export async function lookupAssignment(
 
   const admin = createAdminClient();
 
-  const { data: group } = await admin
-    .from("groups")
-    .select("id")
-    .eq("slug", slug)
-    .single();
+  const groupLookup = await findGroupBySlug(admin, slug);
+  if (groupLookup.failed) return { status: "error", error: "generic" };
+  const group = groupLookup.row;
 
   // Same code for unknown slug and non-admin: no slug-existence oracle.
   if (!group) return { status: "error", error: "not_admin" };
 
-  const groupId = (group as { id: string }).id;
+  const groupId = group.id;
 
-  const { data: callerMembership } = await admin
-    .from("memberships")
-    .select("id, role")
-    .eq("group_id", groupId)
-    .eq("profile_id", user.id)
-    .single();
+  const membershipLookup = await findCallerMembership(admin, groupId, user.id);
+  if (membershipLookup.failed) return { status: "error", error: "generic" };
+  const callerMembership = membershipLookup.row;
 
   if (!callerMembership || callerMembership.role !== "admin") {
     return { status: "error", error: "not_admin" };
@@ -662,22 +637,17 @@ export async function resendDrawEmails(
 
   const admin = createAdminClient();
 
-  const { data: group } = await admin
-    .from("groups")
-    .select("id, state, draw_version, name, year")
-    .eq("slug", slug)
-    .single();
+  const groupLookup = await findGroupBySlug(admin, slug);
+  if (groupLookup.failed) return { status: "error", error: "generic" };
+  const group = groupLookup.row;
   // Same error as "not an admin" so slug existence isn't revealed (#181).
   if (!group) return { status: "error", error: "not_admin" };
 
-  const groupId = group.id as string;
+  const groupId = group.id;
 
-  const { data: callerMembership } = await admin
-    .from("memberships")
-    .select("id, role")
-    .eq("group_id", groupId)
-    .eq("profile_id", user.id)
-    .single();
+  const membershipLookup = await findCallerMembership(admin, groupId, user.id);
+  if (membershipLookup.failed) return { status: "error", error: "generic" };
+  const callerMembership = membershipLookup.row;
   if (!callerMembership || callerMembership.role !== "admin") {
     return { status: "error", error: "not_admin" };
   }
@@ -780,22 +750,17 @@ export async function dismissDrawMailWarning(
 
   const admin = createAdminClient();
 
-  const { data: group } = await admin
-    .from("groups")
-    .select("id")
-    .eq("slug", slug)
-    .single();
+  const groupLookup = await findGroupBySlug(admin, slug);
+  if (groupLookup.failed) return { status: "error", error: "generic" };
+  const group = groupLookup.row;
   // Same error as "not an admin" so slug existence isn't revealed (#181).
   if (!group) return { status: "error", error: "not_admin" };
 
-  const groupId = group.id as string;
+  const groupId = group.id;
 
-  const { data: callerMembership } = await admin
-    .from("memberships")
-    .select("id, role")
-    .eq("group_id", groupId)
-    .eq("profile_id", user.id)
-    .single();
+  const membershipLookup = await findCallerMembership(admin, groupId, user.id);
+  if (membershipLookup.failed) return { status: "error", error: "generic" };
+  const callerMembership = membershipLookup.row;
   if (!callerMembership || callerMembership.role !== "admin") {
     return { status: "error", error: "not_admin" };
   }

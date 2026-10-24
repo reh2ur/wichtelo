@@ -5,6 +5,11 @@ import { z } from "zod";
 import { groupTag } from "@/lib/cache-tags";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import {
+  findCallerMembership,
+  findGroupBySlug,
+  type GroupRow,
+} from "@/lib/group-access";
 import { resolveGroupContact } from "@/lib/group-admins";
 import { notify } from "@/lib/notification";
 import { logger } from "@/lib/logger";
@@ -87,7 +92,15 @@ export type DeleteGroupState =
   | { status: "success" }
   | { status: "error"; error: "not_admin" | "group_not_found" | "generic" };
 
-async function assertAdmin(slug: string) {
+type AssertAdminResult =
+  | { error: "not_admin" | "group_not_found" | "generic" }
+  | {
+      group: GroupRow;
+      admin: ReturnType<typeof createAdminClient>;
+      userId: string;
+    };
+
+async function assertAdmin(slug: string): Promise<AssertAdminResult> {
   const supabase = await createClient();
   const {
     data: { user },
@@ -96,33 +109,20 @@ async function assertAdmin(slug: string) {
 
   const admin = createAdminClient();
 
-  const { data: group } = await admin
-    .from("groups")
-    .select("id, slug, name, year, state")
-    .eq("slug", slug)
-    .single();
+  // A DB error is `generic`, never `not_admin`/`group_not_found`: a blip must
+  // not tell a real admin they lack rights.
+  const groupLookup = await findGroupBySlug(admin, slug);
+  if (groupLookup.failed) return { error: "generic" as const };
+  const group = groupLookup.row;
   if (!group) return { error: "group_not_found" as const };
 
-  const { data: membership } = await admin
-    .from("memberships")
-    .select("id, role")
-    .eq("group_id", group.id)
-    .eq("profile_id", user.id)
-    .single();
+  const membershipLookup = await findCallerMembership(admin, group.id, user.id);
+  if (membershipLookup.failed) return { error: "generic" as const };
+  const membership = membershipLookup.row;
   if (!membership || membership.role !== "admin")
     return { error: "not_admin" as const };
 
-  return {
-    group: group as {
-      id: string;
-      slug: string;
-      name: string;
-      year: number;
-      state: "open" | "drawn";
-    },
-    admin,
-    userId: user.id,
-  };
+  return { group, admin, userId: user.id };
 }
 
 export async function updateGroupInfo(
@@ -148,8 +148,7 @@ export async function updateGroupInfo(
   if ("error" in result) {
     return {
       status: "error",
-      error:
-        result.error === "group_not_found" ? "group_not_found" : "not_admin",
+      error: result.error,
       values,
     };
   }
@@ -191,8 +190,7 @@ export async function addExclusion(
   if ("error" in result) {
     return {
       status: "error",
-      error:
-        result.error === "group_not_found" ? "group_not_found" : "not_admin",
+      error: result.error,
     };
   }
   const { group, admin, userId } = result;
@@ -202,11 +200,17 @@ export async function addExclusion(
   }
 
   // Both members must belong to this group (#201).
-  const { data: pairMembers } = await admin
+  const { data: pairMembers, error: pairError } = await admin
     .from("memberships")
     .select("id")
     .eq("group_id", group.id)
     .in("id", [memberA, memberB]);
+  if (pairError) {
+    logger
+      .withMetadata({ groupId: group.id, reason: pairError.message })
+      .error("exclusion.member_check_failed");
+    return { status: "error", error: "generic" };
+  }
   if ((pairMembers ?? []).length !== 2)
     return { status: "error", error: "invalid_member" };
 
@@ -227,13 +231,26 @@ export async function addExclusion(
 
   // Feasibility warning: tell the admin right away if the exclusions now make
   // a valid draw impossible, instead of failing at draw time.
-  const [{ data: allMembers }, { data: allExclusions }] = await Promise.all([
+  const [
+    { data: allMembers, error: allMembersError },
+    { data: allExclusions, error: allExclusionsError },
+  ] = await Promise.all([
     admin.from("memberships").select("id").eq("group_id", group.id),
     admin
       .from("exclusions")
       .select("member_a, member_b")
       .eq("group_id", group.id),
   ]);
+  if (allMembersError || allExclusionsError) {
+    // The exclusion is saved; only the advisory warning is skipped.
+    logger
+      .withMetadata({
+        groupId: group.id,
+        reason: (allMembersError ?? allExclusionsError)?.message,
+      })
+      .error("exclusion.feasibility_load_failed");
+    return { status: "success" };
+  }
   const ids = (allMembers ?? []).map((m: { id: string }) => m.id);
   const pairs = (
     (allExclusions ?? []) as { member_a: string; member_b: string }[]
@@ -262,8 +279,7 @@ export async function removeExclusion(
   if ("error" in result) {
     return {
       status: "error",
-      error:
-        result.error === "group_not_found" ? "group_not_found" : "not_admin",
+      error: result.error,
     };
   }
   const { group, admin } = result;
@@ -299,8 +315,7 @@ export async function promoteToAdmin(
   if ("error" in result) {
     return {
       status: "error",
-      error:
-        result.error === "group_not_found" ? "group_not_found" : "not_admin",
+      error: result.error,
     };
   }
   const { group, admin } = result;
@@ -349,8 +364,7 @@ export async function removeMember(
   if ("error" in result) {
     return {
       status: "error",
-      error:
-        result.error === "group_not_found" ? "group_not_found" : "not_admin",
+      error: result.error,
     };
   }
   const { group, admin, userId } = result;
@@ -426,8 +440,7 @@ export async function regenerateInviteLink(
   if ("error" in result) {
     return {
       status: "error",
-      error:
-        result.error === "group_not_found" ? "group_not_found" : "not_admin",
+      error: result.error,
     };
   }
   const { group } = result;
@@ -462,16 +475,22 @@ export async function deleteGroup(
   if ("error" in result) {
     return {
       status: "error",
-      error:
-        result.error === "group_not_found" ? "group_not_found" : "not_admin",
+      error: result.error,
     };
   }
   const { group, admin, userId } = result;
 
-  const { data: membersRaw } = await admin
+  // Abort before deleting: without the member list nobody could be mailed.
+  const { data: membersRaw, error: membersError } = await admin
     .from("memberships")
     .select("profile_id, name_snapshot")
     .eq("group_id", group.id);
+  if (membersError) {
+    logger
+      .withMetadata({ groupId: group.id, reason: membersError.message })
+      .error("group.delete_members_load_failed");
+    return { status: "error", error: "generic" };
+  }
 
   const contact = await resolveGroupContact(admin, group.id, userId);
 

@@ -63,6 +63,7 @@ function query(list: readonly Row[], error?: string, one: Row | null = null) {
   for (const m of ["select", "eq", "in", "neq", "not", "order"])
     q[m] = vi.fn(() => q);
   q.single = vi.fn().mockResolvedValue({ data: one, error: null });
+  q.maybeSingle = q.single;
   q.then = (resolve: (v: unknown) => unknown) =>
     Promise.resolve(
       error

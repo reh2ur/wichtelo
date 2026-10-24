@@ -53,6 +53,7 @@ function query(list: Row[], one: Row | null = null, onDelete?: () => unknown) {
     return q;
   });
   q.single = vi.fn().mockResolvedValue({ data: one, error: null });
+  q.maybeSingle = q.single;
   q.then = (resolve: (v: unknown) => unknown) =>
     Promise.resolve({ data: list, error: null }).then(resolve);
   return q;
