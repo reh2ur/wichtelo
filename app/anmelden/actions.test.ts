@@ -298,11 +298,15 @@ describe("requestOtp", () => {
     vi.unstubAllEnvs();
   });
 
-  it("passes shouldCreateUser: true for SUPER_ADMIN_EMAIL in prod", async () => {
+  it("bootstraps SUPER_ADMIN_EMAIL via the admin API, never via shouldCreateUser (#130)", async () => {
     vi.stubEnv("NODE_ENV", "production");
     vi.stubEnv("E2E_TEST_MODE", "");
     vi.stubEnv("VERCEL_ENV", "");
     vi.stubEnv("SUPER_ADMIN_EMAIL", "admin@example.com");
+    const createUser = vi.fn().mockResolvedValue({ error: null });
+    vi.mocked(createAdminClient).mockReturnValue({
+      auth: { admin: { createUser } },
+    } as unknown as AdminClient);
     const signInWithOtp = vi.fn().mockResolvedValue({ error: null });
     vi.mocked(createClient).mockResolvedValue({
       auth: { signInWithOtp },
@@ -313,30 +317,55 @@ describe("requestOtp", () => {
       fd({ email: "admin@example.com" }),
     );
     expect(result).toEqual({ status: "otp_sent", email: "admin@example.com" });
+    expect(createUser).toHaveBeenCalledWith({
+      email: "admin@example.com",
+      email_confirm: true,
+    });
     expect(signInWithOtp).toHaveBeenCalledWith(
       expect.objectContaining({
-        options: expect.objectContaining({ shouldCreateUser: true }),
+        options: expect.objectContaining({ shouldCreateUser: false }),
       }),
     );
     vi.unstubAllEnvs();
   });
 
-  it("matches SUPER_ADMIN_EMAIL case-insensitively for shouldCreateUser", async () => {
+  it("matches SUPER_ADMIN_EMAIL case-insensitively for the bootstrap", async () => {
     vi.stubEnv("NODE_ENV", "production");
     vi.stubEnv("E2E_TEST_MODE", "");
     vi.stubEnv("VERCEL_ENV", "");
     vi.stubEnv("SUPER_ADMIN_EMAIL", "Admin@Example.com");
+    const createUser = vi
+      .fn()
+      .mockResolvedValue({ error: { code: "email_exists", message: "x" } });
+    vi.mocked(createAdminClient).mockReturnValue({
+      auth: { admin: { createUser } },
+    } as unknown as AdminClient);
     const signInWithOtp = vi.fn().mockResolvedValue({ error: null });
     vi.mocked(createClient).mockResolvedValue({
       auth: { signInWithOtp },
     } as unknown as SupabaseClient);
 
     await requestOtp({ status: "idle" }, fd({ email: "admin@example.com" }));
-    expect(signInWithOtp).toHaveBeenCalledWith(
-      expect.objectContaining({
-        options: expect.objectContaining({ shouldCreateUser: true }),
-      }),
-    );
+    expect(createUser).toHaveBeenCalled();
+    expect(signInWithOtp).toHaveBeenCalled();
+    vi.unstubAllEnvs();
+  });
+
+  it("never creates an account for a non-super-admin email", async () => {
+    vi.stubEnv("NODE_ENV", "production");
+    vi.stubEnv("E2E_TEST_MODE", "");
+    vi.stubEnv("VERCEL_ENV", "");
+    vi.stubEnv("SUPER_ADMIN_EMAIL", "admin@example.com");
+    const createUser = vi.fn();
+    vi.mocked(createAdminClient).mockReturnValue({
+      auth: { admin: { createUser } },
+    } as unknown as AdminClient);
+    vi.mocked(createClient).mockResolvedValue({
+      auth: { signInWithOtp: vi.fn().mockResolvedValue({ error: null }) },
+    } as unknown as SupabaseClient);
+
+    await requestOtp({ status: "idle" }, fd({ email: "stranger@example.com" }));
+    expect(createUser).not.toHaveBeenCalled();
     vi.unstubAllEnvs();
   });
 

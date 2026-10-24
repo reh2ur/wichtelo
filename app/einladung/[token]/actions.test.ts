@@ -156,11 +156,15 @@ describe("requestInviteOtp", () => {
     expect(generateLink).not.toHaveBeenCalled();
   });
 
-  it("calls signInWithOtp in prod for a valid open-group token", async () => {
+  it("creates the account server-side, then signs in without shouldCreateUser, in prod (#130)", async () => {
     vi.stubEnv("NODE_ENV", "production");
     vi.stubEnv("E2E_TEST_MODE", "");
     vi.stubEnv("VERCEL_ENV", "");
     vi.mocked(resolveToken).mockResolvedValue(openGroup);
+    const createUser = vi.fn().mockResolvedValue({ error: null });
+    vi.mocked(createAdminClient).mockReturnValue({
+      auth: { admin: { createUser } },
+    } as unknown as AdminClient);
     const signInWithOtp = vi.fn().mockResolvedValue({ error: null });
     vi.mocked(createClient).mockResolvedValue({
       auth: { signInWithOtp },
@@ -176,9 +180,72 @@ describe("requestInviteOtp", () => {
       status: "otp_sent",
       email: "guest@example.com",
     });
+    expect(createUser).toHaveBeenCalledWith({
+      email: "guest@example.com",
+      email_confirm: true,
+    });
     expect(signInWithOtp).toHaveBeenCalledWith(
-      expect.objectContaining({ email: "guest@example.com" }),
+      expect.objectContaining({
+        email: "guest@example.com",
+        options: expect.objectContaining({ shouldCreateUser: false }),
+      }),
     );
+    vi.unstubAllEnvs();
+  });
+
+  it("tolerates an already-registered address", async () => {
+    vi.stubEnv("NODE_ENV", "production");
+    vi.stubEnv("E2E_TEST_MODE", "");
+    vi.stubEnv("VERCEL_ENV", "");
+    vi.mocked(resolveToken).mockResolvedValue(openGroup);
+    const createUser = vi.fn().mockResolvedValue({
+      error: { code: "email_exists", status: 422, message: "exists" },
+    });
+    vi.mocked(createAdminClient).mockReturnValue({
+      auth: { admin: { createUser } },
+    } as unknown as AdminClient);
+    const signInWithOtp = vi.fn().mockResolvedValue({ error: null });
+    vi.mocked(createClient).mockResolvedValue({
+      auth: { signInWithOtp },
+    } as unknown as SupabaseClient);
+
+    const result = await requestInviteOtp(
+      "valid-token",
+      { status: "idle" },
+      fd({ email: "member@example.com" }),
+    );
+    expect(result).toEqual({ status: "otp_sent", email: "member@example.com" });
+    expect(signInWithOtp).toHaveBeenCalled();
+    vi.unstubAllEnvs();
+  });
+
+  it("returns generic and sends no mail when account creation fails", async () => {
+    vi.stubEnv("NODE_ENV", "production");
+    vi.stubEnv("E2E_TEST_MODE", "");
+    vi.stubEnv("VERCEL_ENV", "");
+    vi.mocked(resolveToken).mockResolvedValue(openGroup);
+    const createUser = vi.fn().mockResolvedValue({
+      error: { code: "unexpected_failure", status: 500, message: "db down" },
+    });
+    vi.mocked(createAdminClient).mockReturnValue({
+      auth: { admin: { createUser } },
+    } as unknown as AdminClient);
+    const signInWithOtp = vi.fn();
+    vi.mocked(createClient).mockResolvedValue({
+      auth: { signInWithOtp },
+    } as unknown as SupabaseClient);
+
+    const result = await requestInviteOtp(
+      "valid-token",
+      { status: "idle" },
+      fd({ email: "guest@example.com" }),
+    );
+    expect(result).toEqual({
+      status: "error",
+      error: "generic",
+      email: "guest@example.com",
+    });
+    expect(signInWithOtp).not.toHaveBeenCalled();
     vi.unstubAllEnvs();
   });
 });
@@ -293,6 +360,11 @@ describe("requestInviteOtp Supabase throttling", () => {
     vi.clearAllMocks();
     vi.mocked(checkRateLimit).mockResolvedValue(true);
     vi.mocked(resolveToken).mockResolvedValue(openGroup);
+    vi.mocked(createAdminClient).mockReturnValue({
+      auth: {
+        admin: { createUser: vi.fn().mockResolvedValue({ error: null }) },
+      },
+    } as unknown as AdminClient);
     vi.stubEnv("NODE_ENV", "production");
     vi.stubEnv("E2E_TEST_MODE", "");
     vi.stubEnv("VERCEL_ENV", "");
