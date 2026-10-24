@@ -1,6 +1,11 @@
 import { type Browser, type BrowserContext } from "@playwright/test";
+import { e2eFreshEmail, resolveRunId } from "../lib/e2e-run";
 
 const BASE_URL = process.env.PLAYWRIGHT_BASE_URL ?? "https://localhost:3000";
+
+// playwright.config.ts exports E2E_RUN_ID before any worker starts, so the
+// main process (teardown) and workers agree on it.
+const RUN_ID = resolveRunId(process.env);
 
 // Headers for browser contexts: Vercel deployment-protection bypass plus the
 // shared secret that unlocks server-side E2E backdoors (devOtp).
@@ -56,7 +61,10 @@ function parseSetCookies(headers: Headers, baseUrl: string) {
 async function createFreshAuthedContext(
   browser: Browser,
 ): Promise<{ ctx: BrowserContext; email: string }> {
-  const email = `e2e+fresh-${Date.now()}-${Math.random().toString(36).slice(2)}@test.local`;
+  const email = e2eFreshEmail(
+    RUN_ID,
+    `${Date.now()}-${Math.random().toString(36).slice(2)}`,
+  );
   const res = await fetch(`${BASE_URL}/api/test/auth`, {
     method: "POST",
     headers: testApiHeaders(),
@@ -78,6 +86,7 @@ async function createFreshAuthedContext(
 
 export {
   BASE_URL,
+  RUN_ID,
   testApiHeaders,
   browserExtraHeaders,
   createFreshAuthedContext,

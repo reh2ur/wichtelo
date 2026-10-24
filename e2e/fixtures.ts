@@ -1,5 +1,11 @@
 import { test as base, type BrowserContext, type Page } from "@playwright/test";
-import { BASE_URL, testApiHeaders, browserExtraHeaders } from "./helpers";
+import { e2eWorkerEmail } from "../lib/e2e-run";
+import {
+  BASE_URL,
+  RUN_ID,
+  testApiHeaders,
+  browserExtraHeaders,
+} from "./helpers";
 
 // Parses Set-Cookie response headers into Playwright's addCookies() format.
 function parseSetCookies(headers: Headers, baseUrl: string) {
@@ -38,21 +44,27 @@ function parseSetCookies(headers: Headers, baseUrl: string) {
   });
 }
 
-const workerEmail = () => `e2e+worker-${process.pid}@test.local`;
-
 interface WorkerFixtures {
   authedContext: BrowserContext;
+  workerEmail: string;
 }
 interface TestFixtures {
   authedPage: Page;
 }
 
 export const test = base.extend<TestFixtures, WorkerFixtures>({
+  // Run id + worker index, not the PID: fresh CI runners reuse similar PIDs and
+  // parallel runs share one staging DB.
+  workerEmail: [
+    async ({}, use, workerInfo) => {
+      await use(e2eWorkerEmail(RUN_ID, workerInfo.workerIndex));
+    },
+    { scope: "worker" },
+  ],
+
   // Runs once per worker process — all tests in that worker share the session.
   authedContext: [
-    async ({ browser }, use) => {
-      const email = workerEmail();
-
+    async ({ browser, workerEmail: email }, use) => {
       // Single request: creates user, verifies OTP, returns session as Set-Cookie headers.
       const res = await fetch(`${BASE_URL}/api/test/auth`, {
         method: "POST",
@@ -87,7 +99,7 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
   ],
 
   // Each test gets its own page from the shared authenticated context.
-  authedPage: async ({ authedContext }, provide) => {
+  authedPage: async ({ authedContext, workerEmail }, provide) => {
     const page = await authedContext.newPage();
     await provide(page);
     await page.close();
@@ -97,7 +109,7 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
     await fetch(`${BASE_URL}/api/test/session`, {
       method: "DELETE",
       headers: testApiHeaders(),
-      body: JSON.stringify({ email: workerEmail(), groupsOnly: true }),
+      body: JSON.stringify({ email: workerEmail, groupsOnly: true }),
     }).catch(() => {});
   },
 });

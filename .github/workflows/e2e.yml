@@ -7,6 +7,13 @@ jobs:
   e2e:
     name: Playwright E2E (Vercel preview)
     runs-on: ubuntu-latest
+    # All PR previews share one staging Supabase: serialize runs (queued run
+    # waits, finished one is never cancelled mid-test). GitHub keeps only the
+    # newest pending run per group, so an older queued push is superseded.
+    # Fixture users are additionally scoped per run (E2E_RUN_ID).
+    concurrency:
+      group: e2e-staging
+      cancel-in-progress: false
     permissions:
       contents: read
       deployments: read
