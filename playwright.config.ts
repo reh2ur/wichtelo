@@ -1,7 +1,13 @@
 import { config } from "dotenv";
 import { defineConfig, devices } from "@playwright/test";
+import { resolveRunId } from "./lib/e2e-run";
 
 config({ path: ".env.e2e.local", quiet: true });
+
+// One id per run, shared with workers + global teardown via the environment
+// (workers are spawned after this config loads, so they inherit it). Scopes
+// fixture users and teardown so parallel runs on one DB never collide.
+process.env.E2E_RUN_ID = resolveRunId(process.env);
 
 const baseURL = process.env.PLAYWRIGHT_BASE_URL ?? "https://localhost:3000";
 const isExternalTarget = !!process.env.PLAYWRIGHT_BASE_URL;

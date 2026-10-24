@@ -1,6 +1,7 @@
 import { createAdminClient } from "@/lib/supabase/admin";
 import { NextResponse } from "next/server";
 import { isTestBackdoorEnabled } from "@/lib/test-backdoor";
+import { findUserByEmail } from "@/lib/test-users";
 
 export async function POST(request: Request) {
   if (!isTestBackdoorEnabled(request.headers)) {
@@ -44,10 +45,7 @@ export async function DELETE(request: Request) {
   const { email, groupsOnly } = await request.json();
   const admin = createAdminClient();
 
-  const {
-    data: { users },
-  } = await admin.auth.admin.listUsers({ perPage: 1000 });
-  const user = users.find((u) => u.email === email);
+  const user = await findUserByEmail(admin, email);
   if (!user) return NextResponse.json({ ok: true });
 
   // Delete groups first (FK to auth.users has no cascade).
