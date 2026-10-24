@@ -1,6 +1,4 @@
 import { Suspense } from "react";
-import { cacheLife, cacheTag } from "next/cache";
-import { groupTag } from "@/lib/cache-tags";
 import { getTranslations } from "next-intl/server";
 import { notFound } from "next/navigation";
 import Link from "next/link";
@@ -116,14 +114,12 @@ export default async function GruppeDetailPage(
 }
 
 async function fetchGroupData(slug: string) {
-  "use cache";
-  cacheLife("minutes");
-  cacheTag(groupTag(slug));
-
+  // Deliberately uncached: `updateTag` expiry is not guaranteed to reach every
+  // instance with the per-process `use cache` handler (#95), so a warm
+  // instance could serve a stale member list / draw button. Errors must throw,
+  // never return null/empty, so a DB blip is an error page, not a fake 404.
   const supabase = createAdminClient();
 
-  // Errors must throw, never return null/empty: a thrown error is not stored
-  // in the cache, a returned "not found" would be (for the cacheLife window).
   const { data: group, error: groupError } = await supabase
     .from("groups")
     .select("id, slug, name, year, state, budget_hint, note")

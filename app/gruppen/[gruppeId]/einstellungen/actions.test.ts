@@ -20,9 +20,7 @@ import {
   updateGroupInfo,
   regenerateInviteLink,
   removeMember,
-  invalidateDeletedGroup,
 } from "./actions";
-import { updateTag } from "next/cache";
 import { rotateToken } from "@/lib/invite";
 import { removeMembership } from "@/lib/membership";
 import { createClient } from "@/lib/supabase/server";
@@ -224,38 +222,5 @@ describe("removeMember (#18)", () => {
       fd({ slug: "s", membershipId: "m-target" }),
     );
     expect(res).toEqual({ status: "error", error: "generic" });
-  });
-});
-
-describe("invalidateDeletedGroup", () => {
-  function arrange(row: { id: string } | null) {
-    vi.mocked(updateTag).mockClear();
-    vi.mocked(createAdminClient).mockReturnValue({
-      from: vi.fn(() => ({
-        select: () => ({
-          eq: () => ({
-            maybeSingle: vi.fn().mockResolvedValue({ data: row }),
-          }),
-        }),
-      })),
-    } as never);
-  }
-
-  it("expires the group tag once the group row is gone", async () => {
-    arrange(null);
-    await invalidateDeletedGroup("familie");
-    expect(updateTag).toHaveBeenCalledWith("group-familie");
-  });
-
-  it("does nothing while the group still exists", async () => {
-    arrange({ id: "g1" });
-    await invalidateDeletedGroup("familie");
-    expect(updateTag).not.toHaveBeenCalled();
-  });
-
-  it("ignores invalid slugs", async () => {
-    arrange(null);
-    await invalidateDeletedGroup("");
-    expect(updateTag).not.toHaveBeenCalled();
   });
 });

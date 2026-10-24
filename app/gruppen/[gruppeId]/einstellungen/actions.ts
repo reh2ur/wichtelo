@@ -487,8 +487,7 @@ export async function deleteGroup(
   logger.withMetadata({ groupId: group.id }).info("group.deleted");
   // No updateTag here: it would make Next ship a refreshed tree for the
   // current route (now 404) in this action's response, unmounting the
-  // client before it navigates. Client calls invalidateDeletedGroup after
-  // navigating instead.
+  // client before it navigates. Group page is uncached, nothing to expire.
 
   const recipients = (
     await Promise.all(
@@ -527,23 +526,4 @@ export async function deleteGroup(
   // "success" lets the client do a normal post-mutation navigation instead,
   // which always re-fetches fresh.
   return { status: "success" };
-}
-
-/**
- * Expire the cached shell of a deleted group (#174). Separate action so the
- * client can run it after navigating away: `updateTag` inside `deleteGroup`
- * would re-render the now-missing settings route and unmount the delete
- * button before its redirect. Safe without auth: it only expires cache when
- * the group row is already gone.
- */
-export async function invalidateDeletedGroup(slug: string): Promise<void> {
-  const parsed = z.string().min(1).max(200).safeParse(slug);
-  if (!parsed.success) return;
-  const { data } = await createAdminClient()
-    .from("groups")
-    .select("id")
-    .eq("slug", parsed.data)
-    .maybeSingle();
-  if (data) return;
-  updateTag(groupTag(parsed.data));
 }

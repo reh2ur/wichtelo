@@ -106,7 +106,7 @@ Secret Santa is a German-language web app that lets a group admin create a Grupp
 
 - Server Components by default. `'use client'` only where unavoidable (Base UI interactive primitives, CSS snow animation).
 - All mutations via Server Actions + `useActionState` (React 19). No API route handlers for mutations.
-- `use cache` directive on stable data (group shell, participant list). Dynamic content (assignment reveal, participant count) in `<Suspense>` islands.
+- No `use cache` on mutable group data (per-process handler, stale across instances on Vercel, #95). Dynamic content (group data, assignment reveal, participant count) in `<Suspense>` islands.
 - `cacheComponents: true` in `next.config.ts` enables both `use cache` and Partial Prerendering automatically.
 - All dynamic data access outside `<Suspense>` or `use cache` throws a build-time error — enforced by the framework.
 

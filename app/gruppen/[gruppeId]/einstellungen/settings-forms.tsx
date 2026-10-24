@@ -10,7 +10,6 @@ import {
   promoteToAdmin,
   removeMember,
   deleteGroup,
-  invalidateDeletedGroup,
   regenerateInviteLink,
   type RotateInviteState,
   type UpdateGroupState,
@@ -398,10 +397,7 @@ function DeleteGroupButton({ slug }: { slug: string }) {
   useEffect(() => {
     if (state.status !== "success") return;
     router.push("/gruppen");
-    // After navigating: invalidation refreshes the current route, which is
-    // gone. Cache expiry for the deleted slug must not race the navigation.
-    void invalidateDeletedGroup(slug);
-  }, [state.status, router, slug]);
+  }, [state.status, router]);
 
   const errorMsg =
     state.status === "error"

@@ -59,26 +59,26 @@ Full design spec (palette, tokens, components, icon rules) in **`docs/design.md`
 
 **Mutations via Server Actions.** Use `useActionState` (React 19) for form state. No API route handlers for mutations.
 
-**Caching.** Use `'use cache'` directive on stable data (group shell, participant list). Wrap all dynamic data (assignment reveal, live participant count) in `<Suspense>` islands. Dynamic data access outside `<Suspense>` or `use cache` throws build-time error — framework-enforced.
+**Caching.** `'use cache'` only for data safe to serve stale. Default `use cache` handler = per-process in-memory; on Vercel `updateTag` expiry not verified to reach other instances → silent stale reads. So NO `'use cache'` on mutable per-group data (member list, state, draw button). Wrap dynamic data (assignment reveal, live participant count, group data) in `<Suspense>` islands. Dynamic data access outside `<Suspense>` or `use cache` throws build-time error — framework-enforced. Want caching back → use `'use cache: remote'` or verify on real Vercel preview first (#95).
 
-**Cache tag registry.** All cache tags defined in `lib/cache-tags.ts` — `groupTag(slug)` and `inviteTag(token)`. Import from there; never hardcode tag strings inline. `inviteTag` reserved for future use — `resolveToken` uncached (see below), no `cacheTag`/`updateTag` call references it yet.
+**Cache tag registry.** All cache tags defined in `lib/cache-tags.ts` — `groupTag(slug)` and `inviteTag(token)`. Import from there; never hardcode tag strings inline. `inviteTag` reserved for future use — `resolveToken` uncached (see below), no `cacheTag`/`updateTag` call references it yet. Currently NO `cacheTag` consumer exists at all (see below); `groupTag` only used by `updateTag` calls.
 
-**`use cache` functions and their tags:**
+**`use cache` functions and their tags:** none.
 
-- `fetchGroupData(slug)` in `app/gruppen/[gruppeId]/page.tsx` → `groupTag(slug)`, life `"minutes"`
+- `fetchGroupData(slug)` in `app/gruppen/[gruppeId]/page.tsx` intentionally uncached (#95) — reads fresh every request, throws on DB error. Page already dynamic per request (session + membership check), so cache bought little.
 
 **`resolveToken(token)` in `lib/invite/index.ts` intentionally uncached** — always reads fresh, so dead-end state (`group.state === "drawn"`) shows correctly without any invalidation wiring. If caching added later, MUST add `cacheTag(inviteTag(token))` inside `resolveToken` AND `updateTag(inviteTag(token))` at both draw-trigger sites below — else stale invite can incorrectly hide a drawn group's dead-end state.
 
 **Invite rotation.** `rotateToken(groupId)` (`lib/invite`) overwrites token in place (one row per group) → old link hits invalid-token page. Admin action `regenerateInviteLink` in settings, open groups only, calls `updateTag(groupTag(slug))`. No migration needed.
 
-**Cache invalidation after mutations — always call `updateTag`, never `revalidatePath`:**
+**Cache invalidation after mutations — always call `updateTag`, never `revalidatePath`.** With no tagged cache, these calls expire nothing; kept deliberately as action-response refresh trigger (Next ships refreshed tree for current route → UI updates right after mutation) and so re-adding `cacheTag` later is already wired. Keep them when touching these sites:
 
 - Join group (OTP or magic link) → `updateTag(groupTag(slug))`
-- Delete group (admin settings + super-admin), super-admin reopen group → `updateTag(groupTag(slug))` — else deleted/reopened group renders from cache, reused slug serves old data
+- Delete group (admin settings + super-admin), super-admin reopen group → `updateTag(groupTag(slug))`
 - Account deletion (confirm Server Action, super-admin `deleteUser`) → `updateTag(groupTag(slug))` per `deleteAccount().affectedSlugs`
 - Trigger draw → `updateTag(groupTag(slug))` (invite dead-end handled by `resolveToken` reading fresh, not cache invalidation — see above)
-- Owner delete group (`einstellungen`) → NO `updateTag` in `deleteGroup`: action-response refresh re-renders now-404 settings route, unmounts button before client `router.push`. Client calls `invalidateDeletedGroup(slug)` after push; it expires tag only if group row gone. Super-admin actions fine (server `redirect()` / `router.refresh()`).
-- **Do NOT use `revalidatePath`** — all pages either fully dynamic (read cookies → no static cache) or data covered by `updateTag`. `revalidatePath` no-op here, adds maintenance confusion.
+- Owner delete group (`einstellungen`) → NO `updateTag` in `deleteGroup`: action-response refresh re-renders now-404 settings route, unmounts button before client `router.push`. Nothing cached → nothing to expire (old `invalidateDeletedGroup` removed). Super-admin actions fine (server `redirect()` / `router.refresh()`).
+- **Do NOT use `revalidatePath`** — all pages fully dynamic (read cookies → no static cache). `revalidatePath` no-op here, adds maintenance confusion.
 
 `updateTag` only valid in Server Actions, not route handlers — keep mutations as actions (account-deletion confirm already is one).
 
