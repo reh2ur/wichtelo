@@ -138,7 +138,7 @@ test.describe("super admin user management", () => {
     await page.getByRole("button", { name: "Benutzer löschen" }).click();
     await page.getByRole("button", { name: "Bestätigen" }).click();
     await expect(
-      page.getByText("einziger Admin von: Sole Admin Gruppe"),
+      page.getByText("einzige Admin von: Sole Admin Gruppe"),
     ).toBeVisible({ timeout: 10_000 });
     await expect(page).toHaveURL(/\/admin\/benutzer\/[^/]+$/);
 

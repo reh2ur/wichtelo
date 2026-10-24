@@ -5,6 +5,7 @@
 - **Unit tests** (Vitest): co-located as `*.test.ts` next to module. Cover Draw Engine, Slug Generator, Name Abbreviator, Group State Machine with all constraint combinations. Use seeded random for determinism.
 - **Integration tests** (Vitest + `supabase start`): test Account Deletion Cascade, Invite Token, Notification Dispatcher (mock Resend, real DB). Require local Supabase running. CI job `db-lint` runs `supabase start`, exports creds, runs `pnpm test`, fails if any test skipped (integration suites silently skipping = broken env wiring).
 - **E2E tests** (Playwright): live in `e2e/`. Run against Vercel preview URL in CI, or `localhost:3000` locally.
+- **Super-admin E2E** (`e2e/admin*.spec.ts`): need `SUPER_ADMIN_EMAIL` on server; staging preview lacks it → skip there. CI job `e2e-admin` ("Playwright E2E (admin, local Supabase)" in `e2e.yml`) runs `supabase start` + `pnpm build`/`start` w/ `VERCEL_ENV=preview`, throwaway `E2E_TEST_SECRET`, only `e2e/admin*`, fails if any skipped. Locally: set `SUPER_ADMIN_EMAIL` in `.env.local`.
 
 Tests verify external behaviour (inputs → outputs / side effects), not internal implementation.
 
