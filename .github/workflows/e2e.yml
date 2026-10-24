@@ -260,7 +260,7 @@ jobs:
 
       - name: Fail if any admin spec was skipped
         run: |
-          skipped=$(node -e 'console.log(require(process.argv[1]).stats.skipped)' playwright-report/results.json)
+          skipped=$(node -e 'console.log(require(process.argv[1]).stats.skipped)' "$PWD/playwright-report/results.json")
           echo "Skipped tests: $skipped"
           if [ "$skipped" -ne 0 ]; then
             echo "::error::$skipped admin spec(s) skipped — SUPER_ADMIN_EMAIL wiring broke"
