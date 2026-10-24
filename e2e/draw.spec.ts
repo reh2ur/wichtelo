@@ -400,9 +400,11 @@ test.describe("draw trigger", () => {
     await expect(warning).toBeVisible({ timeout: 15_000 });
     await authedPage.locator('button:has-text("Neu auslosen")').click();
     await authedPage.locator('button:has-text("Wiederholen")').click();
-    await expect(authedPage.locator("text=Zuweisung nachschlagen")).toBeVisible(
-      { timeout: 15_000 },
-    );
+    // The confirm panel hides the warning while the action is pending, so wait
+    // for the panel to close (action done) before asserting or reloading.
+    await expect(
+      authedPage.locator("text=Auslosung wirklich wiederholen?"),
+    ).toBeHidden({ timeout: 30_000 });
     await expect(warning).toHaveCount(0);
     await authedPage.reload();
     await expect(authedPage.locator("text=Zuweisung nachschlagen")).toBeVisible(
