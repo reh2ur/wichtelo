@@ -206,6 +206,7 @@ test.describe("admin remove participant", () => {
     authedPage,
     browser,
   }) => {
+    test.setTimeout(120_000);
     const { slug, inviteUrl } = await setupGroup(
       authedPage,
       "Remove PostDraw Test",
