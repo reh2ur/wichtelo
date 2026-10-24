@@ -69,6 +69,8 @@ Full design spec (palette, tokens, components, icon rules) in **`docs/design.md`
 
 **`resolveToken(token)` in `lib/invite/index.ts` intentionally uncached** — always reads fresh, so dead-end state (`group.state === "drawn"`) shows correctly without any invalidation wiring. If caching added later, MUST add `cacheTag(inviteTag(token))` inside `resolveToken` AND `updateTag(inviteTag(token))` at both draw-trigger sites below — else stale invite can incorrectly hide a drawn group's dead-end state.
 
+**`resolveToken` contact name** (`adminName`, dead-end copy) = oldest live admin membership (`profile_id` not null), looked up only when `state === "drawn"`, else `""`. Never `groups.created_by` — nullable (`ON DELETE SET NULL` on creator account deletion), `.eq("id", null)` would break invite page. Same null guard in admin group pages.
+
 **Invite rotation.** `rotateToken(groupId)` (`lib/invite`) overwrites token in place (one row per group) → old link hits invalid-token page. Admin action `regenerateInviteLink` in settings, open groups only, calls `updateTag(groupTag(slug))`. No migration needed.
 
 **Cache invalidation after mutations — always call `updateTag`, never `revalidatePath`.** With no tagged cache, these calls expire nothing; kept deliberately as action-response refresh trigger (Next ships refreshed tree for current route → UI updates right after mutation) and so re-adding `cacheTag` later is already wired. Keep them when touching these sites:

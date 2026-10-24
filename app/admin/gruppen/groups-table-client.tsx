@@ -37,7 +37,7 @@ export interface GroupRow {
   state: "open" | "drawn";
   memberCount: number;
   createdByName: string | null;
-  createdByUserId: string;
+  createdByUserId: string | null;
   createdAt: string;
 }
 
@@ -129,14 +129,17 @@ export function GroupsTableClient({ groups }: { groups: GroupRow[] }) {
       {
         accessorKey: "createdByName",
         header: t("table.createdBy"),
-        cell: ({ row }) => (
-          <Link
-            href={`/admin/benutzer/${row.original.createdByUserId}`}
-            className="text-primary underline-offset-4 hover:underline"
-          >
-            {row.original.createdByName ?? "—"}
-          </Link>
-        ),
+        cell: ({ row }) =>
+          row.original.createdByUserId ? (
+            <Link
+              href={`/admin/benutzer/${row.original.createdByUserId}`}
+              className="text-primary underline-offset-4 hover:underline"
+            >
+              {row.original.createdByName ?? "—"}
+            </Link>
+          ) : (
+            "—"
+          ),
       },
       {
         accessorKey: "createdAt",

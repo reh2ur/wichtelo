@@ -4,6 +4,7 @@ import {
   BASE_URL,
   createFreshAuthedContext,
   browserExtraHeaders,
+  testApiHeaders,
 } from "./helpers";
 
 // Creates a group via the UI as the authedPage user and returns the slug + invite URL.
@@ -304,6 +305,77 @@ test.describe("invite page", () => {
     await expect(guest2.locator("h1")).toContainText("Zweiter Gast Test");
     await expect(guest2.locator("#email")).toBeVisible();
     await guest2Ctx.close();
+  });
+
+  test("invite link keeps working after the creator deleted their account", async ({
+    browser,
+  }) => {
+    const { ctx: creatorCtx, email: creatorEmail } =
+      await createFreshAuthedContext(browser);
+    const guestBCtx = await browser.newContext(guestContextOptions());
+    const guestCCtx = await browser.newContext(guestContextOptions());
+    try {
+      const creator = await creatorCtx.newPage();
+      const { inviteUrl, slug } = await setupGroup(
+        creator,
+        "Ersteller Konto Weg",
+      );
+
+      // Guest B joins, creator promotes B to admin (so deletion is allowed).
+      const guestB = await guestBCtx.newPage();
+      await guestB.goto(inviteUrl);
+      await guestB
+        .locator("#email")
+        .fill(`e2e+invite-b-${Date.now()}@example.com`);
+      await guestB.locator('button[type="submit"]').click();
+      await expect(guestB.locator("#otp")).toBeVisible();
+      await expect(guestB.locator('button[type="submit"]')).toBeEnabled({
+        timeout: 10_000,
+      });
+      await guestB.locator('button[type="submit"]').click();
+      await expect(guestB.locator("#firstName")).toBeVisible({
+        timeout: 10_000,
+      });
+      await guestB.locator("#firstName").fill("Berta");
+      await guestB.locator("#lastName").fill("Bauer");
+      await guestB.locator('button:has-text("Beitreten")').click();
+      await expect(guestB).toHaveURL(new RegExp(`/gruppen/${slug}`));
+
+      await creator.goto(`/gruppen/${slug}/einstellungen`);
+      const promoteBtn = creator.locator('button:has-text("Zum Admin machen")');
+      await expect(promoteBtn).toBeVisible();
+      await promoteBtn.click();
+      await creator
+        .getByRole("button", { name: "Zum Admin machen" })
+        .last()
+        .click();
+      await expect(promoteBtn).toHaveCount(0, { timeout: 10_000 });
+
+      // Creator deletes their account → groups.created_by becomes NULL.
+      const res = await fetch(`${BASE_URL}/api/test/deletion-token`, {
+        method: "POST",
+        headers: testApiHeaders(),
+        body: JSON.stringify({ email: creatorEmail }),
+      });
+      if (!res.ok) throw new Error(`deletion-token failed: ${res.status}`);
+      const { token } = await res.json();
+      await creator.goto(`/konto/delete/confirm?token=${token}`);
+      await creator
+        .locator('button:has-text("Konto endgültig löschen")')
+        .click();
+      await expect(creator).toHaveURL(/\/\?deleted=1$/, { timeout: 15_000 });
+
+      // New guest still gets the join form, not the error page.
+      const guestC = await guestCCtx.newPage();
+      const response = await guestC.goto(inviteUrl);
+      expect(response?.status()).toBe(200);
+      await expect(guestC.locator("h1")).toContainText("Ersteller Konto Weg");
+      await expect(guestC.locator("#email")).toBeVisible();
+    } finally {
+      await creatorCtx.close();
+      await guestBCtx.close();
+      await guestCCtx.close();
+    }
   });
 
   // Dead-end (drawn group) full E2E coverage is in draw.spec.ts.

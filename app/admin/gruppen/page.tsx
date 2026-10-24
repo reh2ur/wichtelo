@@ -13,7 +13,7 @@ interface GroupRecord {
   slug: string;
   name: string;
   state: "open" | "drawn";
-  created_by: string;
+  created_by: string | null;
   created_at: string;
 }
 
@@ -54,7 +54,7 @@ async function fetchGroups(): Promise<GroupRow[]> {
   }
 
   return groups.map((g) => {
-    const creator = profilesById.get(g.created_by);
+    const creator = g.created_by ? profilesById.get(g.created_by) : undefined;
     return {
       id: g.id,
       name: g.name,

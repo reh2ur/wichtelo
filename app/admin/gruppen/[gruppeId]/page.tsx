@@ -19,7 +19,7 @@ interface GroupRecord {
   state: "open" | "drawn";
   budget_hint: string | null;
   note: string | null;
-  created_by: string;
+  created_by: string | null;
   created_at: string;
 }
 
@@ -60,11 +60,14 @@ async function fetchGroupDetail(groupId: string) {
   if (!groupRaw) return null;
   const group = groupRaw as GroupRecord;
 
-  const { data: creatorRaw } = await admin
-    .from("profiles")
-    .select("first_name, last_name")
-    .eq("id", group.created_by)
-    .maybeSingle();
+  // created_by is NULL once the creator deleted their account
+  const { data: creatorRaw } = group.created_by
+    ? await admin
+        .from("profiles")
+        .select("first_name, last_name")
+        .eq("id", group.created_by)
+        .maybeSingle()
+    : { data: null };
   const creator = creatorRaw as Pick<
     ProfileRow,
     "first_name" | "last_name"

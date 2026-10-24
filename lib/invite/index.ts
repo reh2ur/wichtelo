@@ -7,7 +7,7 @@ export interface ResolvedInvite {
     slug: string;
     name: string;
     state: "open" | "drawn";
-    created_by: string;
+    created_by: string | null;
     budget_hint: string | null;
     note: string | null;
   };
@@ -124,29 +124,17 @@ export async function resolveToken(
     slug: string;
     name: string;
     state: "open" | "drawn";
-    created_by: string;
+    created_by: string | null;
     budget_hint: string | null;
     note: string | null;
   };
 
-  // Fetch admin name regardless of state (needed for dead-end contact info)
-  const { data: adminProfile, error: adminError } = await supabase
-    .from("profiles")
-    .select("first_name, last_name")
-    .eq("id", group.created_by)
-    .maybeSingle();
-  if (adminError) {
-    throw new Error(
-      `[resolveToken] admin profile lookup failed: ${adminError.message}`,
-    );
-  }
-
-  // Invite link holders may never join: expose first name + last initial only
-  // (PRD story 32, issue #179).
-  const lastInitial = adminProfile?.last_name.trim().charAt(0) ?? "";
-  const adminName = adminProfile
-    ? `${adminProfile.first_name}${lastInitial ? ` ${lastInitial}.` : ""}`
-    : "";
+  // Dead-end contact (drawn groups only): oldest live admin. Not group.created_by
+  // — creator may have deleted their account (NULL) or left/lost admin.
+  const adminName =
+    group.state === "drawn"
+      ? await fetchContactAdminName(supabase, group.id)
+      : "";
 
   if (group.state === "drawn") {
     logger.withMetadata({ groupId: group.id }).warn("invite.dead_end");
@@ -155,4 +143,42 @@ export async function resolveToken(
   }
 
   return { group, adminName };
+}
+
+async function fetchContactAdminName(
+  supabase: ReturnType<typeof createAdminClient>,
+  groupId: string,
+): Promise<string> {
+  const { data: adminMembership, error: membershipError } = await supabase
+    .from("memberships")
+    .select("profile_id")
+    .eq("group_id", groupId)
+    .eq("role", "admin")
+    .not("profile_id", "is", null)
+    .order("joined_at", { ascending: true })
+    .limit(1)
+    .maybeSingle();
+  if (membershipError) {
+    throw new Error(
+      `[resolveToken] admin membership lookup failed: ${membershipError.message}`,
+    );
+  }
+  if (!adminMembership?.profile_id) return "";
+
+  const { data: adminProfile, error: profileError } = await supabase
+    .from("profiles")
+    .select("first_name, last_name")
+    .eq("id", adminMembership.profile_id)
+    .maybeSingle();
+  if (profileError) {
+    throw new Error(
+      `[resolveToken] admin profile lookup failed: ${profileError.message}`,
+    );
+  }
+  if (!adminProfile) return "";
+
+  // Invite link holders may never join: expose first name + last initial only
+  // (PRD story 32, issue #179).
+  const lastInitial = adminProfile.last_name.trim().charAt(0);
+  return `${adminProfile.first_name}${lastInitial ? ` ${lastInitial}.` : ""}`;
 }

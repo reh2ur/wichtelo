@@ -58,11 +58,25 @@ describe.skipIf(!hasSupabase)("invite token module", () => {
       name: "Invite Test Gruppe (drawn)",
       slug: `invite-test-drawn-${Date.now()}`,
       year: 2099,
-      state: "drawn",
+      state: "open",
       created_by: testUserId,
     });
     if (drawnErr) throw drawnErr;
     testGroupIdDrawn = drawnGroupId;
+    // Dead-end contact is the group's oldest live admin membership. Memberships
+    // can't be inserted once drawn, so flip the state afterwards.
+    const { error: adminErr } = await supabase.from("memberships").insert({
+      group_id: drawnGroupId,
+      profile_id: testUserId,
+      name_snapshot: "Test Admin",
+      role: "admin",
+    });
+    if (adminErr) throw adminErr;
+    const { error: stateErr } = await supabase
+      .from("groups")
+      .update({ state: "drawn" })
+      .eq("id", drawnGroupId);
+    if (stateErr) throw stateErr;
   });
 
   afterEach(async () => {
@@ -107,7 +121,8 @@ describe.skipIf(!hasSupabase)("invite token module", () => {
 
     expect(result.group.id).toBe(testGroupIdOpen);
     expect(result.group.state).toBe("open");
-    expect(result.adminName).toContain("Test");
+    // Contact name only resolved for the drawn dead-end page.
+    expect(result.adminName).toBe("");
   });
 
   it("resolveToken returns group with state 'drawn' when group has already drawn", async () => {
@@ -198,5 +213,104 @@ describe.skipIf(!hasSupabase)("invite token module", () => {
       await supabase.from("profiles").delete().eq("id", participantId);
       await supabase.auth.admin.deleteUser(participantId);
     }
+  });
+
+  describe("creator account deleted (groups.created_by = NULL)", () => {
+    let creatorId: string;
+    let secondAdminId: string;
+    let groupId: string;
+
+    beforeAll(async () => {
+      const make = async (label: string, first: string) => {
+        const { data, error } = await supabase.auth.admin.createUser({
+          email: `invite-test-${label}-${Date.now()}@example.com`,
+          email_confirm: true,
+        });
+        if (error) throw error;
+        const { error: profileError } = await supabase.from("profiles").insert({
+          id: data.user.id,
+          first_name: first,
+          last_name: "Nachname",
+        });
+        if (profileError) throw profileError;
+        return data.user.id;
+      };
+      creatorId = await make("creator", "Creator");
+      secondAdminId = await make("admin2", "Zweite");
+
+      groupId = crypto.randomUUID();
+      const { error: groupError } = await supabase.from("groups").insert({
+        id: groupId,
+        name: "Invite Test Gruppe (creator gone)",
+        slug: `invite-test-gone-${Date.now()}`,
+        year: 2099,
+        state: "open",
+        created_by: creatorId,
+      });
+      if (groupError) throw groupError;
+
+      const { error: membershipError } = await supabase
+        .from("memberships")
+        .insert([
+          {
+            group_id: groupId,
+            profile_id: creatorId,
+            name_snapshot: "Creator Nachname",
+            role: "admin",
+            joined_at: "2099-01-01T00:00:00Z",
+          },
+          {
+            group_id: groupId,
+            profile_id: secondAdminId,
+            name_snapshot: "Zweite Nachname",
+            role: "admin",
+            joined_at: "2099-01-02T00:00:00Z",
+          },
+        ]);
+      if (membershipError) throw membershipError;
+
+      // Account deletion: profile row goes, FK nulls created_by + profile_id.
+      const { error: deleteError } = await supabase
+        .from("profiles")
+        .delete()
+        .eq("id", creatorId);
+      if (deleteError) throw deleteError;
+    });
+
+    afterAll(async () => {
+      await supabase.from("groups").delete().eq("id", groupId);
+      await supabase.from("profiles").delete().eq("id", secondAdminId);
+      await supabase.auth.admin.deleteUser(secondAdminId);
+      await supabase.auth.admin.deleteUser(creatorId);
+    });
+
+    it("created_by is NULL after creator profile delete", async () => {
+      const { data } = await supabase
+        .from("groups")
+        .select("created_by")
+        .eq("id", groupId)
+        .single();
+      expect(data?.created_by).toBeNull();
+    });
+
+    it("resolveToken returns the open group", async () => {
+      const token = await createToken(groupId);
+      const result = await resolveToken(token);
+      expect(result?.group.id).toBe(groupId);
+      expect(result?.group.created_by).toBeNull();
+    });
+
+    it("resolveToken on a drawn group names a current admin", async () => {
+      const token = await getOrCreateToken(groupId);
+      const { error } = await supabase
+        .from("groups")
+        .update({ state: "drawn" })
+        .eq("id", groupId);
+      if (error) throw error;
+
+      const result = await resolveToken(token);
+      expect(result?.group.state).toBe("drawn");
+      expect(result?.adminName).toBe("Zweite N.");
+    });
   });
 });
