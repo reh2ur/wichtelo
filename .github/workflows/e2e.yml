@@ -256,11 +256,14 @@ jobs:
       # are the dashboard/groups/users flows. Fail if any was skipped
       # (unset SUPER_ADMIN_EMAIL would silently skip them again).
       - name: Run super-admin Playwright specs
-        run: pnpm exec playwright test e2e/admin
+        env:
+          # Outside playwright-report/: the html reporter wipes that folder.
+          PLAYWRIGHT_JSON_OUTPUT_NAME: ${{ runner.temp }}/pw-admin.json
+        run: pnpm exec playwright test e2e/admin --reporter=list,github,html,json
 
       - name: Fail if any admin spec was skipped
         run: |
-          skipped=$(node -e 'console.log(require(process.argv[1]).stats.skipped)' "$PWD/playwright-report/results.json")
+          skipped=$(node -e 'console.log(require(process.argv[1]).stats.skipped)' "$RUNNER_TEMP/pw-admin.json")
           echo "Skipped tests: $skipped"
           if [ "$skipped" -ne 0 ]; then
             echo "::error::$skipped admin spec(s) skipped — SUPER_ADMIN_EMAIL wiring broke"
