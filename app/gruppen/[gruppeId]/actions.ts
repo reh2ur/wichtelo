@@ -9,6 +9,9 @@ import {
   computeDraw,
   hasGhostMembers,
   liveMembers,
+  loadAssignment,
+  loadDrawInputs,
+  loadMemberships,
   TOO_COMPLEX,
   type Assignment,
   type ExclusionPair,
@@ -156,11 +159,6 @@ export type DrawState =
         | "rate_limited";
     };
 
-interface ExclusionRow {
-  member_a: string;
-  member_b: string;
-}
-
 export async function triggerDraw(
   _prev: DrawState,
   formData: FormData,
@@ -210,17 +208,20 @@ export async function triggerDraw(
     return { status: "error", error: "already_drawn" };
   }
 
-  const { data: memberships } = await admin
-    .from("memberships")
-    .select(
-      "id, role, profile_id, name_snapshot, first_name_snapshot, last_name_snapshot",
-    )
-    .eq("group_id", groupId)
-    // Same order as the group page so "(2)" suffixes match across screens.
-    .order("joined_at", { ascending: true })
-    .order("id", { ascending: true });
+  let inputs: Awaited<ReturnType<typeof loadDrawInputs>>;
+  try {
+    inputs = await loadDrawInputs(admin, groupId);
+  } catch (err) {
+    logger
+      .withMetadata({
+        groupId,
+        reason: err instanceof Error ? err.message : String(err),
+      })
+      .error("draw.load_failed");
+    return { status: "error", error: "generic" };
+  }
 
-  const memberRows: MembershipRow[] = (memberships ?? []) as MembershipRow[];
+  const memberRows: MembershipRow[] = inputs.members;
 
   if (memberRows.length < 3) {
     logger
@@ -234,14 +235,10 @@ export async function triggerDraw(
     return { status: "error", error: "ghost_members" };
   }
 
-  const { data: exclusionsRaw } = await admin
-    .from("exclusions")
-    .select("member_a, member_b")
-    .eq("group_id", groupId);
-
-  const exclusions: ExclusionPair[] = (
-    (exclusionsRaw ?? []) as ExclusionRow[]
-  ).map((e) => [e.member_a, e.member_b]);
+  const exclusions: ExclusionPair[] = inputs.exclusions.map((e) => [
+    e.member_a,
+    e.member_b,
+  ]);
 
   logger
     .withMetadata({ groupId, participantCount: memberRows.length })
@@ -413,21 +410,22 @@ export async function retriggerDraw(
     return { status: "error", error: "not_drawn" };
   }
 
-  const { data: memberships } = await admin
-    .from("memberships")
-    .select(
-      "id, role, profile_id, name_snapshot, first_name_snapshot, last_name_snapshot",
-    )
-    .eq("group_id", groupId)
-    // Same order as the group page so "(2)" suffixes match across screens.
-    .order("joined_at", { ascending: true })
-    .order("id", { ascending: true });
+  let inputs: Awaited<ReturnType<typeof loadDrawInputs>>;
+  try {
+    inputs = await loadDrawInputs(admin, groupId);
+  } catch (err) {
+    logger
+      .withMetadata({
+        groupId,
+        reason: err instanceof Error ? err.message : String(err),
+      })
+      .error("draw.load_failed");
+    return { status: "error", error: "generic" };
+  }
 
   // Deleted accounts keep their row after the draw; they are not redrawn and
   // perform_draw removes them atomically with the new assignments.
-  const memberRows: MembershipRow[] = liveMembers(
-    (memberships ?? []) as MembershipRow[],
-  );
+  const memberRows: MembershipRow[] = liveMembers(inputs.members);
 
   if (memberRows.length < 3) {
     logger
@@ -436,13 +434,8 @@ export async function retriggerDraw(
     return { status: "error", error: "not_enough_members" };
   }
 
-  const { data: exclusionsRaw } = await admin
-    .from("exclusions")
-    .select("member_a, member_b")
-    .eq("group_id", groupId);
-
   const liveIds = new Set(memberRows.map((m) => m.id));
-  const exclusions: ExclusionPair[] = ((exclusionsRaw ?? []) as ExclusionRow[])
+  const exclusions: ExclusionPair[] = inputs.exclusions
     .filter((e) => liveIds.has(e.member_a) && liveIds.has(e.member_b))
     .map((e) => [e.member_a, e.member_b]);
 
@@ -697,32 +690,38 @@ export async function resendDrawEmails(
     return { status: "error", error: "not_drawn" };
   }
 
-  const [{ data: memberships }, { data: assignmentRows }] = await Promise.all([
-    admin
-      .from("memberships")
-      .select(
-        "id, role, profile_id, name_snapshot, first_name_snapshot, last_name_snapshot",
-      )
-      .eq("group_id", groupId),
-    admin
-      .from("assignments")
-      .select("giver_id, receiver_id")
-      .eq("group_id", groupId),
-  ]);
-
-  const assignment: Assignment = new Map(
-    ((assignmentRows ?? []) as { giver_id: string; receiver_id: string }[]).map(
-      (a) => [a.giver_id, a.receiver_id],
-    ),
-  );
+  let memberRows: MembershipRow[];
+  let assignment: Assignment;
+  try {
+    [memberRows, assignment] = await Promise.all([
+      loadMemberships(admin, groupId),
+      loadAssignment(admin, groupId),
+    ]);
+  } catch (err) {
+    logger
+      .withMetadata({
+        groupId,
+        reason: err instanceof Error ? err.message : String(err),
+      })
+      .error("draw.resend_load_failed");
+    return { status: "error", error: "generic" };
+  }
+  // A drawn group always has assignments + members. Empty means a lost read,
+  // not "nothing to send": bail out so the stored warning stays untouched.
+  if (memberRows.length === 0 || assignment.size === 0) {
+    logger
+      .withMetadata({
+        groupId,
+        members: memberRows.length,
+        assignments: assignment.size,
+      })
+      .error("draw.resend_no_recipients");
+    return { status: "error", error: "generic" };
+  }
 
   const contact = await resolveGroupContact(admin, groupId, user.id);
   const { recipients: assignments, skipped } =
-    await buildDrawAssignmentRecipients(
-      admin,
-      (memberships ?? []) as MembershipRow[],
-      assignment,
-    );
+    await buildDrawAssignmentRecipients(admin, memberRows, assignment);
   // Here `draw_version` is already the post-draw value (first draw = 1), the
   // same one trigger/re-draw keyed their sends with. Anything above 1 means a
   // re-draw happened, so the redrawn template applies.

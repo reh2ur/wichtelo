@@ -51,6 +51,12 @@ describe("recordDrawMailResult", () => {
     });
   });
 
+  it("ignores an empty send (total 0) so it cannot clear a stored warning", async () => {
+    const rpc = vi.fn().mockResolvedValue({ data: null, error: null });
+    await recordDrawMailResult({ rpc } as never, "g1", 2, 0, 0);
+    expect(rpc).not.toHaveBeenCalled();
+  });
+
   it("swallows RPC errors (mails are already sent)", async () => {
     const rpc = vi
       .fn()

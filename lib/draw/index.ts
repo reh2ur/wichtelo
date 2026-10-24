@@ -1,4 +1,6 @@
 import { randomBytes } from "node:crypto";
+import type { createAdminClient } from "@/lib/supabase/admin";
+import type { MembershipRow } from "@/lib/draw-mail";
 
 export type MemberId = string;
 export type Assignment = Map<MemberId, MemberId>;
@@ -22,6 +24,75 @@ export function liveMembers<T extends { profile_id: string | null }>(
   members: T[],
 ): T[] {
   return members.filter((m) => m.profile_id !== null);
+}
+
+type AdminClient = ReturnType<typeof createAdminClient>;
+
+const MEMBER_COLUMNS =
+  "id, role, profile_id, name_snapshot, first_name_snapshot, last_name_snapshot";
+
+/**
+ * Loads the inputs of a draw. Throws on any DB error: a failed read must never
+ * degrade to "no exclusions" / "no members" (the draw would run with the
+ * constraints silently dropped, or fail with a misleading error).
+ */
+export async function loadDrawInputs(
+  admin: AdminClient,
+  groupId: string,
+): Promise<{
+  members: MembershipRow[];
+  exclusions: { member_a: string; member_b: string }[];
+}> {
+  const [members, exclusionsRes] = await Promise.all([
+    loadMemberships(admin, groupId),
+    admin
+      .from("exclusions")
+      .select("member_a, member_b")
+      .eq("group_id", groupId),
+  ]);
+  if (exclusionsRes.error) {
+    throw new Error(`exclusions load failed: ${exclusionsRes.error.message}`);
+  }
+  return {
+    members,
+    exclusions: (exclusionsRes.data ?? []) as {
+      member_a: string;
+      member_b: string;
+    }[],
+  };
+}
+
+/** Group members in group-page order (so "(2)" suffixes match across screens). Throws on DB error. */
+export async function loadMemberships(
+  admin: AdminClient,
+  groupId: string,
+): Promise<MembershipRow[]> {
+  const { data, error } = await admin
+    .from("memberships")
+    .select(MEMBER_COLUMNS)
+    .eq("group_id", groupId)
+    .order("joined_at", { ascending: true })
+    .order("id", { ascending: true });
+  if (error) throw new Error(`memberships load failed: ${error.message}`);
+  return (data ?? []) as MembershipRow[];
+}
+
+/** Stored assignment of a drawn group. Throws on DB error. */
+export async function loadAssignment(
+  admin: AdminClient,
+  groupId: string,
+): Promise<Assignment> {
+  const { data, error } = await admin
+    .from("assignments")
+    .select("giver_id, receiver_id")
+    .eq("group_id", groupId);
+  if (error) throw new Error(`assignments load failed: ${error.message}`);
+  return new Map(
+    ((data ?? []) as { giver_id: string; receiver_id: string }[]).map((a) => [
+      a.giver_id,
+      a.receiver_id,
+    ]),
+  );
 }
 
 const MAX_ATTEMPTS = 200;

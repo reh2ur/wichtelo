@@ -30,6 +30,8 @@ export function warningForDraw(
 
 /**
  * Persist the outcome of a mail send (service role). `failed = 0` clears the
+ * warning. `total = 0` (nobody was mailed) is ignored: it means the recipient
+ * set was lost, not that everything went out, so it must not clear a stored
  * warning. Never throws: mails are already out, a bookkeeping error must not
  * turn the action into a failure.
  */
@@ -40,6 +42,10 @@ export async function recordDrawMailResult(
   failed: number,
   total: number,
 ): Promise<void> {
+  if (total <= 0) {
+    logger.withMetadata({ groupId }).warn("draw.mail_status_empty_ignored");
+    return;
+  }
   try {
     const { error } = await admin.rpc("record_draw_mail_result", {
       p_group_id: groupId,
