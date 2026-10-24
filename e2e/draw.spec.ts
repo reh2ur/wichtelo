@@ -502,15 +502,23 @@ test.describe("draw trigger", () => {
     // Confirm
     await authedPage.locator('button:has-text("Anzeigen")').click();
 
-    // Result shows assignment
+    // Result shows assignment, announced as status and focused (the focused
+    // Confirm button unmounted; issue #149).
     await expect(authedPage.locator("text=beschenkt:")).toBeVisible({
       timeout: 10_000,
     });
+    const result = authedPage
+      .getByRole("status")
+      .filter({ hasText: "beschenkt:" });
+    await expect(result).toBeVisible();
+    await expect(result).toBeFocused();
 
-    // Reset button available
+    // Reset button available; resetting hands focus to the select again.
     await expect(
       authedPage.locator('button:has-text("Neue Suche")'),
     ).toBeVisible();
+    await authedPage.locator('button:has-text("Neue Suche")').click();
+    await expect(authedPage.locator("#oracle-select")).toBeFocused();
   });
 
   test("unsolvable draw shows error when exclusions block all valid assignments", async ({

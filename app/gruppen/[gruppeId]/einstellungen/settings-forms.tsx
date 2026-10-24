@@ -3,6 +3,7 @@
 import { useActionState, useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
+import { FocusStatus } from "@/components/focus-status";
 import {
   updateGroupInfo,
   addExclusion,
@@ -290,6 +291,11 @@ function AddExclusionForm({
           {errorMsg}
         </p>
       )}
+      {state.status === "success" && !state.warning && (
+        <p role="status" className="text-success-text text-sm">
+          {t("exclusions.added")}
+        </p>
+      )}
       {state.status === "success" && state.warning === "unsolvable" && (
         <p className="text-danger-text text-sm" role="alert">
           {t("exclusions.unsolvableWarning")}
@@ -320,7 +326,7 @@ function PromoteConfirmPanel({
 }: {
   slug: string;
   member: Member;
-  onDone: () => void;
+  onDone: (member: Member) => void;
   onCancel: () => void;
 }) {
   const t = useGroupSettingsT();
@@ -334,9 +340,9 @@ function PromoteConfirmPanel({
   useEffect(() => {
     if (state.status === "success") {
       router.refresh();
-      onDone();
+      onDone(member);
     }
-  }, [state.status, router, onDone]);
+  }, [state.status, router, onDone, member]);
 
   const errorMsg =
     state.status === "error"
@@ -602,7 +608,11 @@ export function ParticipantsSection({
     },
     { status: "idle" },
   );
-  const donePromoting = useCallback(() => setPromotingId(null), []);
+  const [promoted, setPromoted] = useState<Member | null>(null);
+  const donePromoting = useCallback((member: Member) => {
+    setPromotingId(null);
+    setPromoted(member);
+  }, []);
   // Derived, not stored: once a removal succeeds the removed member's <li>
   // (and its confirm panel) disappears from `members` on its own, and the
   // hint should stay up for the rest of this success status regardless.
@@ -617,16 +627,27 @@ export function ParticipantsSection({
   return (
     <section className="mb-8">
       <SectionHeader>{t("participants.section")}</SectionHeader>
+      {/* The panel + its focused Confirm button unmount on success, so the
+          result block takes focus (keyed: each new result re-announces). */}
+      {promoted && (
+        <FocusStatus
+          key={`promoted-${promoted.id}`}
+          data-testid="promoted-hint"
+          className="border-border bg-muted/30 mb-3 rounded-lg border p-3 text-sm"
+        >
+          {t("participants.promoted", { name: promoted.name_snapshot })}
+        </FocusStatus>
+      )}
       {removedHint && (
-        <p
-          role="status"
+        <FocusStatus
+          key={`removed-${removeState.membershipId ?? ""}`}
           data-testid="removed-invite-hint"
           className="border-border bg-muted/30 mb-3 rounded-lg border p-3 text-sm"
         >
           {groupState === "drawn"
             ? t("participants.removedRedrawHint")
             : t("participants.removedInviteHint")}
-        </p>
+        </FocusStatus>
       )}
       <ul className="border-border bg-card divide-y rounded-lg border">
         {members.map((m) => (

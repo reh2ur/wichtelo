@@ -9,7 +9,7 @@ export const colors = {
   background: "#e3eef8",
   card: "#ffffff",
   foreground: "#16283f",
-  muted: "#5d7793",
+  muted: "#486279",
   border: "#c9dcee",
 };
 

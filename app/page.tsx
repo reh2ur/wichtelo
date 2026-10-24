@@ -55,7 +55,7 @@ export default async function Home(props: PageProps<"/">) {
       </div>
 
       <div className="border-border bg-card flex items-center gap-3 rounded-full border px-5 py-2.5 text-left shadow-sm">
-        <span className="bg-crimson/15 text-crimson grid size-7 shrink-0 place-items-center rounded-full">
+        <span className="bg-crimson/15 text-danger-text grid size-7 shrink-0 place-items-center rounded-full">
           <LockSimpleIcon
             aria-hidden="true"
             className="size-3.5"

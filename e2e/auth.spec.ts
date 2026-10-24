@@ -26,6 +26,20 @@ test.describe("authentication", () => {
     await expect(page.locator("p.text-danger-text")).toContainText(
       "Bitte gib eine gültige E-Mail-Adresse ein.",
     );
+    // Announced + associated with the field (issue #149).
+    await expect(
+      page
+        .getByRole("alert")
+        .filter({ hasText: "Bitte gib eine gültige E-Mail-Adresse ein." }),
+    ).toBeVisible();
+    await expect(page.locator("#email")).toHaveAttribute(
+      "aria-invalid",
+      "true",
+    );
+    await expect(page.locator("#email")).toHaveAttribute(
+      "aria-describedby",
+      "email-error",
+    );
   });
 
   test("navigating to /gruppen while unauthenticated redirects to /anmelden", async ({
@@ -159,5 +173,16 @@ test.describe("OTP sign-in flow", () => {
     );
     await expect(page.locator("#otp")).toHaveValue("");
     await expect(page.locator("#otp")).toBeFocused();
+    // Error is announced and referenced by the code input (issue #149).
+    await expect(
+      page
+        .getByRole("alert")
+        .filter({ hasText: "Der Code ist ungültig oder abgelaufen." }),
+    ).toBeVisible();
+    await expect(page.locator("#otp")).toHaveAttribute("aria-invalid", "true");
+    await expect(page.locator("#otp")).toHaveAttribute(
+      "aria-describedby",
+      /otp-error/,
+    );
   });
 });

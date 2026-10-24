@@ -159,6 +159,7 @@
       "selectMember": "Person",
       "add": "Ausschluss hinzufügen",
       "adding": "Wird hinzugefügt…",
+      "added": "Ausschluss hinzugefügt.",
       "remove": "Entfernen",
       "removing": "Wird entfernt…",
       "effectAfterRedraw": "Wirkt erst bei erneuter Auslosung.",
@@ -172,6 +173,7 @@
       "promoteConfirmTitle": "{name} zum Admin machen?",
       "promoteConfirmMessage": "Admins können Einstellungen ändern, Teilnehmer entfernen und alle Zuteilungen einsehen. Das lässt sich nicht rückgängig machen.",
       "promoteConfirm": "Zum Admin machen",
+      "promoted": "{name} ist jetzt Admin.",
       "deletedAccount": "Konto gelöscht",
       "remove": "Entfernen",
       "removing": "Wird entfernt…",
@@ -255,6 +257,7 @@
       "title": "Zuweisung wirklich anzeigen?",
       "message": "Möchtest du wirklich sehen, wen {name} beschenkt?",
       "button": "Anzeigen",
+      "pending": "Wird abgefragt…",
       "cancel": "Abbrechen"
     },
     "result": "{giver} beschenkt: {receiver}",

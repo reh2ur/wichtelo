@@ -1,5 +1,6 @@
 import { Suspense } from "react";
 import { getTranslations } from "next-intl/server";
+import { StateBadge, type GroupState } from "@/components/state-badge";
 import Link from "next/link";
 import { CaretRightIcon, GiftIcon, PlusIcon } from "@phosphor-icons/react/ssr";
 import { createClient } from "@/lib/supabase/server";
@@ -11,8 +12,6 @@ import {
 import { getUser } from "@/lib/auth/get-user";
 import { buttonVariants } from "@/components/ui/button";
 import { GroupListSkeleton } from "./group-list-skeleton";
-
-type GroupState = "open" | "drawn";
 
 interface GroupRow {
   id: string;
@@ -32,32 +31,6 @@ interface MembershipWithGroup {
 interface AssignmentRow {
   group_id: string;
   receiver_id: string;
-}
-
-function StateBadge({
-  state,
-  t,
-}: {
-  state: GroupState;
-  t: { open: string; drawn: string };
-}) {
-  const isOpen = state === "open";
-  return (
-    <span
-      className={[
-        "inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-xs font-medium",
-        isOpen ? "bg-success/10 text-success" : "bg-crimson/10 text-crimson",
-      ].join(" ")}
-    >
-      <span
-        className={[
-          "h-1.5 w-1.5 rounded-full",
-          isOpen ? "bg-success" : "bg-crimson",
-        ].join(" ")}
-      />
-      {isOpen ? t.open : t.drawn}
-    </span>
-  );
 }
 
 export default async function GruppenPage() {
@@ -163,7 +136,7 @@ async function GruppenPageContent() {
     <>
       {!hasAnyGroups && (
         <section className="border-border bg-card rounded-xl border border-dashed px-6 py-10 text-center shadow-sm">
-          <span className="bg-crimson/15 text-crimson mx-auto mb-4 grid h-11 w-11 place-items-center rounded-full">
+          <span className="bg-crimson/15 text-danger-text mx-auto mb-4 grid h-11 w-11 place-items-center rounded-full">
             <GiftIcon aria-hidden="true" className="size-5" weight="duotone" />
           </span>
           <p className="text-muted-foreground">{t("noGroups")}</p>
@@ -196,7 +169,10 @@ async function GruppenPageContent() {
                           </span>
                         )}
                       </div>
-                      <StateBadge state={m.groups.state} t={stateBadgeTitles} />
+                      <StateBadge
+                        state={m.groups.state}
+                        labels={stateBadgeTitles}
+                      />
                     </Link>
                   </li>
                 ))}
@@ -235,7 +211,10 @@ async function GruppenPageContent() {
                           </p>
                         )}
                       </div>
-                      <StateBadge state={m.groups.state} t={stateBadgeTitles} />
+                      <StateBadge
+                        state={m.groups.state}
+                        labels={stateBadgeTitles}
+                      />
                     </Link>
                   </li>
                 ))}

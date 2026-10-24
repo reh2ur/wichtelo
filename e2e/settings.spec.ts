@@ -220,6 +220,13 @@ test.describe("exclusion management", () => {
       .locator('button:has-text("Ausschluss hinzufügen")')
       .click();
 
+    // Success is announced (issue #149)
+    await expect(
+      authedPage
+        .getByRole("status")
+        .filter({ hasText: "Ausschluss hinzugefügt." }),
+    ).toBeVisible({ timeout: 10_000 });
+
     // Exclusion appears in list — scope to the Ausschlüsse section to avoid
     // matching the Teilnehmer section which also has "Entfernen" buttons
     const exclusionsSection = authedPage
@@ -325,6 +332,13 @@ test.describe("promote to admin", () => {
       .getByRole("button", { name: "Zum Admin machen" })
       .last()
       .click();
+
+    // Panel unmounts with its focused button: result is a status and takes focus
+    const promoted = authedPage
+      .getByRole("status")
+      .filter({ hasText: "Berta Bauer ist jetzt Admin." });
+    await expect(promoted).toBeVisible({ timeout: 10_000 });
+    await expect(promoted).toBeFocused();
 
     // After refresh, promoted member's row shows "Admin" badge, button gone
     await expect(promoteBtn).toHaveCount(0, { timeout: 10_000 });

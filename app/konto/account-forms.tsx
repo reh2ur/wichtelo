@@ -3,6 +3,8 @@
 import { useActionState } from "react";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
+import { FocusStatus } from "@/components/focus-status";
+import { FormError, errorFieldProps } from "@/components/form-error";
 import {
   updateProfile,
   requestAccountDeletion,
@@ -62,6 +64,7 @@ export function UpdateProfileForm({
             defaultValue={v?.firstName ?? firstName}
             maxLength={50}
             required
+            {...errorFieldProps("profile-error", errorMsg !== null)}
             className={INPUT_CLASS}
           />
         </div>
@@ -76,6 +79,7 @@ export function UpdateProfileForm({
             defaultValue={v?.lastName ?? lastName}
             maxLength={50}
             required
+            {...errorFieldProps("profile-error", errorMsg !== null)}
             className={INPUT_CLASS}
           />
         </div>
@@ -95,13 +99,9 @@ export function UpdateProfileForm({
             {t("profile.emailNote")}
           </p>
         </div>
-        {errorMsg && (
-          <p role="alert" className="text-danger-text text-sm">
-            {errorMsg}
-          </p>
-        )}
+        <FormError id="profile-error">{errorMsg}</FormError>
         {state.status === "success" && (
-          <p className="text-success-text text-sm">
+          <p role="status" className="text-success-text text-sm">
             {t("profile.saveSuccess")}
           </p>
         )}
@@ -128,12 +128,12 @@ export function DeleteAccountSection() {
         <h2 className="text-muted-foreground mb-3 text-sm font-semibold tracking-wide uppercase">
           {t("danger.section")}
         </h2>
-        <div className="border-border bg-card rounded-lg border p-4">
+        <FocusStatus className="border-border bg-card rounded-lg border p-4">
           <p className="font-medium">{t("danger.sentTitle")}</p>
           <p className="text-muted-foreground mt-1 text-sm">
             {t("danger.sentMessage")}
           </p>
-        </div>
+        </FocusStatus>
       </section>
     );
   }
@@ -161,7 +161,7 @@ export function DeleteAccountSection() {
             {t("danger.confirmMessage")}
           </p>
           {state.status === "error" && (
-            <p role="alert" className="text-danger-text text-sm">
+            <FormError>
               {state.error === "rate_limited"
                 ? t("errors.rateLimited")
                 : state.error === "email_failed"
@@ -169,7 +169,7 @@ export function DeleteAccountSection() {
                   : state.error === "sole_admin"
                     ? t("errors.soleAdmin", { groups: state.groups.join(", ") })
                     : t("errors.generic")}
-            </p>
+            </FormError>
           )}
           <form action={action} className="flex gap-2">
             <Button type="submit" variant="destructive" disabled={pending}>

@@ -2,6 +2,7 @@
 
 import { useActionState } from "react";
 import { Button } from "@/components/ui/button";
+import { FormError, errorFieldProps } from "@/components/form-error";
 import { createGroup, type CreateGroupState } from "./actions";
 import { createIntlContext } from "@/lib/create-intl-context";
 
@@ -111,6 +112,12 @@ export function GroupFormClient({
           defaultValue={v?.name}
           maxLength={100}
           required
+          {...errorFieldProps(
+            "group-error",
+            state.status === "error" &&
+              (state.error === "missing_name" ||
+                (state.error === "too_long" && state.max === 100)),
+          )}
           className={INPUT_CLASS}
         />
       </div>
@@ -164,7 +171,7 @@ export function GroupFormClient({
         />
       </div>
 
-      {error && <p className="text-danger-text text-sm">{error}</p>}
+      <FormError id="group-error">{error}</FormError>
 
       <Button type="submit" className="w-full" disabled={pending}>
         {pending ? t("submitting") : t("submit")}

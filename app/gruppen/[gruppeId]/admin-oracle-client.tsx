@@ -2,6 +2,8 @@
 
 import { useActionState, useState } from "react";
 import { Button } from "@/components/ui/button";
+import { FocusStatus } from "@/components/focus-status";
+import { FormError } from "@/components/form-error";
 import { lookupAssignment, type OracleState } from "./actions";
 import { createIntlContext } from "@/lib/create-intl-context";
 import { CONFIRM_TITLE_CLASS, useConfirmFocus } from "@/lib/use-confirm-focus";
@@ -103,11 +105,7 @@ export function AdminOracleClient({
           <p className="text-muted-foreground text-sm">
             {t("confirm.message", { name: selectedMember.name_snapshot })}
           </p>
-          {errorMsg && (
-            <p role="alert" className="text-danger-text text-sm">
-              {errorMsg}
-            </p>
-          )}
+          <FormError>{errorMsg}</FormError>
           <form
             action={action}
             onSubmit={() => setSubmittedId(selectedId)}
@@ -116,7 +114,7 @@ export function AdminOracleClient({
             <input type="hidden" name="slug" value={slug} />
             <input type="hidden" name="membershipId" value={selectedId} />
             <Button type="submit" disabled={pending}>
-              {pending ? "…" : t("confirm.button")}
+              {pending ? t("confirm.pending") : t("confirm.button")}
             </Button>
             <Button
               type="button"
@@ -136,12 +134,12 @@ export function AdminOracleClient({
 
       {phase === "revealed" && state.status === "success" && selectedMember && (
         <div className="border-border bg-card space-y-3 rounded-lg border px-4 py-4">
-          <p className="text-sm font-medium">
+          <FocusStatus className="text-sm font-medium">
             {t("result", {
               giver: selectedMember.name_snapshot,
               receiver: state.receiverName,
             })}
-          </p>
+          </FocusStatus>
           <Button
             type="button"
             variant="outline"
@@ -150,6 +148,11 @@ export function AdminOracleClient({
               setConfirming(false);
               setSelectedId("");
               setSubmittedId("");
+              // The reset button unmounts with the result; hand focus to the
+              // select that replaces it.
+              requestAnimationFrame(() =>
+                document.getElementById("oracle-select")?.focus(),
+              );
             }}
           >
             {t("reset")}

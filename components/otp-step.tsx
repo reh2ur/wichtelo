@@ -2,6 +2,7 @@
 
 import { useEffect, useState, type ReactNode } from "react";
 import { Button } from "@/components/ui/button";
+import { FormError } from "@/components/form-error";
 import {
   InputOTP,
   InputOTPGroup,
@@ -111,7 +112,10 @@ export function OtpStep({
           </label>
           <InputOTP
             id="otp"
-            aria-describedby="otp-description"
+            aria-describedby={
+              errorMessage ? "otp-description otp-error" : "otp-description"
+            }
+            aria-invalid={errorMessage ? true : undefined}
             autoFocus
             maxLength={6}
             name={tokenFieldName}
@@ -130,9 +134,7 @@ export function OtpStep({
           </InputOTP>
         </div>
 
-        {errorMessage && (
-          <p className="text-danger-text text-sm">{errorMessage}</p>
-        )}
+        <FormError id="otp-error">{errorMessage}</FormError>
 
         <Button
           type="submit"

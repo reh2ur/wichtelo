@@ -3,6 +3,7 @@
 import { startTransition, useActionState, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { OtpStep } from "@/components/otp-step";
+import { FormError, errorFieldProps } from "@/components/form-error";
 import {
   requestInviteOtp,
   verifyInviteOtp,
@@ -115,13 +116,12 @@ export function InviteAuthForm({ token }: { token: string }) {
             defaultValue={
               requestState.status !== "idle" ? requestState.email : ""
             }
+            {...errorFieldProps("email-error", requestError !== null)}
             className={INPUT_CLASS}
           />
         </div>
 
-        {requestError && (
-          <p className="text-danger-text text-sm">{requestError}</p>
-        )}
+        <FormError id="email-error">{requestError}</FormError>
 
         <Button type="submit" className="w-full" disabled={requestPending}>
           {requestPending ? t("auth.submitting") : t("auth.submitWeiter")}
@@ -195,6 +195,11 @@ export function InviteAcceptForm({
                 type="text"
                 autoComplete="given-name"
                 required
+                {...errorFieldProps(
+                  "accept-error",
+                  acceptState.status === "error" &&
+                    acceptState.error === "missing_name",
+                )}
                 className={INPUT_CLASS}
               />
             </div>
@@ -217,7 +222,7 @@ export function InviteAcceptForm({
           </div>
         )}
 
-        {errorMsg && <p className="text-danger-text text-sm">{errorMsg}</p>}
+        <FormError id="accept-error">{errorMsg}</FormError>
 
         <Button type="submit" className="w-full" disabled={acceptPending}>
           {acceptPending ? t("accept.accepting") : t("accept.submitJoin")}

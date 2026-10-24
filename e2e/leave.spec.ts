@@ -199,6 +199,7 @@ test.describe("admin remove participant", () => {
 
     // Admin is nudged to renew the invite link (#187)
     await expect(authedPage.getByTestId("removed-invite-hint")).toBeVisible();
+    await expect(authedPage.getByTestId("removed-invite-hint")).toBeFocused();
   });
 
   test("admin can remove a member after the draw and is told to re-draw (#18)", async ({

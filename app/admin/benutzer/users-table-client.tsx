@@ -61,7 +61,7 @@ export function UsersTableClient({ users }: { users: UserRow[] }) {
         cell: ({ row }) => (
           <Link
             href={`/admin/benutzer/${row.original.id}`}
-            className="text-primary underline-offset-4 hover:underline"
+            className="text-navy underline underline-offset-4 hover:no-underline"
           >
             {row.original.email}
           </Link>
