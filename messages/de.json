@@ -102,7 +102,8 @@
     "adminLookupNotice": "Hinweis: Der Admin dieser Gruppe kann bei Bedarf einzelne Zuordnungen einsehen, z. B. für Rückfragen.",
     "inviteLink": {
       "copy": "Link kopieren",
-      "copied": "Kopiert!"
+      "copied": "Kopiert!",
+      "copyFailed": "Kopieren fehlgeschlagen. Bitte kopiere den Link manuell."
     },
     "leave": {
       "button": "Gruppe verlassen",

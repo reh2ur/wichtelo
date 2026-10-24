@@ -13,43 +13,64 @@ export { GroupDetailProvider };
 export function CopyInviteLinkClient({ inviteUrl }: { inviteUrl: string }) {
   const t = useGroupDetailT();
   const [copied, setCopied] = useState(false);
+  const [copyFailed, setCopyFailed] = useState(false);
 
   async function handleCopy() {
+    setCopied(false);
+    setCopyFailed(false);
     try {
       await navigator.clipboard.writeText(inviteUrl);
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
     } catch {
-      const input = document.createElement("input");
-      input.value = inviteUrl;
-      document.body.appendChild(input);
-      input.select();
-      document.execCommand("copy");
-      document.body.removeChild(input);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
+      try {
+        const input = document.createElement("input");
+        input.value = inviteUrl;
+        document.body.appendChild(input);
+        input.select();
+        const didCopy = document.execCommand("copy");
+        document.body.removeChild(input);
+        if (!didCopy) throw new Error("Copy command failed");
+        setCopied(true);
+        setTimeout(() => setCopied(false), 2000);
+      } catch {
+        setCopyFailed(true);
+      }
     }
   }
 
   return (
-    <Button
-      variant="outline"
-      size="sm"
-      onClick={handleCopy}
-      aria-label={copied ? t("inviteLink.copied") : t("inviteLink.copy")}
-      data-invite-url={inviteUrl}
-    >
-      {copied ? (
-        <>
-          <CheckIcon size={14} />
+    <>
+      <Button
+        variant="outline"
+        size="sm"
+        onClick={handleCopy}
+        aria-label={copied ? t("inviteLink.copied") : t("inviteLink.copy")}
+        data-invite-url={inviteUrl}
+      >
+        {copied ? (
+          <>
+            <CheckIcon size={14} />
+            {t("inviteLink.copied")}
+          </>
+        ) : (
+          <>
+            <CopyIcon size={14} />
+            {t("inviteLink.copy")}
+          </>
+        )}
+      </Button>
+      {copied && (
+        <span role="status" className="sr-only">
           {t("inviteLink.copied")}
-        </>
-      ) : (
-        <>
-          <CopyIcon size={14} />
-          {t("inviteLink.copy")}
-        </>
+        </span>
       )}
-    </Button>
+      {copyFailed && (
+        <div role="alert">
+          <p>{t("inviteLink.copyFailed")}</p>
+          <p className="break-all">{inviteUrl}</p>
+        </div>
+      )}
+    </>
   );
 }
