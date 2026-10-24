@@ -58,11 +58,25 @@ describe.skipIf(!hasSupabase)("invite token module", () => {
       name: "Invite Test Gruppe (drawn)",
       slug: `invite-test-drawn-${Date.now()}`,
       year: 2099,
-      state: "drawn",
+      state: "open",
       created_by: testUserId,
     });
     if (drawnErr) throw drawnErr;
     testGroupIdDrawn = drawnGroupId;
+    // Dead-end contact is the group's oldest live admin membership. Memberships
+    // can't be inserted once drawn, so flip the state afterwards.
+    const { error: adminErr } = await supabase.from("memberships").insert({
+      group_id: drawnGroupId,
+      profile_id: testUserId,
+      name_snapshot: "Test Admin",
+      role: "admin",
+    });
+    if (adminErr) throw adminErr;
+    const { error: stateErr } = await supabase
+      .from("groups")
+      .update({ state: "drawn" })
+      .eq("id", drawnGroupId);
+    if (stateErr) throw stateErr;
   });
 
   afterEach(async () => {
@@ -107,7 +121,8 @@ describe.skipIf(!hasSupabase)("invite token module", () => {
 
     expect(result.group.id).toBe(testGroupIdOpen);
     expect(result.group.state).toBe("open");
-    expect(result.adminName).toContain("Test");
+    // Contact name only resolved for the drawn dead-end page.
+    expect(result.adminName).toBe("");
   });
 
   it("resolveToken returns group with state 'drawn' when group has already drawn", async () => {
