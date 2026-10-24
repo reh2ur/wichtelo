@@ -3,6 +3,7 @@
 import { useEffect, useState, type ReactNode } from "react";
 import { Button } from "@/components/ui/button";
 import { FormError } from "@/components/form-error";
+import { OTP_LENGTH, OTP_RESEND_COOLDOWN_SECONDS } from "@/lib/auth/otp";
 import {
   InputOTP,
   InputOTPGroup,
@@ -15,14 +16,20 @@ export type OtpStepLabels = {
   verifying: string;
   back: string;
   resend: string;
+  /** Resend button text while cooling down; receives the seconds left. */
+  resendIn: (seconds: number) => string;
   resent: string;
   devMode: string;
 };
 
 /**
  * Shared OTP entry step for /anmelden and /einladung/[token].
- * Behaviour (label, focus, clearing rejected digits, resend) lives here so
- * both forms stay identical.
+ * Behaviour (label, focus, clearing rejected digits, resend + cooldown) lives
+ * here so both forms stay identical.
+ *
+ * The step stays mounted while a resend fails: the previously sent code is
+ * still valid, so the failure is shown inline (`resendError`) instead of
+ * dropping the user back to the email form.
  */
 export function OtpStep({
   sentEmail,
@@ -38,6 +45,9 @@ export function OtpStep({
   onBack,
   onResend,
   resendPending,
+  sendId,
+  resendError,
+  cooldownSeconds = OTP_RESEND_COOLDOWN_SECONDS,
   labels,
 }: {
   sentEmail: string;
@@ -56,10 +66,38 @@ export function OtpStep({
   onBack: () => void;
   onResend: () => void;
   resendPending: boolean;
+  /**
+   * Identity of the latest successful send (the `otp_sent` request state).
+   * A change means a mail really went out: restarts the cooldown and shows
+   * the "resent" confirmation. Failed resends keep the old value.
+   */
+  sendId: unknown;
+  /** Non-null when the last resend attempt failed; shown inline. */
+  resendError: string | null;
+  /** Seconds before another resend is allowed (matches GoTrue max_frequency). */
+  cooldownSeconds?: number;
   labels: OtpStepLabels;
 }) {
   const [otpValue, setOtpValue] = useState(devOtp ?? "");
-  const [resent, setResent] = useState(false);
+  const [initialSendId] = useState(sendId);
+  const resent = sendId !== initialSendId;
+
+  // Cooldown starts with the initial send (this step mounts right after it)
+  // and restarts on every further successful send.
+  const [secondsLeft, setSecondsLeft] = useState(cooldownSeconds);
+  const [handledSendId, setHandledSendId] = useState(sendId);
+  if (sendId !== handledSendId) {
+    setHandledSendId(sendId);
+    setSecondsLeft(cooldownSeconds);
+  }
+  const coolingDown = secondsLeft > 0;
+  useEffect(() => {
+    if (!coolingDown) return;
+    const id = setInterval(() => {
+      setSecondsLeft((s) => Math.max(0, s - 1));
+    }, 1000);
+    return () => clearInterval(id);
+  }, [coolingDown, sendId]);
 
   // Dev-mode autofill: pick up the fresh code on resend without remounting
   // (a remount via `key` would also wipe `resent`, hiding the confirmation).
@@ -117,19 +155,16 @@ export function OtpStep({
             }
             aria-invalid={errorMessage ? true : undefined}
             autoFocus
-            maxLength={6}
+            maxLength={OTP_LENGTH}
             name={tokenFieldName}
             value={otpValue}
             onChange={setOtpValue}
             autoComplete="one-time-code"
           >
             <InputOTPGroup>
-              <InputOTPSlot index={0} />
-              <InputOTPSlot index={1} />
-              <InputOTPSlot index={2} />
-              <InputOTPSlot index={3} />
-              <InputOTPSlot index={4} />
-              <InputOTPSlot index={5} />
+              {Array.from({ length: OTP_LENGTH }, (_, i) => (
+                <InputOTPSlot key={i} index={i} className="size-7 sm:size-8" />
+              ))}
             </InputOTPGroup>
           </InputOTP>
         </div>
@@ -139,13 +174,19 @@ export function OtpStep({
         <Button
           type="submit"
           className="w-full"
-          disabled={verifyPending || otpValue.length < 6}
+          disabled={verifyPending || otpValue.length < OTP_LENGTH}
         >
           {verifyPending ? labels.verifying : labels.submit}
         </Button>
       </form>
 
-      {resent && !resendPending && (
+      {resendError && !resendPending && (
+        <p role="alert" className="text-danger-text text-sm">
+          {resendError}
+        </p>
+      )}
+
+      {resent && !resendError && !resendPending && (
         <p role="status" className="text-muted-foreground text-sm">
           {labels.resent}
         </p>
@@ -154,14 +195,11 @@ export function OtpStep({
       <div className="flex flex-col items-start gap-1">
         <button
           type="button"
-          className="text-muted-foreground py-1 text-sm underline-offset-4 hover:underline disabled:opacity-50"
-          disabled={resendPending}
-          onClick={() => {
-            setResent(true);
-            onResend();
-          }}
+          className="text-muted-foreground py-1 text-sm underline-offset-4 hover:underline disabled:no-underline disabled:opacity-50"
+          disabled={resendPending || coolingDown}
+          onClick={onResend}
         >
-          {labels.resend}
+          {coolingDown ? labels.resendIn(secondsLeft) : labels.resend}
         </button>
         <button
           type="button"

@@ -31,12 +31,54 @@ describe("scrubString", () => {
     expect(scrubString("/x?a=1&token=secret")).toBe("/x?a=1&token=[Filtered]");
   });
 
+  it.each(["token", "token_hash", "code"])("filters ?%s= values", (param) => {
+    expect(
+      scrubString(`https://x.de/auth/callback?${param}=abcdefgh12345678`),
+    ).toBe(`https://x.de/auth/callback?${param}=[Filtered]`);
+    expect(scrubString(`/x?a=1&${param}=abc&b=2#h`)).toBe(
+      `/x?a=1&${param}=[Filtered]&b=2#h`,
+    );
+  });
+
+  it("filters token_hash on the magiclink confirm URL (path and query)", () => {
+    expect(
+      scrubString("/einladung/tok123/magiclink?token_hash=h4sh&type=email"),
+    ).toBe("/einladung/[token]/magiclink?token_hash=[Filtered]&type=email");
+  });
+
   it("leaves other strings alone", () => {
     expect(scrubString("/gruppen/familie-2026")).toBe("/gruppen/familie-2026");
   });
 });
 
 describe("scrubSentryData", () => {
+  it("filters login-credential query params in nested event data and breadcrumbs", () => {
+    const event = {
+      request: {
+        url: "https://x.de/auth/callback?token_hash=hashsecret1&type=email",
+        query_string: "code=codesecret2&token=toksecret3",
+      },
+      breadcrumbs: [
+        {
+          category: "navigation",
+          data: { to: "/auth/callback?token_hash=hashsecret1" },
+        },
+      ],
+      spans: [{ description: "GET /x?a=1&code=codesecret2" }],
+    };
+    const crumb = {
+      category: "fetch",
+      data: { url: "/x?token=toksecret3&token_hash=hashsecret1" },
+    };
+    const json = JSON.stringify([
+      scrubSentryData(event),
+      scrubSentryData(crumb),
+    ]);
+    expect(json).not.toMatch(/hashsecret1|codesecret2|toksecret3/);
+    expect(json).toContain("token_hash=[Filtered]");
+    expect(json).toContain("code=[Filtered]");
+  });
+
   it("scrubs nested event, transaction and breadcrumb fields", () => {
     const event = {
       transaction: "GET /einladung/tok123",

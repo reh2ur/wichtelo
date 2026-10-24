@@ -23,6 +23,8 @@ const { Provider: InviteProvider, useT: useInviteT } =
 
 export { InviteProvider };
 
+type OtpSentState = Extract<RequestInviteOtpState, { status: "otp_sent" }>;
+
 export function InviteAuthForm({ token }: { token: string }) {
   const t = useInviteT();
   const requestAction = requestInviteOtp.bind(null, token);
@@ -38,21 +40,36 @@ export function InviteAuthForm({ token }: { token: string }) {
     FormData
   >(verifyAction, { status: "idle" });
 
+  // Last successful send the OTP step belongs to. Kept separately from
+  // requestState: a failed resend (e.g. throttled) replaces requestState with
+  // an error, but the earlier code is still valid, so the step must stay
+  // mounted and show the error inline. null = user backed out / not yet sent.
+  const [otpSent, setOtpSent] = useState<OtpSentState | null>(null);
+  // Request result the user backed out of: a stale resend error from it must
+  // not show up on the email form.
   const [backedOutState, setBackedOutState] =
     useState<RequestInviteOtpState | null>(null);
+  const [handledRequestState, setHandledRequestState] = useState(requestState);
+  if (requestState !== handledRequestState) {
+    setHandledRequestState(requestState);
+    if (requestState.status === "otp_sent") setOtpSent(requestState);
+  }
 
-  const showOtp =
-    requestState.status === "otp_sent" && requestState !== backedOutState;
-
-  if (showOtp && requestState.status === "otp_sent") {
-    const sentEmail = requestState.email;
+  if (otpSent) {
+    const sentEmail = otpSent.email;
     const verifyError =
       verifyState.status === "error"
         ? verifyState.error === "invalid_otp"
           ? t("errors.invalidOtp")
           : verifyState.error === "rate_limited"
-            ? t("errors.rateLimited")
+            ? t("errors.verifyRateLimited")
             : t("errors.generic")
+        : null;
+    const resendError =
+      requestState.status === "error"
+        ? requestState.error === "rate_limited"
+          ? t("errors.resendRateLimited")
+          : t("errors.generic")
         : null;
     return (
       <div className="space-y-4">
@@ -62,25 +79,32 @@ export function InviteAuthForm({ token }: { token: string }) {
           sentEmail={sentEmail}
           description={t("auth.otpDescription", { email: sentEmail })}
           tokenFieldName="otp"
-          devOtp={requestState.devOtp}
-          devMode={!!requestState.devOtp}
+          devOtp={otpSent.devOtp}
+          devMode={!!otpSent.devOtp}
           verifyAction={dispatchVerify}
           verifyPending={verifyPending}
           verifyState={verifyState}
           errorMessage={verifyError}
-          onBack={() => setBackedOutState(requestState)}
+          onBack={() => {
+            setOtpSent(null);
+            setBackedOutState(requestState);
+          }}
           onResend={() => {
             const fd = new FormData();
             fd.set("email", sentEmail);
+            fd.set("resend", "1");
             startTransition(() => dispatchRequest(fd));
           }}
           resendPending={requestPending}
+          sendId={otpSent}
+          resendError={resendError}
           labels={{
             label: t("auth.otpLabel"),
             submit: t("auth.submitOtp"),
             verifying: t("auth.verifying"),
             back: t("auth.backToForm"),
             resend: t("auth.resend"),
+            resendIn: (seconds) => t("auth.resendIn", { seconds }),
             resent: t("auth.resent"),
             devMode: t("auth.devMode"),
           }}
@@ -89,11 +113,12 @@ export function InviteAuthForm({ token }: { token: string }) {
     );
   }
 
+  const formState = requestState !== backedOutState ? requestState : null;
   const requestError =
-    requestState.status === "error"
-      ? requestState.error === "invalid_email"
+    formState?.status === "error"
+      ? formState.error === "invalid_email"
         ? t("errors.invalidEmail")
-        : requestState.error === "rate_limited"
+        : formState.error === "rate_limited"
           ? t("errors.rateLimited")
           : t("errors.generic")
       : null;

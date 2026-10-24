@@ -164,7 +164,7 @@ test.describe("OTP sign-in flow", () => {
     await expect(page.locator("#otp")).toBeVisible();
 
     // Overwrite the auto-filled (correct, dev-mode) OTP with a wrong one.
-    await page.locator("#otp").fill("000000");
+    await page.locator("#otp").fill("00000000");
     await expect(page.locator('button[type="submit"]')).toBeEnabled();
     await page.locator('button[type="submit"]').click();
 
@@ -184,5 +184,67 @@ test.describe("OTP sign-in flow", () => {
       "aria-describedby",
       /otp-error/,
     );
+  });
+
+  test("resend is disabled during the cooldown; a throttled resend keeps the code step", async ({
+    page,
+  }) => {
+    // `throttled-` prefix: test backdoor answers a resend with rate_limited.
+    const email = `throttled-${Date.now()}@example.com`;
+    const res = await fetch(`${BASE_URL}/api/test/session`, {
+      method: "POST",
+      headers: testApiHeaders(),
+      body: JSON.stringify({ email }),
+    });
+    if (!res.ok) throw new Error(`Test account setup failed: ${res.status}`);
+
+    await page.clock.install();
+    await page.goto("/anmelden");
+    await page.locator("#email").fill(email);
+    await page.locator('button[type="submit"]').click();
+    await expect(page.locator("#otp")).toBeVisible();
+
+    const resend = page.getByRole("button", { name: /Code erneut senden/ });
+    await expect(resend).toBeDisabled();
+    await expect(resend).toContainText("in 60 s");
+
+    await page.clock.runFor(61_000);
+    await expect(resend).toBeEnabled();
+    await resend.click();
+
+    // Throttled: code step (and field) stay, error shown inline, no
+    // "new code sent" confirmation.
+    await expect(page.getByRole("alert")).toContainText(
+      "Dein letzter Code ist weiterhin gültig",
+    );
+    await expect(page.locator("#otp")).toBeVisible();
+    await expect(page.getByRole("status")).toHaveCount(0);
+  });
+
+  test("a successful resend shows the confirmation and restarts the cooldown", async ({
+    page,
+  }) => {
+    const email = `e2e+resend-ok-${Date.now()}@example.com`;
+    const res = await fetch(`${BASE_URL}/api/test/session`, {
+      method: "POST",
+      headers: testApiHeaders(),
+      body: JSON.stringify({ email }),
+    });
+    if (!res.ok) throw new Error(`Test account setup failed: ${res.status}`);
+
+    await page.clock.install();
+    await page.goto("/anmelden");
+    await page.locator("#email").fill(email);
+    await page.locator('button[type="submit"]').click();
+    await expect(page.locator("#otp")).toBeVisible();
+
+    await page.clock.runFor(61_000);
+    const resend = page.getByRole("button", { name: /Code erneut senden/ });
+    await expect(resend).toBeEnabled();
+    await resend.click();
+
+    await expect(page.getByRole("status")).toContainText("neuen Code");
+    await expect(resend).toBeDisabled();
+    await expect(resend).toContainText("in 60 s");
   });
 });

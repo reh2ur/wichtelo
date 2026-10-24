@@ -149,7 +149,7 @@ describe("requestOtp", () => {
             error: null,
           }),
           generateLink: vi.fn().mockResolvedValue({
-            data: { properties: { email_otp: "123456" } },
+            data: { properties: { email_otp: "12345678" } },
             error: null,
           }),
         },
@@ -163,7 +163,7 @@ describe("requestOtp", () => {
     expect(result).toEqual({
       status: "otp_sent",
       email: "user@example.com",
-      devOtp: "123456",
+      devOtp: "12345678",
       devMode: true,
     });
   });
@@ -447,7 +447,7 @@ describe("verifyOtp", () => {
     await expect(
       verifyOtp(
         { status: "idle" },
-        fd({ email: "user@example.com", token: "123456" }),
+        fd({ email: "user@example.com", token: "12345678" }),
       ),
     ).rejects.toThrow("REDIRECT:/gruppen");
   });
@@ -462,7 +462,7 @@ describe("verifyOtp", () => {
         { status: "idle" },
         fd({
           email: "user@example.com",
-          token: "123456",
+          token: "12345678",
           next: "/gruppen/familie-2026",
         }),
       ),
@@ -477,7 +477,11 @@ describe("verifyOtp", () => {
     await expect(
       verifyOtp(
         { status: "idle" },
-        fd({ email: "user@example.com", token: "123456", next: "//evil.com" }),
+        fd({
+          email: "user@example.com",
+          token: "12345678",
+          next: "//evil.com",
+        }),
       ),
     ).rejects.toThrow("REDIRECT:/gruppen");
   });
@@ -517,7 +521,7 @@ describe("verifyOtp rate limiting and error mapping", () => {
     } as unknown as SupabaseClient);
     await verifyOtp(
       { status: "idle" },
-      fd({ email: " User@Example.COM ", token: "123456" }),
+      fd({ email: " User@Example.COM ", token: "12345678" }),
     );
     const calls = vi.mocked(checkRateLimit).mock.calls;
     expect(calls).toContainEqual([
@@ -540,7 +544,7 @@ describe("verifyOtp rate limiting and error mapping", () => {
     } as unknown as SupabaseClient);
     const result = await verifyOtp(
       { status: "idle" },
-      fd({ email: "user@example.com", token: "123456" }),
+      fd({ email: "user@example.com", token: "12345678" }),
     );
     expect(result).toEqual({
       status: "error",
@@ -556,7 +560,7 @@ describe("verifyOtp rate limiting and error mapping", () => {
     );
     const result = await verifyOtp(
       { status: "idle" },
-      fd({ email: "user@example.com", token: "123456" }),
+      fd({ email: "user@example.com", token: "12345678" }),
     );
     expect(result).toMatchObject({ status: "error", error: "rate_limited" });
   });
@@ -571,9 +575,22 @@ describe("verifyOtp rate limiting and error mapping", () => {
     } as unknown as SupabaseClient);
     const result = await verifyOtp(
       { status: "idle" },
-      fd({ email: "user@example.com", token: "123456" }),
+      fd({ email: "user@example.com", token: "12345678" }),
     );
     expect(result).toMatchObject({ status: "error", error: "rate_limited" });
+  });
+
+  it("rejects a legacy 6-digit code without verifying", async () => {
+    const verify = vi.fn();
+    vi.mocked(createClient).mockResolvedValue({
+      auth: { verifyOtp: verify },
+    } as unknown as SupabaseClient);
+    const result = await verifyOtp(
+      { status: "idle" },
+      fd({ email: "user@example.com", token: "123456" }),
+    );
+    expect(result).toMatchObject({ status: "error", error: "invalid_otp" });
+    expect(verify).not.toHaveBeenCalled();
   });
 
   it("rejects a malformed email without verifying", async () => {
@@ -583,7 +600,7 @@ describe("verifyOtp rate limiting and error mapping", () => {
     } as unknown as SupabaseClient);
     const result = await verifyOtp(
       { status: "idle" },
-      fd({ email: "nope", token: "123456" }),
+      fd({ email: "nope", token: "12345678" }),
     );
     expect(result).toMatchObject({ status: "error", error: "invalid_otp" });
     expect(verify).not.toHaveBeenCalled();

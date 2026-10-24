@@ -55,10 +55,13 @@ export const anmeldenOtpRequestIpLimiter = makeLimiter(
   "1 h",
 );
 // OTP *verify* limits: primary limiter keyed by normalized email (10/15 min)
-// caps guesses against one 6-digit code no matter how many IPs (or IPv6
-// addresses) the attacker has, and keeps a shared Wi-Fi/CGNAT IP from locking
-// everyone out. Looser per-IP backstop (30/15 min, IPv6 keyed by /64 in
-// getClientIp) stops one source spraying many addresses.
+// caps guesses made *through the app* against one code no matter how many IPs
+// (or IPv6 addresses) the attacker has, and keeps a shared Wi-Fi/CGNAT IP from
+// locking everyone out. It does NOT cover direct calls to GoTrue
+// /auth/v1/verify (only the per-IP token_verifications cap applies there): the
+// 8-digit, 10 min code (lib/auth/otp.ts) is what bounds those. Looser per-IP
+// backstop (30/15 min, IPv6 keyed by /64 in getClientIp) stops one source
+// spraying many addresses.
 export const anmeldenOtpVerifyLimiter = makeLimiter(
   "otp-verify-anmelden-email",
   10,

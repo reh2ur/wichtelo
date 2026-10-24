@@ -13,6 +13,8 @@ import {
 import { createIntlContext } from "@/lib/create-intl-context";
 import { useHydrated } from "@/lib/use-hydrated";
 
+type OtpSentState = Extract<RequestOtpState, { status: "otp_sent" }>;
+
 const { Provider: SignInProvider, useT: useSignInT } =
   createIntlContext("signIn");
 
@@ -30,25 +32,36 @@ export function AuthFormClient({ next }: { next: string }) {
     FormData
   >(verifyOtp, { status: "idle" });
 
-  // Remember the exact request result the user backed out of. Every new
-  // submit yields a fresh state object, so resubmitting the same email shows
-  // the OTP step again.
+  // Last successful send the OTP step belongs to. Kept separately from
+  // requestState: a failed resend (e.g. throttled) replaces requestState with
+  // an error, but the earlier code is still valid, so the step must stay
+  // mounted and show the error inline. null = user backed out / not yet sent.
+  // Adjusted during render (no effect) to avoid an extra render pass.
+  const [otpSent, setOtpSent] = useState<OtpSentState | null>(null);
+  // Request result the user backed out of: a stale resend error from it must
+  // not show up on the email form.
   const [backedOutState, setBackedOutState] = useState<RequestOtpState | null>(
     null,
   );
+  const [handledRequestState, setHandledRequestState] = useState(requestState);
+  if (requestState !== handledRequestState) {
+    setHandledRequestState(requestState);
+    if (requestState.status === "otp_sent") setOtpSent(requestState);
+  }
 
-  const showOtp =
-    requestState.status === "otp_sent" && requestState !== backedOutState;
-
-  const sentEmail =
-    requestState.status === "otp_sent" ? requestState.email : "";
-
-  if (showOtp && requestState.status === "otp_sent") {
+  if (otpSent) {
+    const sentEmail = otpSent.email;
     const verifyError =
       verifyState.status === "error"
         ? verifyState.error === "rate_limited"
-          ? t("errors.rateLimited")
+          ? t("errors.verifyRateLimited")
           : t("errors.invalidOtp")
+        : null;
+    const resendError =
+      requestState.status === "error"
+        ? requestState.error === "rate_limited"
+          ? t("errors.resendRateLimited")
+          : t("errors.generic")
         : null;
     return (
       <OtpStep
@@ -57,32 +70,44 @@ export function AuthFormClient({ next }: { next: string }) {
         description={`${t("otp.sentPrefix")} ${sentEmail} ${t("otp.sentSuffix")}`}
         tokenFieldName="token"
         hiddenFields={{ next }}
-        devOtp={requestState.devOtp}
-        devMode={!!requestState.devMode}
+        devOtp={otpSent.devOtp}
+        devMode={!!otpSent.devMode}
         verifyAction={verifyAction}
         verifyPending={verifyPending}
         verifyState={verifyState}
         errorMessage={verifyError}
-        onBack={() => setBackedOutState(requestState)}
+        onBack={() => {
+          setOtpSent(null);
+          setBackedOutState(requestState);
+        }}
         onResend={() => {
           const fd = new FormData();
           fd.set("email", sentEmail);
           fd.set("next", next);
+          fd.set("resend", "1");
           startTransition(() => requestAction(fd));
         }}
         resendPending={requestPending}
+        sendId={otpSent}
+        resendError={resendError}
         labels={{
           label: t("otp.label"),
           submit: t("otp.submit"),
           verifying: t("otp.verifying"),
           back: t("otp.back"),
           resend: t("otp.resend"),
+          resendIn: (seconds) => t("otp.resendIn", { seconds }),
           resent: t("otp.resent"),
           devMode: t("otp.devMode"),
         }}
       />
     );
   }
+
+  const formError =
+    requestState.status === "error" && requestState !== backedOutState
+      ? requestState
+      : null;
 
   return (
     <div className="space-y-4">
@@ -100,20 +125,18 @@ export function AuthFormClient({ next }: { next: string }) {
             type="email"
             placeholder={t("email.placeholder")}
             autoComplete="email"
-            defaultValue={
-              requestState.status === "error" ? requestState.email : ""
-            }
+            defaultValue={formError ? formError.email : ""}
             required
             {...errorFieldProps("email-error", requestState.status === "error")}
             className="border-input bg-background placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-ring/50 flex h-9 w-full rounded-lg border px-3 py-1 text-sm shadow-xs transition-colors focus-visible:ring-3 focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-50"
           />
         </div>
 
-        {requestState.status === "error" && (
+        {formError && (
           <FormError id="email-error">
-            {requestState.error === "invalid_email"
+            {formError.error === "invalid_email"
               ? t("errors.invalidEmail")
-              : requestState.error === "rate_limited"
+              : formError.error === "rate_limited"
                 ? t("errors.rateLimited")
                 : t("errors.generic")}
           </FormError>

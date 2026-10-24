@@ -33,3 +33,20 @@ export function isTestBackdoorEnabled(headers: Headers): boolean {
 
   return safeEqual(provided, expected);
 }
+
+/**
+ * E2E-only: lets a spec simulate the per-address resend throttle (the dev-OTP
+ * path skips Supabase, so it never fires). Callers must already have
+ * established `isTestBackdoorEnabled`; this only inspects the request: a
+ * resend (`resend=1`, set by the OtpStep callers) for an address whose local
+ * part starts with `throttled-`.
+ */
+export function isSimulatedResendThrottle(
+  email: string,
+  formData: FormData,
+): boolean {
+  return (
+    formData.get("resend") === "1" &&
+    email.toLowerCase().startsWith("throttled-")
+  );
+}

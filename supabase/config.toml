@@ -238,10 +238,13 @@ secure_password_change = true
 # Controls the minimum amount of time that must pass before sending another signup confirmation or password reset email.
 # 60s per address: stops mail-bombing a victim and burning the project-wide email_sent quota.
 max_frequency = "60s"
-# Number of characters used in the email OTP.
-otp_length = 6
-# Seconds before email OTP expires (15 min). Mirror text in supabase/templates/*.html.
-otp_expiry = 900
+# Number of characters used in the email OTP. 8 digits: GoTrue /verify is
+# reachable directly (per-IP cap only), so 10^8 keeps guess odds negligible.
+# Mirror in lib/auth/otp.ts (OTP_LENGTH).
+otp_length = 8
+# Seconds before email OTP expires (10 min). Mirror text in
+# supabase/templates/*.html and lib/auth/otp.ts (OTP_EXPIRY_MINUTES).
+otp_expiry = 600
 
 # Local stack: SMTP off -> Auth mail lands in Mailpit (http://127.0.0.1:54324),
 # never real Resend, no email_sent quota burn. Hosted projects enable Resend
@@ -471,6 +474,9 @@ additional_redirect_urls = ["env(LIVE_REDIRECT_URL)"]
 enable_confirmations = true
 secure_password_change = true
 max_frequency = "60s"
+# Explicit (not just inherited): see base [auth.email] and lib/auth/otp.ts.
+otp_length = 8
+otp_expiry = 600
 
 [remotes.live.auth.rate_limit]
 # Hosted default 2/h too low for real OTP/magic-link mail. Needs custom SMTP.
@@ -506,6 +512,9 @@ additional_redirect_urls = [
 enable_confirmations = true
 secure_password_change = true
 max_frequency = "60s"
+# Explicit (not just inherited): see base [auth.email] and lib/auth/otp.ts.
+otp_length = 8
+otp_expiry = 600
 
 [remotes.staging.auth.rate_limit]
 email_sent = 100

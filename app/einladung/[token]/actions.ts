@@ -4,11 +4,15 @@ import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { updateTag } from "next/cache";
 import { z } from "zod";
+import { otpSchema } from "@/lib/auth/otp";
 import { getSiteUrl } from "@/lib/site-url";
 import { groupTag } from "@/lib/cache-tags";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { isTestBackdoorEnabled } from "@/lib/test-backdoor";
+import {
+  isSimulatedResendThrottle,
+  isTestBackdoorEnabled,
+} from "@/lib/test-backdoor";
 import { ensureAuthUser } from "@/lib/supabase/ensure-auth-user";
 import { resolveToken } from "@/lib/invite";
 import { getGroupAdminEmails } from "@/lib/group-admins";
@@ -56,7 +60,6 @@ export type AcceptInviteState =
     };
 
 const emailSchema = z.email().max(254);
-const otpSchema = z.string().length(6).regex(/^\d+$/);
 const nameSchema = z.string().trim().min(1).max(50);
 const newProfileNamesSchema = z.object({
   firstName: nameSchema,
@@ -108,6 +111,9 @@ export async function requestInviteOtp(
   const useDevOtp = isTestBackdoorEnabled(await headers());
 
   if (useDevOtp) {
+    if (isSimulatedResendThrottle(email, formData)) {
+      return { status: "error", error: "rate_limited", email };
+    }
     const { data: linkData, error: linkError } =
       await admin.auth.admin.generateLink({
         type: "magiclink",
@@ -167,7 +173,8 @@ export async function verifyInviteOtp(
     return { status: "error", error: "invalid_otp", email };
   }
 
-  // Per-email limit caps guesses at one code regardless of source IPs;
+  // Per-email limit caps guesses made via this action at one code regardless
+  // of source IPs (direct GoTrue /verify calls bypass it, see lib/auth/otp.ts);
   // per-IP backstop is looser so a shared Wi-Fi/CGNAT doesn't lock users out.
   const ip = await getClientIp();
   if (

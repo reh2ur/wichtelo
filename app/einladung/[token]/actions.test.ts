@@ -307,7 +307,7 @@ describe("verifyInviteOtp", () => {
     const result = await verifyInviteOtp(
       "bogus-token",
       { status: "idle" },
-      fd({ email: "victim@example.com", otp: "123456" }),
+      fd({ email: "victim@example.com", otp: "12345678" }),
     );
 
     expect(result).toEqual({
@@ -328,7 +328,7 @@ describe("verifyInviteOtp", () => {
     const result = await verifyInviteOtp(
       "drawn-token",
       { status: "idle" },
-      fd({ email: "victim@example.com", otp: "123456" }),
+      fd({ email: "victim@example.com", otp: "12345678" }),
     );
 
     expect(result).toEqual({
@@ -336,6 +336,23 @@ describe("verifyInviteOtp", () => {
       error: "invalid_otp",
       email: "victim@example.com",
     });
+    expect(verifyOtp).not.toHaveBeenCalled();
+  });
+
+  it("rejects a legacy 6-digit code without calling verifyOtp", async () => {
+    vi.mocked(resolveToken).mockResolvedValue(openGroup);
+    const verifyOtp = vi.fn();
+    vi.mocked(createClient).mockResolvedValue({
+      auth: { verifyOtp },
+    } as unknown as SupabaseClient);
+
+    const result = await verifyInviteOtp(
+      "valid-token",
+      { status: "idle" },
+      fd({ email: "guest@example.com", otp: "123456" }),
+    );
+
+    expect(result).toMatchObject({ status: "error", error: "invalid_otp" });
     expect(verifyOtp).not.toHaveBeenCalled();
   });
 
@@ -352,7 +369,7 @@ describe("verifyInviteOtp", () => {
       verifyInviteOtp(
         "valid-token",
         { status: "idle" },
-        fd({ email: "guest@example.com", otp: "123456" }),
+        fd({ email: "guest@example.com", otp: "12345678" }),
       ),
     ).rejects.toThrow("REDIRECT:/einladung/valid-token");
   });
@@ -430,7 +447,7 @@ describe("verifyInviteOtp rate limiting", () => {
     await verifyInviteOtp(
       "valid-token",
       { status: "idle" },
-      fd({ email: " Guest@Example.COM ", otp: "123456" }),
+      fd({ email: " Guest@Example.COM ", otp: "12345678" }),
     );
     const calls = vi.mocked(checkRateLimit).mock.calls;
     expect(calls).toContainEqual([
@@ -451,7 +468,7 @@ describe("verifyInviteOtp rate limiting", () => {
     const result = await verifyInviteOtp(
       "valid-token",
       { status: "idle" },
-      fd({ email: "guest@example.com", otp: "123456" }),
+      fd({ email: "guest@example.com", otp: "12345678" }),
     );
     expect(result).toMatchObject({ status: "error", error: "rate_limited" });
     expect(verify).not.toHaveBeenCalled();
@@ -468,7 +485,7 @@ describe("verifyInviteOtp rate limiting", () => {
     const result = await verifyInviteOtp(
       "valid-token",
       { status: "idle" },
-      fd({ email: "guest@example.com", otp: "123456" }),
+      fd({ email: "guest@example.com", otp: "12345678" }),
     );
     expect(result).toMatchObject({ status: "error", error: "rate_limited" });
   });

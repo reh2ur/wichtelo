@@ -33,6 +33,7 @@
       "back": "Andere E-Mail-Adresse verwenden",
       "verifying": "Wird überprüft…",
       "resend": "Code erneut senden",
+      "resendIn": "Code erneut senden in {seconds} s",
       "resent": "Wir haben dir einen neuen Code geschickt.",
       "devMode": "Dev-Modus · OTP wird automatisch ausgefüllt, falls vorhanden"
     },
@@ -41,6 +42,8 @@
       "invalidOtp": "Der Code ist ungültig oder abgelaufen.",
       "invalidEmail": "Bitte gib eine gültige E-Mail-Adresse ein.",
       "rateLimited": "Zu viele Versuche. Bitte warte einen Moment und versuche es erneut.",
+      "verifyRateLimited": "Zu viele Fehlversuche. Bitte warte etwa 15 Minuten und versuche es dann erneut.",
+      "resendRateLimited": "Du hast gerade erst einen Code angefordert. Dein letzter Code ist weiterhin gültig. Bitte warte etwa eine Minute, bevor du einen neuen anforderst.",
       "linkInvalid": "Der Link ist abgelaufen oder wurde in einem anderen Browser geöffnet. Gib den Code aus der E-Mail ein oder fordere einen neuen an."
     }
   },
@@ -345,6 +348,7 @@
       "verifying": "Wird überprüft…",
       "backToForm": "Andere E-Mail-Adresse",
       "resend": "Code erneut senden",
+      "resendIn": "Code erneut senden in {seconds} s",
       "resent": "Wir haben dir einen neuen Code geschickt.",
       "devMode": "Dev-Modus · OTP automatisch ausgefüllt"
     },
@@ -363,6 +367,8 @@
       "drawn": "Diese Gruppe hat bereits ausgelost. Du kannst nicht mehr beitreten.",
       "missingName": "Bitte gib Vor- und Nachnamen ein.",
       "rateLimited": "Zu viele Versuche. Bitte warte einen Moment und versuche es erneut.",
+      "verifyRateLimited": "Zu viele Fehlversuche. Bitte warte etwa 15 Minuten und versuche es dann erneut.",
+      "resendRateLimited": "Du hast gerade erst einen Code angefordert. Dein letzter Code ist weiterhin gültig. Bitte warte etwa eine Minute, bevor du einen neuen anforderst.",
       "linkInvalid": "Der Link ist abgelaufen oder wurde in einem anderen Browser geöffnet. Gib den Code aus der E-Mail ein oder fordere einen neuen an."
     },
     "signedInAs": "Angemeldet als {name} ({email})",

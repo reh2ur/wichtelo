@@ -1,5 +1,8 @@
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { isTestBackdoorEnabled } from "./test-backdoor";
+import {
+  isSimulatedResendThrottle,
+  isTestBackdoorEnabled,
+} from "./test-backdoor";
 
 const LIVE_REF = "liveprojectref";
 const PROD_URL = `https://${LIVE_REF}.supabase.co`;
@@ -59,5 +62,27 @@ describe("isTestBackdoorEnabled", () => {
     expect(isTestBackdoorEnabled(req("anything"))).toBe(false);
     process.env.E2E_TEST_SECRET = "";
     expect(isTestBackdoorEnabled(req(""))).toBe(false);
+  });
+});
+
+describe("isSimulatedResendThrottle", () => {
+  function form(fields: Record<string, string>) {
+    const fd = new FormData();
+    for (const [k, v] of Object.entries(fields)) fd.set(k, v);
+    return fd;
+  }
+
+  it("only triggers for a resend by a throttled-* address", () => {
+    const yes = form({ resend: "1" });
+    expect(isSimulatedResendThrottle("throttled-a@example.com", yes)).toBe(
+      true,
+    );
+    expect(isSimulatedResendThrottle("Throttled-A@example.com", yes)).toBe(
+      true,
+    );
+    expect(isSimulatedResendThrottle("a@example.com", yes)).toBe(false);
+    expect(isSimulatedResendThrottle("throttled-a@example.com", form({}))).toBe(
+      false,
+    );
   });
 });
