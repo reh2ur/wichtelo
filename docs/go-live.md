@@ -20,7 +20,7 @@ Tick each before public launch / before draw season. Env var names in `.env.exam
 
 ## Vercel
 
-- [ ] Function region `fra1` (project settings → Functions, or `vercel.json` `"regions": ["fra1"]`). Default `iad1` = transatlantic hop per Supabase query.
+- [x] Function region `fra1` — set in `vercel.json` `"regions": ["fra1"]`. Default `iad1` = transatlantic hop per Supabase query. Verify after first deploy: project settings → Functions shows Frankfurt.
 - [ ] Env (production): `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`, `SUPABASE_SERVICE_ROLE_KEY`, `RESEND_API_KEY`, `RESEND_FROM_EMAIL`, `NEXT_PUBLIC_SITE_URL`, `OPERATOR_NAME`, `OPERATOR_ADDRESS_LINE1`, `OPERATOR_ADDRESS_LINE2`, `OPERATOR_CONTACT_EMAIL`, `ACCOUNT_DELETION_SECRET` (>= 32 chars, not service-role key), `SUPER_ADMIN_EMAIL`, `SUPABASE_PROJECT_REF_LIVE` (E2E backdoors refuse live project).
 - [ ] Deployment Protection on for previews; `VERCEL_AUTOMATION_BYPASS_SECRET` + `E2E_TEST_SECRET` in GitHub secrets.
 - [ ] Impressum + Datenschutz render real operator data (`/impressum`).
@@ -37,7 +37,7 @@ Tick each before public launch / before draw season. Env var names in `.env.exam
 ## Super-admin
 
 - [ ] `SUPER_ADMIN_EMAIL` set. Register that account immediately after first deploy (email can create account on fresh deployment; only it gets `/admin`).
-- [ ] Audit log writes best-effort, after action — check `admin_audit_log` rows after first admin action.
+- [x] Audit log writes best-effort, after action. `logAdminAction` never throws; insert failure logs `admin.audit_log_failed` (error level) → action succeeds, row missing. Check `admin_audit_log` rows after first admin action; grep prod logs for that key.
 
 ## Uptime, backups, keep-alive
 
@@ -48,7 +48,7 @@ Tick each before public launch / before draw season. Env var names in `.env.exam
 ## CI / supply chain
 
 - [ ] CI green incl. `db-lint` job (migrations + integration tests).
-- [ ] `pnpm audit --prod` clean except upstream `sprintf-js` advisory (no patched release yet; dev/pretty-terminal logger only). Recheck, add override `>=1.1.4` once published.
+- [ ] `pnpm audit --prod` clean (recheck before launch). Full `pnpm audit`: dev-tooling advisories patched via `pnpm-workspace.yaml` overrides. Left: `zod@3` under `shadcn` CLI (no v3 patch, cross-major override risky, dev-only). `vite` = direct devDep so vitest peer resolves patched release (override on peer-only dep does not re-resolve lock).
 - [ ] Node 22 on Vercel (`engines`).
 
 ## Final smoke (prod)

@@ -6,6 +6,28 @@ overrides:
   "@babel/core": ">=7.29.1"
   # Only the 5.x line (via @sentry/bundler-plugin glob); minimatch@3 needs 1.x.
   "brace-expansion@^5": ">=5.0.12"
+  # Dev/build-tooling advisories (shadcn CLI, react-email, eslint, vitest, knip).
+  # Scoped to the vulnerable major line so no cross-major jumps.
+  "brace-expansion@^1": "^1.1.21"
+  "@hono/node-server@^1": "^1.19.15"
+  "@modelcontextprotocol/sdk@^1": "^1.32.0"
+  "body-parser@^2": "^2.4.0"
+  "engine.io@^6": "^6.6.10"
+  "fast-uri@^3": "^3.1.9"
+  "hono@^4": "^4.13.11"
+  "ip-address@^10": "^10.7.4"
+  "js-yaml@^4": "^4.3.2"
+  "nanoid@^3": "^3.3.18"
+  "postcss@^8": "^8.5.23"
+  "postcss-selector-parser@^7": "^7.1.6"
+  "proxy-addr@^2": "^2.0.8"
+  "qs@^6": "^6.16.0"
+  "smol-toml@^1": "^1.8.1"
+  "socket.io-parser@^4": "^4.2.7"
+  "undici@^8": "^8.12.2"
+  "esbuild@>=0.27.3 <0.28.1": "^0.28.1"
+  "zod@>=4.0.0 <4.6.6": "^4.6.6"
+  "ws@^8": "^8.21.0"
 
 allowBuilds:
   "@parcel/watcher": false
