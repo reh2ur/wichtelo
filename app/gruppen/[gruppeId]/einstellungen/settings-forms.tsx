@@ -291,7 +291,7 @@ function AddExclusionForm({
           {errorMsg}
         </p>
       )}
-      {state.status === "success" && !state.warning && (
+      {state.status === "success" && (
         <p role="status" className="text-success-text text-sm">
           {t("exclusions.added")}
         </p>
