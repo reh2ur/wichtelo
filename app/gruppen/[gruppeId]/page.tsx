@@ -61,9 +61,9 @@ export default async function GruppeDetailPage(
 ) {
   const { gruppeId } = await props.params;
   const t = await getTranslations("groupDetail");
-  const user = (await getUser())!;
-
-  const data = await fetchGroupData(gruppeId);
+  // Independent: session lookup and group read run concurrently.
+  const [user, data] = await Promise.all([getUser(), fetchGroupData(gruppeId)]);
+  if (!user) notFound();
   if (!data) notFound();
   const myMembership = data.members.find((m) => m.profile_id === user.id);
   if (!myMembership) notFound();
@@ -94,10 +94,16 @@ async function fetchGroupData(slug: string) {
   // never return null/empty, so a DB blip is an error page, not a fake 404.
   const supabase = createAdminClient();
 
-  const { data: group, error: groupError } = await supabase
+  // One round trip: group + members + member profiles via PostgREST embeds.
+  const { data: groupRaw, error: groupError } = await supabase
     .from("groups")
-    .select("id, slug, name, year, state, budget_hint, note")
+    .select(
+      `id, slug, name, year, state, budget_hint, note,
+       memberships(id, name_snapshot, first_name_snapshot, last_name_snapshot, role, profile_id, profiles(id, first_name, last_name))`,
+    )
     .eq("slug", slug)
+    .order("joined_at", { referencedTable: "memberships", ascending: true })
+    .order("id", { referencedTable: "memberships", ascending: true })
     .maybeSingle();
   if (groupError) {
     throw new Error(
@@ -105,49 +111,25 @@ async function fetchGroupData(slug: string) {
     );
   }
 
-  if (!group) return null;
+  if (!groupRaw) return null;
 
-  const { data: membersRaw, error: membersError } = await supabase
-    .from("memberships")
-    .select(
-      "id, name_snapshot, first_name_snapshot, last_name_snapshot, role, profile_id",
-    )
-    .eq("group_id", (group as Group).id)
-    .order("joined_at", { ascending: true })
-    .order("id", { ascending: true });
-  if (membersError) {
-    throw new Error(
-      `[fetchGroupData] members lookup failed: ${membersError.message}`,
-    );
-  }
+  const { memberships: membershipRows, ...group } =
+    groupRaw as unknown as Group & {
+      memberships: (Member & { profiles: ProfileRow | null })[];
+    };
 
-  const members = (membersRaw ?? []) as Member[];
-
-  const profileIds = members
-    .map((m) => m.profile_id)
-    .filter((id): id is string => !!id);
-
+  const members: Member[] = [];
   const profilesById = new Map<string, ProfileRow>();
-  if (profileIds.length > 0) {
-    const { data: profilesRaw, error: profilesError } = await supabase
-      .from("profiles")
-      .select("id, first_name, last_name")
-      .in("id", profileIds);
-    if (profilesError) {
-      throw new Error(
-        `[fetchGroupData] profiles lookup failed: ${profilesError.message}`,
-      );
-    }
-    for (const p of (profilesRaw ?? []) as ProfileRow[]) {
-      profilesById.set(p.id, p);
-    }
+  for (const { profiles, ...m } of membershipRows) {
+    members.push(m);
+    if (profiles) profilesById.set(profiles.id, profiles);
   }
 
   const displayNames = abbreviateNames(
     membersFromMemberships(members, profilesById),
   ).map((d): [string, string] => [d.id, d.displayName]);
 
-  return { group: group as Group, members, displayNames };
+  return { group, members, displayNames };
 }
 
 type GroupData = NonNullable<Awaited<ReturnType<typeof fetchGroupData>>>;
@@ -164,12 +146,6 @@ async function GruppeDetailContent({
 
   const isAdmin = myMembership.role === "admin";
   const displayNameById = new Map(displayNames);
-
-  let inviteUrl: string | null = null;
-  if (isAdmin && g.state === "open") {
-    const token = await getOrCreateToken(g.id);
-    inviteUrl = buildInviteUrl(await getSiteUrl(), token);
-  }
 
   return (
     <>
@@ -191,7 +167,13 @@ async function GruppeDetailContent({
               {t("settings")}
             </Link>
           )}
-          {inviteUrl && <CopyInviteLink inviteUrl={inviteUrl} />}
+          {isAdmin && g.state === "open" && (
+            // Token lookup/creation streams in on its own; it no longer
+            // blocks the rest of the page.
+            <Suspense fallback={null}>
+              <InviteLink groupId={g.id} />
+            </Suspense>
+          )}
         </div>
       </div>
 
@@ -226,6 +208,7 @@ async function GruppeDetailContent({
           myMembershipId={myMembership.id}
           memberCount={members.length}
           members={members}
+          displayNames={displayNameById}
         />
       </Suspense>
 
@@ -298,6 +281,13 @@ async function GruppeDetailContent({
   );
 }
 
+async function InviteLink({ groupId }: { groupId: string }) {
+  const token = await getOrCreateToken(groupId);
+  return (
+    <CopyInviteLink inviteUrl={buildInviteUrl(await getSiteUrl(), token)} />
+  );
+}
+
 async function AssignmentSection({
   groupId,
   slug,
@@ -306,6 +296,7 @@ async function AssignmentSection({
   myMembershipId,
   memberCount,
   members,
+  displayNames,
 }: {
   groupId: string;
   slug: string;
@@ -314,6 +305,7 @@ async function AssignmentSection({
   myMembershipId: string;
   memberCount: number;
   members: Member[];
+  displayNames: Map<string, string>;
 }) {
   const t = await getTranslations("groupDetail");
   const draw = await getTranslations("draw");
@@ -347,6 +339,7 @@ async function AssignmentSection({
         <MyAssignment
           groupId={groupId}
           myMembershipId={myMembershipId}
+          displayNames={displayNames}
           label={t("youGiveTo")}
         />
         <AdminOracle slug={slug} members={members} />
@@ -359,6 +352,7 @@ async function AssignmentSection({
     <MyAssignment
       groupId={groupId}
       myMembershipId={myMembershipId}
+      displayNames={displayNames}
       label={t("youGiveTo")}
       adminLookupNotice={t("adminLookupNotice")}
     />
@@ -368,11 +362,13 @@ async function AssignmentSection({
 async function MyAssignment({
   groupId,
   myMembershipId,
+  displayNames,
   label,
   adminLookupNotice,
 }: {
   groupId: string;
   myMembershipId: string;
+  displayNames: Map<string, string>;
   label: string;
   adminLookupNotice?: string;
 }) {
@@ -391,47 +387,7 @@ async function MyAssignment({
   if (!assignment) return null;
 
   const receiverId = (assignment as { receiver_id: string }).receiver_id;
-
-  const admin = createAdminClient();
-  const { data: membersRaw } = await admin
-    .from("memberships")
-    .select(
-      "id, name_snapshot, first_name_snapshot, last_name_snapshot, profile_id",
-    )
-    .eq("group_id", groupId)
-    .order("joined_at", { ascending: true })
-    .order("id", { ascending: true });
-
-  const memberships = (membersRaw ?? []) as {
-    id: string;
-    name_snapshot: string;
-    first_name_snapshot: string | null;
-    last_name_snapshot: string | null;
-    profile_id: string | null;
-  }[];
-
-  const profileIds = memberships
-    .map((m) => m.profile_id)
-    .filter((id): id is string => !!id);
-
-  const profilesById = new Map<string, ProfileRow>();
-  if (profileIds.length > 0) {
-    const { data: profilesRaw } = await admin
-      .from("profiles")
-      .select("id, first_name, last_name")
-      .in("id", profileIds);
-    for (const p of (profilesRaw ?? []) as ProfileRow[]) {
-      profilesById.set(p.id, p);
-    }
-  }
-
-  const displayByMembershipId = new Map(
-    abbreviateNames(membersFromMemberships(memberships, profilesById)).map(
-      (d) => [d.id, d.displayName],
-    ),
-  );
-
-  const receiverDisplay = displayByMembershipId.get(receiverId);
+  const receiverDisplay = displayNames.get(receiverId);
   if (!receiverDisplay) return null;
 
   return (

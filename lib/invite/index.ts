@@ -90,6 +90,25 @@ export async function getOrCreateToken(groupId: string): Promise<string> {
 }
 
 /**
+ * Cheap existence check for the proxy's real-404 rewrite: one indexed lookup,
+ * no group/admin joins (the page does the full `resolveToken`). The FK
+ * cascade guarantees a token row implies its group row. Throws on DB error —
+ * an error is NOT "not found".
+ */
+export async function inviteTokenExists(token: string): Promise<boolean> {
+  const supabase = createAdminClient();
+  const { data, error } = await supabase
+    .from("invite_tokens")
+    .select("token")
+    .eq("token", token)
+    .maybeSingle();
+  if (error) {
+    throw new Error(`[inviteTokenExists] lookup failed: ${error.message}`);
+  }
+  return !!data;
+}
+
+/**
  * Resolves an invite token.
  * - Returns ResolvedInvite for both open and drawn groups (check group.state)
  * - Returns null only when token not found (no rows)
