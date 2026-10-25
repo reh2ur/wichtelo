@@ -34,7 +34,7 @@ Private paths (`/gruppen/*`, `/einladung/*`) also send `X-Robots-Tag: noindex, n
 - `/einladung/<token>` = bearer credential. `lib/sentry-scrub.ts` rewrites to `/einladung/[token]` + filters `?token=`; wired as `beforeSend`, `beforeSendTransaction`, `beforeBreadcrumb` in client/server/edge init. New Sentry init → wire same three hooks.
 - `/monitoring` tunnel excluded from `proxy.ts` matcher (no `updateSession` per envelope).
 - Sentry in Datenschutz processors (Art. 6(1)(f), SCC/DPF for US parent). Change scope → update `messages/de.json`.
-- Logs → Vercel only; watch them or add log drain.
+- Logs → Vercel only; watch them or add log drain. Handled errors ALSO → Sentry via `reportError(event, err, meta)` (`lib/report-error.ts`): logs + `captureException`, tag `event`, fingerprint `[event]`. Payload scrubbed: message/stack via `redact` (emails → `[email]`, invite tokens), meta primitives only, keys matching `mail|token|secret|password|userid|name` dropped. Never pass raw `Error` w/ PII to `captureException` directly. Wired: `notification.failed`, `draw.failed`/`draw.retrigger_failed` (unexpected only)/`draw.load_failed`/`draw.resend_load_failed`, `draw.mail_status_record_failed`, `account.deletion_failed`, `health.db_unreachable`, `rate-limit.unconfigured_in_production`, `admin.audit_log_failed`. New high-value `logger.error` → use `reportError`. `app/error.tsx` + `app/global-error.tsx` capture boundary errors client-side.
 
 ## Identifier guard
 

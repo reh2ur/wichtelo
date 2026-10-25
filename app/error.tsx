@@ -1,12 +1,24 @@
 "use client";
 
+import * as Sentry from "@sentry/nextjs";
 import Link from "next/link";
+import { useEffect } from "react";
 import { buttonVariants, Button } from "@/components/ui/button";
 import messages from "@/messages/de.json";
 
 const t = messages.errorPage;
 
-export default function Error({ reset }: { error: Error; reset: () => void }) {
+export default function Error({
+  error,
+  reset,
+}: {
+  error: Error;
+  reset: () => void;
+}) {
+  useEffect(() => {
+    Sentry.captureException(error);
+  }, [error]);
+
   return (
     <main className="mx-auto flex w-full max-w-lg flex-col items-center px-4 py-16 text-center">
       <h1 className="text-2xl font-bold">{t.title}</h1>

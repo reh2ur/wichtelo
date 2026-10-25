@@ -1,5 +1,4 @@
-import { logger } from "@/lib/logger";
-import { serializeError } from "@/lib/serialize-error";
+import { reportError } from "@/lib/report-error";
 import { createAdminClient } from "@/lib/supabase/admin";
 
 export type AdminAction =
@@ -29,18 +28,17 @@ export async function logAdminAction(
       metadata: metadata ?? null,
     });
     if (error) {
-      logger
-        .withMetadata({ action, targetType, targetId, reason: error.message })
-        .error("admin.audit_log_failed");
-    }
-  } catch (err) {
-    logger
-      .withMetadata({
+      reportError("admin.audit_log_failed", error, {
         action,
         targetType,
         targetId,
-        error: serializeError(err),
-      })
-      .error("admin.audit_log_failed");
+      });
+    }
+  } catch (err) {
+    reportError("admin.audit_log_failed", err, {
+      action,
+      targetType,
+      targetId,
+    });
   }
 }

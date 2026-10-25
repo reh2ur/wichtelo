@@ -1,7 +1,6 @@
 import { connection, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
-import { logger } from "@/lib/logger";
-import { serializeError } from "@/lib/serialize-error";
+import { reportError } from "@/lib/report-error";
 
 // Uptime-monitor endpoint: cheap DB ping with the public publishable key
 // (no secrets, RLS applies). Returns no data from the DB.
@@ -21,9 +20,7 @@ export async function GET() {
 
   const headers = { "Cache-Control": "no-store" };
   if (error) {
-    logger
-      .withMetadata({ error: serializeError(error) })
-      .error("health.db_unreachable");
+    reportError("health.db_unreachable", error);
     return NextResponse.json({ status: "error" }, { status: 503, headers });
   }
   return NextResponse.json({ status: "ok" }, { headers });

@@ -33,6 +33,9 @@ Tick each before public launch / before draw season. Env var names in `.env.exam
 ## Sentry (EU)
 
 - [ ] EU-region project. `NEXT_PUBLIC_SENTRY_DSN`, `SENTRY_ORG`, `SENTRY_PROJECT` (+ auth token for source maps).
+- [ ] Alert rules (Sentry → Alerts, email to owner), both on prod env:
+  - Issue alert: "new issue" OR `event` tag in (`notification.failed`, `draw.failed`, `draw.retrigger_failed`, `draw.load_failed`, `draw.resend_load_failed`, `draw.mail_status_record_failed`, `account.deletion_failed`, `health.db_unreachable`, `rate-limit.unconfigured_in_production`, `admin.audit_log_failed`) — action: notify immediately. Fingerprint = event name → one issue per event, regressions re-alert.
+  - Resend outage / quota exhaustion (Dec risk) shows up as `notification.failed`; check Resend dashboard quota too.
 - [ ] Datenschutz already lists Sentry (see `docs/security.md`); re-check wording matches final org/region before DSN set in prod.
 
 ## Super-admin

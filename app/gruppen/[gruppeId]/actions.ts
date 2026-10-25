@@ -33,6 +33,14 @@ import {
   drawTriggerLimiter,
   joinLeaveLimiter,
 } from "@/lib/rate-limit";
+import { reportError } from "@/lib/report-error";
+
+// perform_draw results that mean "caller raced something", not a failure.
+const EXPECTED_DRAW_RESULTS = new Set([
+  "state_changed",
+  "ghost_members",
+  "membership_changed",
+]);
 
 export type LeaveGroupState =
   | { status: "idle" }
@@ -197,12 +205,7 @@ export async function triggerDraw(
   try {
     inputs = await loadDrawInputs(admin, groupId);
   } catch (err) {
-    logger
-      .withMetadata({
-        groupId,
-        reason: err instanceof Error ? err.message : String(err),
-      })
-      .error("draw.load_failed");
+    reportError("draw.load_failed", err, { groupId });
     return { status: "error", error: "generic" };
   }
 
@@ -272,12 +275,17 @@ export async function triggerDraw(
     },
   );
   if (drawError || drawResult !== "ok") {
-    logger
-      .withMetadata({
+    // state_changed / ghost_members are expected races (user-facing errors);
+    // anything else is a real failure an operator must see.
+    if (drawError || !EXPECTED_DRAW_RESULTS.has(drawResult as string)) {
+      reportError("draw.failed", drawError ?? new Error(String(drawResult)), {
         groupId,
-        reason: drawError?.message ?? (drawResult as string),
-      })
-      .error("draw.failed");
+      });
+    } else {
+      logger
+        .withMetadata({ groupId, reason: drawResult as string })
+        .error("draw.failed");
+    }
     if (drawResult === "state_changed") {
       return { status: "error", error: "already_drawn" };
     }
@@ -394,12 +402,7 @@ export async function retriggerDraw(
   try {
     inputs = await loadDrawInputs(admin, groupId);
   } catch (err) {
-    logger
-      .withMetadata({
-        groupId,
-        reason: err instanceof Error ? err.message : String(err),
-      })
-      .error("draw.load_failed");
+    reportError("draw.load_failed", err, { groupId });
     return { status: "error", error: "generic" };
   }
 
@@ -466,12 +469,17 @@ export async function retriggerDraw(
     },
   );
   if (drawError || drawResult !== "ok") {
-    logger
-      .withMetadata({
-        groupId,
-        reason: drawError?.message ?? (drawResult as string),
-      })
-      .error("draw.retrigger_failed");
+    if (drawError || !EXPECTED_DRAW_RESULTS.has(drawResult as string)) {
+      reportError(
+        "draw.retrigger_failed",
+        drawError ?? new Error(String(drawResult)),
+        { groupId },
+      );
+    } else {
+      logger
+        .withMetadata({ groupId, reason: drawResult as string })
+        .error("draw.retrigger_failed");
+    }
     if (drawResult === "state_changed") {
       return { status: "error", error: "not_drawn" };
     }
@@ -668,12 +676,7 @@ export async function resendDrawEmails(
       loadAssignment(admin, groupId),
     ]);
   } catch (err) {
-    logger
-      .withMetadata({
-        groupId,
-        reason: err instanceof Error ? err.message : String(err),
-      })
-      .error("draw.resend_load_failed");
+    reportError("draw.resend_load_failed", err, { groupId });
     return { status: "error", error: "generic" };
   }
   // A drawn group always has assignments + members. Empty means a lost read,
