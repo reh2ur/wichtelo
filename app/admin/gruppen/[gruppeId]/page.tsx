@@ -4,12 +4,10 @@ import { notFound } from "next/navigation";
 import Link from "next/link";
 import { ArrowLeftIcon } from "@phosphor-icons/react/ssr";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { getAuthUsersById } from "@/lib/admin/auth-users";
 import { GroupActions } from "./group-actions";
 import { AdminDetailSkeleton, AdminListSkeleton } from "../../admin-skeletons";
 import { Skeleton } from "@/components/ui/skeleton";
-
-const MAX_PAGES = 20;
-const PER_PAGE = 1000;
 
 interface GroupRecord {
   id: string;
@@ -50,69 +48,87 @@ interface ExclusionRecord {
 async function fetchGroupDetail(groupId: string) {
   const admin = createAdminClient();
 
-  const { data: groupRaw } = await admin
+  const { data: groupRaw, error: groupError } = await admin
     .from("groups")
     .select(
       "id, slug, name, year, state, budget_hint, note, created_by, created_at",
     )
     .eq("id", groupId)
     .maybeSingle();
+  if (groupError) {
+    throw new Error(`[fetchGroupDetail] group: ${groupError.message}`);
+  }
   if (!groupRaw) return null;
   const group = groupRaw as GroupRecord;
 
-  // created_by is NULL once the creator deleted their account
-  const { data: creatorRaw } = group.created_by
-    ? await admin
-        .from("profiles")
-        .select("first_name, last_name")
-        .eq("id", group.created_by)
+  const must = <T,>(
+    label: string,
+    res: { data: T | null; error: { message: string } | null },
+  ): T | null => {
+    if (res.error) {
+      throw new Error(`[fetchGroupDetail] ${label}: ${res.error.message}`);
+    }
+    return res.data;
+  };
+
+  // Independent reads run together. created_by is NULL once the creator
+  // deleted their account.
+  const [creatorRaw, membershipsRaw, tokenRaw, assignmentsRaw, exclusionsRaw] =
+    await Promise.all([
+      group.created_by
+        ? admin
+            .from("profiles")
+            .select("first_name, last_name")
+            .eq("id", group.created_by)
+            .maybeSingle()
+            .then((r) => must("creator", r))
+        : Promise.resolve(null),
+      admin
+        .from("memberships")
+        .select("id, profile_id, name_snapshot, role, joined_at")
+        .eq("group_id", groupId)
+        .order("joined_at", { ascending: true })
+        .then((r) => must("memberships", r)),
+      admin
+        .from("invite_tokens")
+        .select("token")
+        .eq("group_id", groupId)
+        .order("created_at", { ascending: false })
+        .limit(1)
         .maybeSingle()
-    : { data: null };
+        .then((r) => must("invite token", r)),
+      admin
+        .from("assignments")
+        .select("giver_id, receiver_id")
+        .eq("group_id", groupId)
+        .then((r) => must("assignments", r)),
+      admin
+        .from("exclusions")
+        .select("member_a, member_b")
+        .eq("group_id", groupId)
+        .then((r) => must("exclusions", r)),
+    ]);
+
   const creator = creatorRaw as Pick<
     ProfileRow,
     "first_name" | "last_name"
   > | null;
-
-  const { data: membershipsRaw } = await admin
-    .from("memberships")
-    .select("id, profile_id, name_snapshot, role, joined_at")
-    .eq("group_id", groupId)
-    .order("joined_at", { ascending: true });
   const memberships = (membershipsRaw ?? []) as MembershipRecord[];
   const nameByMembershipId = new Map(
     memberships.map((m) => [m.id, m.name_snapshot]),
   );
 
-  let emailByProfileId = new Map<string, string>();
-  if (memberships.some((m) => m.profile_id)) {
-    const authUsers: { id: string; email?: string }[] = [];
-    for (let page = 1; page <= MAX_PAGES; page++) {
-      const { data, error } = await admin.auth.admin.listUsers({
-        page,
-        perPage: PER_PAGE,
-      });
-      if (error || !data) break;
-      authUsers.push(...data.users);
-      if (data.users.length < PER_PAGE) break;
-    }
-    emailByProfileId = new Map(
-      authUsers.filter((u) => u.email).map((u) => [u.id, u.email!]),
-    );
-  }
+  // Only this group's members: getUserById per member, not a full user listing.
+  const authUsers = await getAuthUsersById(
+    admin,
+    memberships.flatMap((m) => (m.profile_id ? [m.profile_id] : [])),
+  );
+  const emailByProfileId = new Map(
+    [...authUsers].flatMap(([id, u]) => (u?.email ? [[id, u.email]] : [])),
+  );
 
-  const { data: tokenRaw } = await admin
-    .from("invite_tokens")
-    .select("token")
-    .eq("group_id", groupId)
-    .order("created_at", { ascending: false })
-    .limit(1)
-    .maybeSingle();
   const inviteToken = (tokenRaw as { token: string } | null)?.token ?? null;
 
-  const { data: assignmentsRaw } = await admin
-    .from("assignments")
-    .select("giver_id, receiver_id")
-    .eq("group_id", groupId);
   const assignments = ((assignmentsRaw ?? []) as AssignmentRecord[]).map(
     (a) => ({
       giverName: nameByMembershipId.get(a.giver_id) ?? "—",
@@ -120,10 +136,6 @@ async function fetchGroupDetail(groupId: string) {
     }),
   );
 
-  const { data: exclusionsRaw } = await admin
-    .from("exclusions")
-    .select("member_a, member_b")
-    .eq("group_id", groupId);
   const exclusions = ((exclusionsRaw ?? []) as ExclusionRecord[]).map((e) => ({
     memberAName: nameByMembershipId.get(e.member_a) ?? "—",
     memberBName: nameByMembershipId.get(e.member_b) ?? "—",

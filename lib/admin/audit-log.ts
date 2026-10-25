@@ -1,6 +1,6 @@
 import type { Route } from "next";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { listAllAuthUsers } from "./auth-users";
+import { getAuthUsersById } from "./auth-users";
 import type { AdminAction, AdminTargetType } from "./audit";
 
 export interface AuditLogEntry {
@@ -24,36 +24,53 @@ interface AuditLogRecord {
   created_at: string;
 }
 
-export async function fetchAuditLog(limit?: number): Promise<AuditLogEntry[]> {
+/** Rows shown when the caller passes no explicit limit (full audit page). */
+export const DEFAULT_AUDIT_LIMIT = 200;
+
+export async function fetchAuditLog(
+  limit: number = DEFAULT_AUDIT_LIMIT,
+): Promise<AuditLogEntry[]> {
   const admin = createAdminClient();
 
-  let query = admin
+  const { data: rowsRaw, error } = await admin
     .from("admin_audit_log")
     .select(
       "id, actor_email, action, target_type, target_id, metadata, created_at",
     )
-    .order("created_at", { ascending: false });
-  if (limit) query = query.limit(limit);
-
-  const { data: rowsRaw } = await query;
+    .order("created_at", { ascending: false })
+    .limit(limit);
+  if (error) throw new Error(`[fetchAuditLog] failed: ${error.message}`);
   const rows = (rowsRaw ?? []) as AuditLogRecord[];
 
-  const hasUserTargets = rows.some((r) => r.target_type === "user");
-  const hasGroupTargets = rows.some((r) => r.target_type === "group");
+  // Resolve only the targets that appear in the (bounded) rows instead of
+  // listing every auth user / group on each render.
+  const userIds = rows
+    .filter((r) => r.target_type === "user")
+    .map((r) => r.target_id);
+  const groupIds = [
+    ...new Set(
+      rows.filter((r) => r.target_type === "group").map((r) => r.target_id),
+    ),
+  ];
 
-  let existingUserIds = new Set<string>();
-  if (hasUserTargets) {
-    const authUsers = await listAllAuthUsers(admin);
-    existingUserIds = new Set(authUsers.map((u) => u.id));
-  }
-
-  let existingGroupIds = new Set<string>();
-  if (hasGroupTargets) {
-    const { data: groupsRaw } = await admin.from("groups").select("id");
-    existingGroupIds = new Set(
-      ((groupsRaw ?? []) as { id: string }[]).map((g) => g.id),
-    );
-  }
+  const [authUsers, existingGroupIds] = await Promise.all([
+    getAuthUsersById(admin, userIds),
+    groupIds.length === 0
+      ? Promise.resolve(new Set<string>())
+      : admin
+          .from("groups")
+          .select("id")
+          .in("id", groupIds)
+          .then(({ data, error: groupsError }) => {
+            if (groupsError) {
+              throw new Error(`[fetchAuditLog] groups: ${groupsError.message}`);
+            }
+            return new Set((data ?? []).map((g) => g.id as string));
+          }),
+  ]);
+  const existingUserIds = new Set(
+    [...authUsers].filter(([, u]) => u !== null).map(([id]) => id),
+  );
 
   return rows.map((r) => ({
     id: r.id,
