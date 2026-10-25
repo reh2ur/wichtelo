@@ -39,8 +39,6 @@ const group = {
   name: "G",
   state: "open",
   created_by: "u1",
-  budget_hint: null,
-  note: null,
 };
 
 describe("resolveToken error handling", () => {

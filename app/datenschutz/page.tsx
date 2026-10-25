@@ -22,11 +22,20 @@ export default async function DatenschutzPage() {
       <h1 className="mb-6 text-3xl font-extrabold tracking-tight">
         {t("title")}
       </h1>
+      <p className="text-muted-foreground -mt-4 mb-6 text-sm">{t("stand")}</p>
 
       <div className="text-foreground max-w-none space-y-6 text-sm">
         <section className="space-y-2">
           <h2 className="text-lg font-bold">{t("controller.heading")}</h2>
-          <p className="text-muted-foreground">{t("controller.body")}</p>
+          <p className="text-muted-foreground">
+            {t.rich("controller.body", {
+              impressum: (chunks) => (
+                <Link href="/impressum" className="underline">
+                  {chunks}
+                </Link>
+              ),
+            })}
+          </p>
         </section>
 
         <section className="space-y-2">

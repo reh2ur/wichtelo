@@ -70,6 +70,7 @@ import {
   inviteOtpVerifyLimiter,
   inviteOtpVerifyIpLimiter,
 } from "@/lib/rate-limit";
+import { rateLimitKey } from "@/lib/rate-limit-key";
 
 type SupabaseClient = Awaited<ReturnType<typeof createClient>>;
 type AdminClient = ReturnType<typeof createAdminClient>;
@@ -87,8 +88,6 @@ const openGroup = {
     name: "Testgruppe",
     state: "open" as const,
     created_by: "admin-1",
-    budget_hint: null,
-    note: null,
   },
   adminName: "Admin Admin",
 };
@@ -266,9 +265,13 @@ describe("requestInviteOtp rate limiting", () => {
     const calls = vi.mocked(checkRateLimit).mock.calls;
     expect(calls).toContainEqual([
       inviteOtpRequestLimiter,
-      "guest@example.com",
+      rateLimitKey("guest@example.com"),
     ]);
     expect(calls).toContainEqual([inviteOtpRequestIpLimiter, "1.2.3.4"]);
+    // Keys go to Upstash: never the raw address (#143).
+    expect(
+      calls.every(([, key]) => !key.toLowerCase().includes("example")),
+    ).toBe(true);
   });
 
   it("returns rate_limited when email limit exceeded", async () => {
@@ -430,7 +433,10 @@ describe("verifyInviteOtp rate limiting", () => {
       fd({ email: " Guest@Example.COM ", otp: "123456" }),
     );
     const calls = vi.mocked(checkRateLimit).mock.calls;
-    expect(calls).toContainEqual([inviteOtpVerifyLimiter, "guest@example.com"]);
+    expect(calls).toContainEqual([
+      inviteOtpVerifyLimiter,
+      rateLimitKey("guest@example.com"),
+    ]);
     expect(calls).toContainEqual([inviteOtpVerifyIpLimiter, "1.2.3.4"]);
   });
 

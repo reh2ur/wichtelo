@@ -19,6 +19,7 @@ import {
   anmeldenOtpVerifyLimiter,
   anmeldenOtpVerifyIpLimiter,
 } from "@/lib/rate-limit";
+import { rateLimitKey } from "@/lib/rate-limit-key";
 import {
   isAuthEmailThrottleError,
   isAuthRateLimitError,
@@ -78,7 +79,7 @@ export async function requestOtp(
   const ip = await getClientIp();
   if (
     !(await checkRateLimit(anmeldenOtpRequestIpLimiter, ip)) ||
-    !(await checkRateLimit(anmeldenOtpRequestLimiter, email.toLowerCase()))
+    !(await checkRateLimit(anmeldenOtpRequestLimiter, rateLimitKey(email)))
   ) {
     return { status: "error", error: "rate_limited", email };
   }
@@ -210,7 +211,7 @@ export async function verifyOtp(
   const ip = await getClientIp();
   if (
     !(await checkRateLimit(anmeldenOtpVerifyIpLimiter, ip)) ||
-    !(await checkRateLimit(anmeldenOtpVerifyLimiter, email.toLowerCase()))
+    !(await checkRateLimit(anmeldenOtpVerifyLimiter, rateLimitKey(email)))
   ) {
     return { status: "error", error: "rate_limited", email };
   }

@@ -24,6 +24,7 @@ import {
   inviteOtpVerifyIpLimiter,
   joinLeaveLimiter,
 } from "@/lib/rate-limit";
+import { rateLimitKey } from "@/lib/rate-limit-key";
 import { isAuthRateLimitError } from "@/lib/supabase/auth-errors";
 
 export type RequestInviteOtpState =
@@ -78,7 +79,7 @@ export async function requestInviteOtp(
   const ip = await getClientIp();
   if (
     !(await checkRateLimit(inviteOtpRequestIpLimiter, ip)) ||
-    !(await checkRateLimit(inviteOtpRequestLimiter, email.toLowerCase()))
+    !(await checkRateLimit(inviteOtpRequestLimiter, rateLimitKey(email)))
   ) {
     return { status: "error", error: "rate_limited", email };
   }
@@ -171,7 +172,7 @@ export async function verifyInviteOtp(
   const ip = await getClientIp();
   if (
     !(await checkRateLimit(inviteOtpVerifyIpLimiter, ip)) ||
-    !(await checkRateLimit(inviteOtpVerifyLimiter, email.toLowerCase()))
+    !(await checkRateLimit(inviteOtpVerifyLimiter, rateLimitKey(email)))
   ) {
     return { status: "error", error: "rate_limited", email };
   }

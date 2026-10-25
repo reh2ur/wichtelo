@@ -98,17 +98,6 @@ async function EinladungContent({
         <h1 className="text-3xl font-bold">{group.name}</h1>
         <p className="text-muted-foreground">{t("tagline")}</p>
         <p className="text-muted-foreground text-sm">{t("explanation")}</p>
-        {group.budget_hint && (
-          <p className="text-muted-foreground text-sm">
-            <span className="font-medium">{t("budgetHint")}:</span>{" "}
-            {group.budget_hint}
-          </p>
-        )}
-        {group.note && (
-          <p className="text-muted-foreground text-sm whitespace-pre-line">
-            <span className="font-medium">{t("noteLabel")}:</span> {group.note}
-          </p>
-        )}
       </div>
 
       {group.state === "drawn" ? (

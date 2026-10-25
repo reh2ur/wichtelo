@@ -51,6 +51,7 @@ import {
   anmeldenOtpVerifyLimiter,
   anmeldenOtpVerifyIpLimiter,
 } from "@/lib/rate-limit";
+import { rateLimitKey } from "@/lib/rate-limit-key";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 
@@ -112,9 +113,13 @@ describe("requestOtp", () => {
     const calls = vi.mocked(checkRateLimit).mock.calls;
     expect(calls).toContainEqual([
       anmeldenOtpRequestLimiter,
-      "foo@example.com",
+      rateLimitKey("foo@example.com"),
     ]);
     expect(calls.some(([l]) => l === anmeldenOtpRequestIpLimiter)).toBe(true);
+    // Keys go to Upstash: never the raw address (#143).
+    expect(
+      calls.every(([, key]) => !key.toLowerCase().includes("example")),
+    ).toBe(true);
   });
 
   it("returns rate_limited when either limit is exceeded", async () => {
@@ -517,7 +522,7 @@ describe("verifyOtp rate limiting and error mapping", () => {
     const calls = vi.mocked(checkRateLimit).mock.calls;
     expect(calls).toContainEqual([
       anmeldenOtpVerifyLimiter,
-      "user@example.com",
+      rateLimitKey("user@example.com"),
     ]);
     expect(calls).toContainEqual([
       anmeldenOtpVerifyIpLimiter,
