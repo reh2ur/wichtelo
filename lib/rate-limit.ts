@@ -109,3 +109,22 @@ export async function checkRateLimit(
   const { success } = await limiter.limit(identifier);
   return success;
 }
+
+/**
+ * Give back a slot consumed by `checkRateLimit` when the guarded operation
+ * failed before doing its job (e.g. mail never sent), so the user can retry.
+ * Best effort: a Redis error is logged, never thrown.
+ */
+export async function refundRateLimit(
+  limiter: Ratelimit | null,
+  identifier: string,
+): Promise<void> {
+  if (!limiter) return;
+  try {
+    await limiter.resetUsedTokens(identifier);
+  } catch (err) {
+    logger
+      .withMetadata({ identifier, reason: String(err) })
+      .error("rate-limit.refund_failed");
+  }
+}

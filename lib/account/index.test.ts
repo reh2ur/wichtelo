@@ -6,13 +6,21 @@
  */
 
 import { createHmac } from "crypto";
-import { describe, it, expect, beforeAll, afterAll } from "vitest";
+import { describe, it, expect, beforeAll, afterAll, vi } from "vitest";
+import { createAdminClient } from "@/lib/supabase/admin";
 import {
   deleteAccount,
   findSoleAdminGroups,
   createDeletionToken,
   verifyDeletionToken,
 } from "./index";
+
+// Pass-through wrapper so a single test can hand deleteAccount a client whose
+// auth.admin.deleteUser fails once (simulated partial failure, #137).
+vi.mock("@/lib/supabase/admin", async (importOriginal) => {
+  const mod = await importOriginal<typeof import("@/lib/supabase/admin")>();
+  return { ...mod, createAdminClient: vi.fn(mod.createAdminClient) };
+});
 
 const hasSupabase = !!process.env.NEXT_PUBLIC_SUPABASE_URL;
 
@@ -312,6 +320,91 @@ describe.skipIf(!hasSupabase)("deleteAccount", () => {
 
     await supabase.from("groups").delete().in("id", [solo, shared]);
     await supabase.auth.admin.deleteUser(soleId).catch(() => {});
+  });
+
+  it("retry after a failed deleteUser still returns open and drawn groups (#137)", async () => {
+    const { data: u } = await supabase.auth.admin.createUser({
+      email: `account-deletion-retry-${Date.now()}@test.local`,
+      email_confirm: true,
+    });
+    const userId = u.user.id;
+    await supabase
+      .from("profiles")
+      .insert({ id: userId, first_name: "Retry", last_name: "Nutzer" });
+
+    const groupIds: string[] = [];
+    const mkGroup = async (name: string) => {
+      const { data: group } = await supabase
+        .from("groups")
+        .insert({
+          slug: `retry-${name.toLowerCase()}-${Date.now()}`,
+          name,
+          state: "open",
+          created_by: adminUserId,
+          year: 2024,
+        })
+        .select("id")
+        .single();
+      groupIds.push(group.id);
+      const { error } = await supabase.from("memberships").insert([
+        {
+          group_id: group.id,
+          profile_id: adminUserId,
+          name_snapshot: "Anna Admin",
+          role: "admin",
+        },
+        {
+          group_id: group.id,
+          profile_id: userId,
+          name_snapshot: "Retry Nutzer",
+          role: "participant",
+        },
+      ]);
+      expect(error).toBeNull();
+      return group.id as string;
+    };
+    const openId = await mkGroup("RetryOffen");
+    const drawnId = await mkGroup("RetryGezogen");
+    // Trigger rejects membership inserts into a drawn group: draw afterwards.
+    await supabase.from("groups").update({ state: "drawn" }).eq("id", drawnId);
+
+    // Attempt 1: cleanup succeeds, deleteUser fails.
+    const real = createAdminClient();
+    const failing = Object.create(real);
+    Object.defineProperty(failing, "auth", {
+      value: {
+        admin: Object.create(real.auth.admin, {
+          deleteUser: {
+            value: async () => ({ error: { message: "simulated failure" } }),
+          },
+        }),
+      },
+    });
+    vi.mocked(createAdminClient).mockImplementationOnce(() => failing);
+    await expect(deleteAccount(userId)).rejects.toEqual({
+      message: "simulated failure",
+    });
+
+    // Account survives, open membership gone, drawn membership ghosted.
+    const { data: stillThere } = await supabase.auth.admin.getUserById(userId);
+    expect(stillThere.user).not.toBeNull();
+    const { data: mine } = await supabase
+      .from("memberships")
+      .select("id")
+      .eq("profile_id", userId);
+    expect(mine).toHaveLength(0);
+
+    // Attempt 2: the groups from attempt 1 must still be reported.
+    const result = await deleteAccount(userId);
+    expect(result.affectedOpenGroups.map((g) => g.groupId)).toEqual([openId]);
+    expect(result.affectedOpenGroups[0].adminEmails).toContain(adminEmail);
+    expect(result.affectedDrawnGroups.map((g) => g.groupId)).toEqual([drawnId]);
+    expect(result.affectedDrawnGroups[0].adminEmails).toContain(adminEmail);
+    expect(result.affectedDrawnGroups[0].participantName).toBe("Retry Nutzer");
+
+    const { data: gone } = await supabase.auth.admin.getUserById(userId);
+    expect(gone.user).toBeNull();
+    await supabase.from("groups").delete().in("id", groupIds);
   });
 });
 

@@ -113,7 +113,15 @@ export async function deleteUser(
   const email = userData.user.email;
 
   // Same guard as self-service deletion: never leave a group without a live admin.
-  const soleAdminGroups = await findSoleAdminGroups(userId);
+  let soleAdminGroups;
+  try {
+    soleAdminGroups = await findSoleAdminGroups(userId);
+  } catch (err) {
+    logger
+      .withMetadata({ userId, error: serializeError(err) })
+      .error("admin.delete_user_failed");
+    return { status: "error", error: "generic" };
+  }
   if (soleAdminGroups.length > 0) {
     return {
       status: "error",

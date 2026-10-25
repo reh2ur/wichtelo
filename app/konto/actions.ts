@@ -9,7 +9,12 @@ import { issueDeletionToken, findSoleAdminGroups } from "@/lib/account";
 import { notify } from "@/lib/notification";
 import { logger } from "@/lib/logger";
 import { groupTag } from "@/lib/cache-tags";
-import { checkRateLimit, accountDeletionLimiter } from "@/lib/rate-limit";
+import {
+  checkRateLimit,
+  refundRateLimit,
+  accountDeletionLimiter,
+} from "@/lib/rate-limit";
+import { serializeError } from "@/lib/serialize-error";
 
 const nameSchema = z.string().min(1).max(50);
 
@@ -115,11 +120,23 @@ export async function requestAccountDeletion(): Promise<RequestDeletionState> {
   } = await supabase.auth.getUser();
   if (!user) return { status: "error", error: "not_authenticated" };
 
-  if (!(await checkRateLimit(accountDeletionLimiter, user.id))) {
-    return { status: "error", error: "rate_limited" };
+  const email = user.email;
+  if (!email) {
+    logger.withMetadata({ userId: user.id }).error("account.deletion_no_email");
+    return { status: "error", error: "generic" };
   }
 
-  const soleAdminGroups = await findSoleAdminGroups(user.id);
+  // Cheap, side-effect-free guard first: a rejection here must not burn the
+  // 1/24h slot (the user promotes someone and retries right away).
+  let soleAdminGroups;
+  try {
+    soleAdminGroups = await findSoleAdminGroups(user.id);
+  } catch (err) {
+    logger
+      .withMetadata({ userId: user.id, error: serializeError(err) })
+      .error("account.sole_admin_check_failed");
+    return { status: "error", error: "generic" };
+  }
   if (soleAdminGroups.length > 0) {
     return {
       status: "error",
@@ -128,21 +145,37 @@ export async function requestAccountDeletion(): Promise<RequestDeletionState> {
     };
   }
 
-  const siteUrl = await getSiteUrl();
-  const token = await issueDeletionToken(user.id);
-  const confirmUrl = `${siteUrl}/konto/delete/confirm?token=${token}`;
+  if (!(await checkRateLimit(accountDeletionLimiter, user.id))) {
+    return { status: "error", error: "rate_limited" };
+  }
 
-  const result = await notify({
-    type: "account.deletion_requested",
-    to: user.email!,
-    confirmUrl,
-  });
+  // From here the slot is consumed. Anything but a delivered mail refunds it,
+  // so a transient failure does not lock the user out for 24 h.
+  let sent = false;
+  try {
+    const siteUrl = await getSiteUrl();
+    const token = await issueDeletionToken(user.id);
+    const confirmUrl = `${siteUrl}/konto/delete/confirm?token=${token}`;
 
-  if (result.failed > 0) {
+    const result = await notify({
+      type: "account.deletion_requested",
+      to: email,
+      confirmUrl,
+    });
+    sent = result.failed === 0;
+    if (!sent) {
+      logger
+        .withMetadata({ userId: user.id })
+        .error("account.deletion_email_failed");
+      return { status: "error", error: "email_failed" };
+    }
+  } catch (err) {
     logger
-      .withMetadata({ userId: user.id })
-      .error("account.deletion_email_failed");
-    return { status: "error", error: "email_failed" };
+      .withMetadata({ userId: user.id, error: serializeError(err) })
+      .error("account.deletion_request_failed");
+    return { status: "error", error: "generic" };
+  } finally {
+    if (!sent) await refundRateLimit(accountDeletionLimiter, user.id);
   }
 
   logger.withMetadata({ userId: user.id }).info("account.deletion_requested");

@@ -120,11 +120,14 @@ export async function findSoleAdminGroups(
 ): Promise<SoleAdminGroup[]> {
   const admin = createAdminClient();
 
-  const { data: ownRaw } = await admin
+  // Every read throws on error: a swallowed error would look like "no sole
+  // admin groups" and fail the guard open. Callers map the throw to `generic`.
+  const { data: ownRaw, error: ownError } = await admin
     .from("memberships")
     .select("group_id, groups(id, name, slug)")
     .eq("profile_id", userId)
     .eq("role", "admin");
+  if (ownError) throw ownError;
 
   const own = (ownRaw ?? []) as unknown as {
     group_id: string;
@@ -134,13 +137,14 @@ export async function findSoleAdminGroups(
   const result: SoleAdminGroup[] = [];
   for (const m of own) {
     if (!m.groups) continue;
-    const { data: others } = await admin
+    const { data: others, error: othersError } = await admin
       .from("memberships")
       .select("id")
       .eq("group_id", m.group_id)
       .eq("role", "admin")
       .not("profile_id", "is", null)
       .neq("profile_id", userId);
+    if (othersError) throw othersError;
     if ((others ?? []).length === 0) {
       result.push({
         groupId: m.groups.id,
@@ -157,12 +161,15 @@ async function collectAdminEmails(
   groupId: string,
   userId: string,
 ): Promise<string[]> {
-  const { data: adminMembershipsRaw } = await admin
-    .from("memberships")
-    .select("profile_id")
-    .eq("group_id", groupId)
-    .eq("role", "admin")
-    .neq("profile_id", userId);
+  // Throws on error: silently returning [] would skip the admin notice.
+  const { data: adminMembershipsRaw, error: adminMembershipsError } =
+    await admin
+      .from("memberships")
+      .select("profile_id")
+      .eq("group_id", groupId)
+      .eq("role", "admin")
+      .neq("profile_id", userId);
+  if (adminMembershipsError) throw adminMembershipsError;
 
   const adminProfileIds = ((adminMembershipsRaw ?? []) as AdminMembershipRow[])
     .map((a) => a.profile_id)
@@ -171,12 +178,32 @@ async function collectAdminEmails(
   return (
     await Promise.all(
       adminProfileIds.map(async (profileId) => {
-        const { data: userData } =
+        const { data: userData, error } =
           await admin.auth.admin.getUserById(profileId);
+        // 404 = that admin account is gone already, nobody to notify.
+        if (error && error.status !== 404) throw error;
         return userData?.user?.email ?? null;
       }),
     )
   ).filter((email): email is string => !!email);
+}
+
+/** A group the deleted account belonged to, persisted across retries. */
+interface PendingGroup {
+  groupId: string;
+  state: "open" | "drawn";
+  participantName: string;
+}
+
+function parsePendingDeletion(raw: unknown): PendingGroup[] {
+  if (!Array.isArray(raw)) return [];
+  return raw.filter(
+    (e): e is PendingGroup =>
+      !!e &&
+      typeof e.groupId === "string" &&
+      (e.state === "open" || e.state === "drawn") &&
+      typeof e.participantName === "string",
+  );
 }
 
 /**
@@ -185,39 +212,102 @@ async function collectAdminEmails(
  * (`name_snapshot` preserved, assignments intact). Open groups lose the
  * membership entirely so the deleted account can never be drawn; cascades
  * remove its exclusions.
+ *
+ * Retry-safe: the destructive steps (removing/ghosting memberships) run
+ * before `deleteUser`, and a failure in between leaves the account alive with
+ * those memberships already gone, so a retry could no longer see which groups
+ * need an admin notice. Before mutating anything, the affected groups are
+ * therefore stored on the auth user (`app_metadata.pending_deletion`: group
+ * ids and the member's name only) and merged back in on retry. All reads
+ * happen before the first mutation and throw on error: a swallowed read error
+ * would look like "no memberships" and skip the cleanup.
  */
 export async function deleteAccount(
   userId: string,
 ): Promise<DeleteAccountResult> {
   const admin = createAdminClient();
 
-  const { data: membershipsRaw } = await admin
+  const { data: membershipsRaw, error: membershipsError } = await admin
     .from("memberships")
     .select("id, group_id, name_snapshot, groups(id, name, slug, state)")
     .eq("profile_id", userId);
+  if (membershipsError) throw membershipsError;
 
   const memberships = (membershipsRaw ?? []) as unknown as MembershipRow[];
   const nullifiedMembershipCount = memberships.length;
+  const live = memberships.filter((m) => m.groups);
+  const openEntries = live.filter((m) => m.groups!.state !== "drawn");
+  const drawnEntries = live.filter((m) => m.groups!.state === "drawn");
 
-  const describe = async (m: MembershipRow): Promise<AffectedDrawnGroup> => ({
-    groupId: m.groups!.id,
-    name: m.groups!.name,
-    slug: m.groups!.slug,
-    participantName: m.name_snapshot,
-    adminEmails: await collectAdminEmails(admin, m.groups!.id, userId),
+  // Groups left behind by an earlier, partially failed attempt.
+  const { data: userData, error: userError } =
+    await admin.auth.admin.getUserById(userId);
+  if (userError) throw userError;
+  const pendingFromRetry = parsePendingDeletion(
+    userData?.user?.app_metadata?.pending_deletion,
+  );
+
+  const affected = new Map<string, PendingGroup>();
+  for (const p of pendingFromRetry) affected.set(p.groupId, p);
+  for (const m of live) {
+    affected.set(m.groups!.id, {
+      groupId: m.groups!.id,
+      state: m.groups!.state === "drawn" ? "drawn" : "open",
+      participantName: m.name_snapshot,
+    });
+  }
+
+  // Name/slug of groups known only from a previous attempt. A group deleted
+  // meanwhile has no admins left to notify and is dropped.
+  const info = new Map<string, { name: string; slug: string }>();
+  for (const m of live) {
+    info.set(m.groups!.id, { name: m.groups!.name, slug: m.groups!.slug });
+  }
+  const missing = [...affected.keys()].filter((id) => !info.has(id));
+  if (missing.length > 0) {
+    const { data: groupRows, error: groupsError } = await admin
+      .from("groups")
+      .select("id, name, slug")
+      .in("id", missing);
+    if (groupsError) throw groupsError;
+    for (const g of (groupRows ?? []) as {
+      id: string;
+      name: string;
+      slug: string;
+    }[]) {
+      info.set(g.id, { name: g.name, slug: g.slug });
+    }
+  }
+
+  const describe = async (p: PendingGroup): Promise<AffectedDrawnGroup> => ({
+    groupId: p.groupId,
+    name: info.get(p.groupId)!.name,
+    slug: info.get(p.groupId)!.slug,
+    participantName: p.participantName,
+    adminEmails: await collectAdminEmails(admin, p.groupId, userId),
   });
 
-  const live = memberships.filter((m) => m.groups);
   const described = await Promise.all(
-    live.map(async (m) => ({ m, group: await describe(m) })),
+    [...affected.values()]
+      .filter((p) => info.has(p.groupId))
+      .map(async (p) => ({ p, group: await describe(p) })),
   );
   const affectedDrawnGroups = described
-    .filter(({ m }) => m.groups!.state === "drawn")
+    .filter(({ p }) => p.state === "drawn")
     .map(({ group }) => group);
-  const openEntries = described.filter(({ m }) => m.groups!.state !== "drawn");
-  const affectedOpenGroups: AffectedOpenGroup[] = openEntries.map(
-    ({ group }) => group,
-  );
+  const affectedOpenGroups: AffectedOpenGroup[] = described
+    .filter(({ p }) => p.state === "open")
+    .map(({ group }) => group);
+
+  // Persist BEFORE the first mutation (only when this attempt has something
+  // new to remember).
+  if (live.length > 0) {
+    const { error: persistError } = await admin.auth.admin.updateUserById(
+      userId,
+      { app_metadata: { pending_deletion: [...affected.values()] } },
+    );
+    if (persistError) throw persistError;
+  }
 
   // Remove open-group memberships BEFORE deleteUser: afterwards they would
   // be profile_id = null rows that look like normal members and could be
@@ -225,7 +315,7 @@ export async function deleteAccount(
   // run, the removal is refused ("already_drawn") instead of cascading away
   // two assignments, and the deletion aborts; user can retry (the group is
   // then treated as drawn). Last-admin is guarded by the callers.
-  for (const { m } of openEntries) {
+  for (const m of openEntries) {
     const { result, reason } = await removeMembership(admin, m.group_id, m.id, {
       enforceLastAdmin: false,
     });
@@ -241,7 +331,7 @@ export async function deleteAccount(
   // perform_draw takes) instead of leaving it to the FK cascade inside
   // deleteUser, which locks nothing and could land between a re-draw's member
   // snapshot and perform_draw's own member read (#105).
-  if (affectedDrawnGroups.length > 0) {
+  if (drawnEntries.length > 0) {
     const { error: ghostError } = await admin.rpc("ghost_drawn_memberships", {
       p_profile_id: userId,
     });
