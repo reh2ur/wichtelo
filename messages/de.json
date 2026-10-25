@@ -121,7 +121,7 @@
     "emailFailure": "{failed} von {total} E-Mails konnten nicht zugestellt werden – Teilnehmer können ihre Zuteilung jederzeit in der App sehen.",
     "confirm": {
       "title": "Auslosung starten?",
-      "message": "Danach kann niemand mehr beitreten, alle erhalten eine E-Mail.",
+      "message": "Danach kann niemand mehr beitreten, alle erhalten eine E-Mail. Darin sind dein Name und deine E-Mail-Adresse als Ansprechperson angegeben.",
       "button": "Jetzt auslosen",
       "cancel": "Abbrechen"
     },
@@ -200,7 +200,7 @@
       "section": "Gefahrenzone",
       "delete": "Gruppe löschen",
       "confirmTitle": "Gruppe wirklich löschen?",
-      "confirmMessage": "Alle Teilnehmer werden benachrichtigt.",
+      "confirmMessage": "Alle Teilnehmer werden benachrichtigt. In der E-Mail sind dein Name und deine E-Mail-Adresse als Ansprechperson angegeben.",
       "confirm": "Endgültig löschen",
       "cancel": "Abbrechen",
       "deleting": "Wird gelöscht…"
@@ -233,7 +233,7 @@
     },
     "confirm": {
       "title": "Auslosung wirklich wiederholen?",
-      "message": "Alle bisherigen Zuweisungen werden überschrieben.",
+      "message": "Alle bisherigen Zuweisungen werden überschrieben. Alle erhalten eine neue E-Mail, in der dein Name und deine E-Mail-Adresse als Ansprechperson angegeben sind.",
       "button": "Wiederholen",
       "cancel": "Abbrechen"
     },
@@ -285,7 +285,7 @@
       "section": "Gefahrenzone",
       "delete": "Konto löschen",
       "confirmTitle": "Konto wirklich löschen?",
-      "confirmMessage": "Du erhältst eine Bestätigungs-E-Mail. Erst nach dem Klick auf den Link wird dein Konto endgültig gelöscht. Dein Name bleibt in bestehenden Gruppen sichtbar.",
+      "confirmMessage": "Du erhältst eine Bestätigungs-E-Mail. Erst nach dem Klick auf den Link werden dein Konto und deine Profildaten gelöscht. Dein Name bleibt in bereits ausgelosten Gruppen sichtbar; aus Gruppen ohne Auslosung wirst du entfernt.",
       "confirm": "Bestätigungs-E-Mail senden",
       "cancel": "Abbrechen",
       "deleting": "Wird gesendet…",
@@ -303,7 +303,7 @@
   },
   "accountDeletion": {
     "title": "Konto endgültig löschen?",
-    "message": "Dein Konto und deine persönlichen Daten werden unwiderruflich gelöscht. Erst mit Klick auf den Button wird gelöscht.",
+    "message": "Dein Konto und deine Profildaten werden unwiderruflich gelöscht. Dein Name bleibt in bereits ausgelosten Gruppen sichtbar. Erst mit Klick auf den Button wird gelöscht.",
     "confirm": "Konto endgültig löschen",
     "confirming": "Wird gelöscht…",
     "cancel": "Abbrechen",
@@ -324,8 +324,6 @@
     "groupLabel": "Gruppe",
     "tagline": "Du wurdest zu einer Wichtel-Gruppe eingeladen.",
     "explanation": "Beim Wichteln zieht jeder eine Person und schenkt ihr ein Geschenk. Die Auslosung erfolgt zufällig.",
-    "budgetHint": "Budget",
-    "noteLabel": "Hinweis",
     "notFoundTitle": "Ungültiger Einladungslink",
     "notFoundMessage": "Dieser Einladungslink ist ungültig oder abgelaufen.",
     "deadEnd": {
@@ -416,7 +414,7 @@
       "delete": "Benutzer löschen",
       "deleting": "Wird gelöscht…",
       "deleteConfirmTitle": "Benutzer wirklich löschen?",
-      "deleteConfirmMessage": "Löscht das Konto, entfernt profile_id aus Mitgliedschaften, behält name_snapshot.",
+      "deleteConfirmMessage": "Löscht das Konto und die Profildaten. Der Name bleibt in bereits ausgelosten Gruppen sichtbar.",
       "confirm": "Bestätigen",
       "cancel": "Abbrechen"
     },
@@ -556,13 +554,14 @@
   },
   "datenschutz": {
     "title": "Datenschutzerklärung",
+    "stand": "Stand: 25. Oktober 2026",
     "controller": {
       "heading": "Verantwortlicher",
-      "body": "Verantwortlich für die Datenverarbeitung auf dieser Plattform ist der unter „Kontakt“ genannte Diensteanbieter (siehe Impressum)."
+      "body": "Verantwortlich für die Datenverarbeitung auf dieser Plattform ist der unter „Kontakt“ genannte Diensteanbieter (siehe <impressum>Impressum</impressum>)."
     },
     "dataCollected": {
       "heading": "Erhobene Daten",
-      "body": "Bei der Registrierung und Nutzung der Plattform werden folgende personenbezogene Daten verarbeitet: E-Mail-Adresse, Vorname und Nachname; Gruppeninhalte (Gruppenname, Jahr, Hinweistext, Budget-Hinweis, Mitgliedschaften und Rollen); Ausschlüsse (Paare, die nicht gegenseitig gelost werden sollen) und Auslosungsergebnisse (wer wen beschenkt). Beim Aufruf und bei der Anmeldung fallen zudem technisch bedingt IP-Adressen an (Ratenbegrenzung bei Upstash sowie Anfrage-Protokolle bei Vercel und Supabase). Der Nachname wird ausschließlich zur eindeutigen Anzeige innerhalb einer Gruppe erhoben und, falls nicht zur Unterscheidung nötig, anderen Teilnehmenden nicht angezeigt."
+      "body": "Bei der Registrierung und Nutzung der Plattform werden folgende personenbezogene Daten verarbeitet: E-Mail-Adresse, Vorname und Nachname; Gruppeninhalte (Gruppenname, Jahr, Hinweistext, Budget-Hinweis, Mitgliedschaften und Rollen); Ausschlüsse (Paare, die nicht gegenseitig gelost werden sollen) und Auslosungsergebnisse (wer wen beschenkt). Beim Aufruf und bei der Anmeldung fallen zudem technisch bedingt IP-Adressen an (Anfrage-Protokolle bei Vercel und Supabase); für die Ratenbegrenzung bei Upstash werden IP-Adressen und pseudonymisierte Kennungen (Hash der E-Mail-Adresse, Konto-ID) verarbeitet. Der Nachname wird ausschließlich zur eindeutigen Anzeige innerhalb einer Gruppe erhoben und, falls nicht zur Unterscheidung nötig, anderen Teilnehmenden nicht angezeigt."
     },
     "purpose": {
       "heading": "Zweck der Verarbeitung",
@@ -576,11 +575,11 @@
       "heading": "Auftragsverarbeiter",
       "intro": "Zur Bereitstellung des Dienstes werden folgende Auftragsverarbeiter eingesetzt:",
       "supabase": "Supabase (Datenbank in Frankfurt, EU; Anbieter ist Supabase Inc., USA) — Datenbank und Authentifizierung.",
-      "resend": "Resend (USA) — Versand von Transaktions-E-Mails (Anmeldelinks, Benachrichtigungen).",
+      "resend": "Resend (USA) — Versand von Transaktions-E-Mails (Anmeldelinks, Benachrichtigungen). Resend speichert versendete E-Mails samt Inhalt (z. B. Namen, Auslosungsergebnis, Kontaktdaten des Gruppen-Admins) nach Maßgabe des gebuchten Tarifs für einen begrenzten Zeitraum.",
       "vercel": "Vercel (USA) — Hosting und Auslieferung der Anwendung.",
       "speedInsights": "Vercel Speed Insights — Performance-Messung der Anwendung.",
       "sentry": "Sentry (Functional Software, Inc., USA; Datenverarbeitung in der EU) — Fehlerüberwachung: Bei technischen Fehlern werden Fehlermeldung, Stacktrace, Browser-/Geräte-Typ und aufgerufene Seite (Einladungs-Token werden vor der Übermittlung entfernt) übertragen. Kein Session Replay, keine Cookies. Rechtsgrundlage ist Art. 6 Abs. 1 lit. f DSGVO (berechtigtes Interesse an einem stabilen Betrieb). Speicherdauer gemäß Sentry-Tarif (derzeit maximal 90 Tage).",
-      "redis": "Upstash (USA) — Redis-basierte Ratenbegrenzung (Rate Limiting) zum Schutz vor Missbrauch, verarbeitet IP-Adressen."
+      "redis": "Upstash (USA) — Redis-basierte Ratenbegrenzung (Rate Limiting) zum Schutz vor Missbrauch. Verarbeitet werden IP-Adressen und pseudonymisierte Kennungen (Hash der E-Mail-Adresse, Konto-ID); sie werden nach Ablauf des jeweiligen Zeitfensters (höchstens 24 Stunden) automatisch gelöscht."
     },
     "transferSafeguard": {
       "heading": "Datenübermittlung in die USA",
@@ -600,11 +599,11 @@
     },
     "retentionAfterDeletion": {
       "heading": "Speicherung nach Kontolöschung",
-      "body": "Wird ein Konto gelöscht, wird der Nutzer-Account entfernt. In Gruppen, die noch nicht ausgelost wurden, wird die Mitgliedschaft vollständig gelöscht; die Gruppen-Admins werden benachrichtigt. In bereits ausgelosten Gruppen wird die Zuordnung zum Nutzerkonto aufgehoben. Der zum Zeitpunkt der Löschung gespeicherte Name (name_snapshot) bleibt dort jedoch innerhalb bestehender Gruppen und Auslosungsergebnisse sichtbar, damit die Wichtel-Historie für andere Gruppenmitglieder nachvollziehbar bleibt. Eine erneute Zuordnung zu einem Nutzerkonto findet nach der Löschung nicht mehr statt."
+      "body": "Wird ein Konto gelöscht, wird der Nutzer-Account entfernt. In Gruppen, die noch nicht ausgelost wurden, wird die Mitgliedschaft vollständig gelöscht; die Gruppen-Admins werden benachrichtigt. In bereits ausgelosten Gruppen wird die Zuordnung zum Nutzerkonto aufgehoben. Der zum Zeitpunkt der Löschung gespeicherte Name bleibt dort jedoch innerhalb bestehender Gruppen und Auslosungsergebnisse sichtbar, damit die Wichtel-Historie für andere Gruppenmitglieder nachvollziehbar bleibt. Eine erneute Zuordnung zu einem Nutzerkonto findet nach der Löschung nicht mehr statt."
     },
     "cookies": {
       "heading": "Cookies",
-      "body": "Wir setzen ausschließlich ein technisch notwendiges Cookie zur Aufrechterhaltung der Anmelde-Sitzung (Supabase Auth) ein. Dieses Cookie ist gemäß § 25 Abs. 2 Nr. 2 TDDDG von der Einwilligungspflicht ausgenommen, da es zur Bereitstellung des von dir ausdrücklich gewünschten Dienstes erforderlich ist. Ein Cookie-Consent-Banner ist daher nicht erforderlich."
+      "body": "Wir setzen ausschließlich technisch notwendige Cookies ein: das Anmelde-Sitzungs-Cookie (Supabase Auth; bei größerem Umfang auf mehrere Cookies aufgeteilt) und das Cookie „wichtelo_next“, das für höchstens eine Stunde die Seite merkt, zu der du nach der Anmeldung zurückkehren möchtest (nur Anmelde-Pfad, nicht per Skript lesbar). Diese Cookies sind gemäß § 25 Abs. 2 Nr. 2 TDDDG von der Einwilligungspflicht ausgenommen, da sie zur Bereitstellung des von dir ausdrücklich gewünschten Dienstes erforderlich ist. Ein Cookie-Consent-Banner ist daher nicht erforderlich."
     },
     "minors": {
       "heading": "Hinweis zu Minderjährigen",
@@ -635,11 +634,11 @@
     },
     "memberVisibility": {
       "heading": "Sichtbarkeit innerhalb einer Gruppe",
-      "body": "Mitglieder einer Gruppe sehen den Gruppennamen, den Hinweis- und Budgettext, die Teilnehmerliste (Vornamen, bei Bedarf mit abgekürztem Nachnamen) sowie ihre eigene Zuweisung. In den E-Mails zur Auslosung und zur Löschung einer Gruppe werden Name und E-Mail-Adresse des Gruppen-Admins angegeben, damit Teilnehmende ihn bei Rückfragen kontaktieren können. Gruppen-Admins sehen die vollständigen Namen der Teilnehmenden."
+      "body": "Mitglieder einer Gruppe sehen den Gruppennamen, den Hinweis- und Budgettext, die Teilnehmerliste (Vornamen, bei Bedarf mit abgekürztem Nachnamen) sowie ihre eigene Zuweisung. In den E-Mails zur Auslosung, zur Löschung einer Gruppe und zur Entfernung aus einer Gruppe werden Name und E-Mail-Adresse des Gruppen-Admins angegeben, damit Teilnehmende ihn bei Rückfragen kontaktieren können. Gruppen-Admins sehen die vollständigen Namen der Teilnehmenden. Hinweis- und Budgettext sind nur für Mitglieder sichtbar; wer lediglich den Einladungslink kennt (auch nach der Auslosung), sieht nur den Gruppennamen."
     },
     "auditLog": {
       "heading": "Protokoll von Administrationsvorgängen",
-      "body": "Sperrt oder löscht der Plattformbetreiber ein Konto, wird dies in einem Protokoll (admin_audit_log) festgehalten. Dieses Protokoll enthält u. a. die E-Mail-Adresse des betroffenen Kontos. Es wird derzeit nicht automatisch gelöscht, sodass die E-Mail-Adresse auch nach einer Kontolöschung dort erhalten bleiben kann. Rechtsgrundlage ist Art. 6 Abs. 1 lit. f DSGVO (Nachweis- und Missbrauchsprävention). Du kannst die Löschung entsprechender Einträge über die unter „Kontakt“ genannte Adresse verlangen."
+      "body": "Sperrt oder löscht der Plattformbetreiber ein Konto, wird dies in einem Protokoll der Administrationsvorgänge festgehalten. Dieses Protokoll enthält u. a. die E-Mail-Adresse des betroffenen Kontos. Es wird derzeit nicht automatisch gelöscht, sodass die E-Mail-Adresse auch nach einer Kontolöschung dort erhalten bleiben kann. Rechtsgrundlage ist Art. 6 Abs. 1 lit. f DSGVO (Nachweis- und Missbrauchsprävention). Du kannst die Löschung entsprechender Einträge über die unter „Kontakt“ genannte Adresse verlangen."
     }
   },
   "errorPage": {

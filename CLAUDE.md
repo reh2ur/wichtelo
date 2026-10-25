@@ -71,6 +71,8 @@ Full design spec (palette, tokens, components, icon rules) in **`docs/design.md`
 
 **`resolveToken` contact name** (`adminName`, dead-end copy) = oldest live admin membership (`profile_id` not null), looked up only when `state === "drawn"`, else `""`. Never `groups.created_by` — nullable (`ON DELETE SET NULL` on creator account deletion), `.eq("id", null)` would break invite page. Same null guard in admin group pages.
 
+**Invite page exposure.** `/einladung/[token]` shows group name only (+ admin first name/initial on drawn dead end). `budget_hint`/`note` NOT selected by `resolveToken`, never shown to link holder — members only (matches `datenschutz.memberVisibility`). Rate-limit keys for email = `rateLimitKey(email)` (`lib/rate-limit-key.ts`, HMAC w/ `ACCOUNT_DELETION_SECRET`) — raw email never goes to Upstash.
+
 **Invite rotation.** `rotateToken(groupId)` (`lib/invite`) overwrites token in place (one row per group) → old link hits invalid-token page. Admin action `regenerateInviteLink` in settings, open groups only, calls `updateTag(groupTag(slug))`. No migration needed.
 
 **Cache invalidation after mutations — always call `updateTag`, never `revalidatePath`.** With no tagged cache, these calls expire nothing; kept deliberately as action-response refresh trigger (Next ships refreshed tree for current route → UI updates right after mutation) and so re-adding `cacheTag` later is already wired. Keep them when touching these sites:

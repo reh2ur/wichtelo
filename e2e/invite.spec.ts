@@ -73,6 +73,29 @@ test.describe("invite page", () => {
     await guestCtx.close();
   });
 
+  test("invite page hides group note and budget from link holders (#157)", async ({
+    authedPage,
+    browser,
+  }) => {
+    const { slug, inviteUrl } = await setupGroup(authedPage, "Nur Name Test");
+
+    await authedPage.goto(`/gruppen/${slug}/einstellungen`);
+    await authedPage.locator("#budgetHint").fill("42 €");
+    await authedPage.locator("#note").fill("Treffen am 20. Dezember um 18 Uhr");
+    await authedPage.locator('button:has-text("Speichern")').click();
+    await expect(authedPage.locator("text=Gespeichert.")).toBeVisible({
+      timeout: 10_000,
+    });
+
+    const guestCtx = await browser.newContext(guestContextOptions());
+    const guestPage = await guestCtx.newPage();
+    await guestPage.goto(inviteUrl);
+    await expect(guestPage.locator("h1")).toContainText("Nur Name Test");
+    await expect(guestPage.getByText("42 €")).toHaveCount(0);
+    await expect(guestPage.getByText("20. Dezember")).toHaveCount(0);
+    await guestCtx.close();
+  });
+
   test("invalid token shows not-found page with 404 status", async ({
     page,
   }) => {

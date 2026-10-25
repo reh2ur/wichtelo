@@ -13,8 +13,8 @@ export function AccountDeletionConfirmedEmail({
     <WichtelLayout preview="Dein Konto wurde gelöscht" heading="Konto gelöscht">
       <Text style={text}>Hallo {name},</Text>
       <Text style={text}>
-        dein Konto und deine persönlichen Daten wurden gelöscht. Diese E-Mail
-        dient als Bestätigung.
+        dein Konto und deine Profildaten wurden gelöscht. Diese E-Mail dient als
+        Bestätigung.
       </Text>
       <Text style={muted}>
         Dein Name bleibt in bereits stattgefundenen Auslosungen sichtbar, damit

@@ -25,6 +25,23 @@ test.describe("legal pages", () => {
     ).toBeVisible();
   });
 
+  test("/datenschutz shows Stand date and links Impressum from the controller section", async ({
+    page,
+  }) => {
+    await page.goto("/datenschutz");
+
+    await expect(page.getByText(/^Stand: \d{1,2}\. \w+ \d{4}$/)).toBeVisible();
+
+    const controller = page.locator("section", {
+      has: page.getByRole("heading", { name: "Verantwortlicher" }),
+    });
+    await controller.getByRole("link", { name: "Impressum" }).click();
+    await expect(page).toHaveURL(/\/impressum/);
+    await expect(
+      page.getByRole("heading", { level: 1, name: "Impressum" }),
+    ).toBeVisible();
+  });
+
   test("/impressum contains DDG §5 required fields", async ({ page }) => {
     await page.goto("/impressum");
 
@@ -63,7 +80,9 @@ test.describe("legal pages", () => {
     ).toBeVisible();
     await expect(page.getByText(/Resend \(USA\)/)).toBeVisible();
     await expect(page.getByText(/Vercel \(USA\) — Hosting/)).toBeVisible();
-    await expect(page.getByText(/Upstash \(USA\)/)).toBeVisible();
+    const upstash = page.locator("li").filter({ hasText: /Upstash \(USA\)/ });
+    await expect(upstash).toBeVisible();
+    await expect(upstash).toContainText("Hash der E-Mail-Adresse");
     await expect(
       page.getByRole("heading", { name: "Einsicht durch Gruppen-Admins" }),
     ).toBeVisible();
@@ -93,7 +112,12 @@ test.describe("legal pages", () => {
     await expect(
       page.getByRole("heading", { name: "Speicherdauer" }),
     ).toBeVisible();
-    await expect(page.getByRole("heading", { name: "Cookies" })).toBeVisible();
+    const cookies = page.locator("section", {
+      has: page.getByRole("heading", { name: "Cookies" }),
+    });
+    await expect(cookies).toBeVisible();
+    await expect(cookies).toContainText("wichtelo_next");
+    await expect(cookies).not.toContainText("ausschließlich ein ");
     await expect(
       page.getByRole("heading", { name: "Hinweis zu Minderjährigen" }),
     ).toBeVisible();
@@ -115,5 +139,6 @@ test.describe("legal pages", () => {
       }),
     ).toBeVisible();
     await expect(page.getByText(/Supabase Inc\./).first()).toBeVisible();
+    await expect(page.getByText(/nur für Mitglieder sichtbar/)).toBeVisible();
   });
 });

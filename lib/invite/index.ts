@@ -8,8 +8,6 @@ export interface ResolvedInvite {
     name: string;
     state: "open" | "drawn";
     created_by: string | null;
-    budget_hint: string | null;
-    note: string | null;
   };
   adminName: string;
 }
@@ -106,7 +104,7 @@ export async function resolveToken(
     .from("invite_tokens")
     .select(
       `token, group_id,
-       groups!inner(id, slug, name, state, created_by, budget_hint, note)`,
+       groups!inner(id, slug, name, state, created_by)`,
     )
     .eq("token", token)
     .maybeSingle();
@@ -125,8 +123,6 @@ export async function resolveToken(
     name: string;
     state: "open" | "drawn";
     created_by: string | null;
-    budget_hint: string | null;
-    note: string | null;
   };
 
   // Dead-end contact (drawn groups only): oldest live admin. Not group.created_by
