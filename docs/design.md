@@ -10,35 +10,37 @@ Source mock: `design-proposals/4a-v-glacier-mark.html`. Replaces old "Festive Pi
 
 ### Custom glacier-mark tokens (hex, CSS vars + Tailwind utilities)
 
-| Token            | Hex       | Tailwind                     | Use                                                                                                                           |
-| ---------------- | --------- | ---------------------------- | ----------------------------------------------------------------------------------------------------------------------------- |
-| `--navy`         | `#16283f` | `bg-navy`, `text-navy`       | Foreground text, header bg (solid use)                                                                                        |
-| `--navy-dark`    | `#0d1a2b` | `bg-navy-dark`               | Avatar/placeholder bg fallback                                                                                                |
-| `--navy-soft`    | `#3d5872` | `text-navy-soft`             | Secondary/muted text (darkened for 4.5:1 AA vs lightest gradient stop, issue #110)                                            |
-| `--crimson`      | `#df4a5e` | `bg-crimson`, `text-crimson` | Primary CTA, drawn-state badge, accent                                                                                        |
-| `--success`      | `#1e8a5f` | `bg-success`, `text-success` | Open-state badge                                                                                                              |
-| `--ice`          | `#e3eef8` | `bg-ice`                     | Page background base tone                                                                                                     |
-| `--danger-text`  | `#b83247` | `text-danger-text`           | Error text. 5.9:1 on white, 5.0:1 on `--ice`. `--destructive`/`--crimson` too light for text (3.4–4.0:1) — fills/borders only |
-| `--success-text` | `#17704d` | `text-success-text`          | Success text. 6.1:1 on white, 5.2:1 on `--ice`. Never `text-emerald-*` (3.2:1)                                                |
+| Token            | Hex       | Tailwind                       | Use                                                                                                                            |
+| ---------------- | --------- | ------------------------------ | ------------------------------------------------------------------------------------------------------------------------------ |
+| `--navy`         | `#16283f` | `bg-navy`, `text-navy`         | Foreground text, header bg (solid use). Admin links/`link` variant = `text-navy` underlined                                    |
+| `--navy-dark`    | `#0d1a2b` | `bg-navy-dark`                 | Avatar/placeholder bg fallback                                                                                                 |
+| `--navy-soft`    | `#34506b` | `text-navy-soft`               | Secondary/muted text. 4.6:1 on darkest gradient stop `#98c5e8`, 7.1:1 on `--ice`                                               |
+| `--crimson`      | `#df4a5e` | `bg-crimson`, `border-crimson` | Primary CTA, drawn-state dot/border, accent. FILLS/BORDERS/ICONS only — never `text-crimson` (3.4:1)                           |
+| `--success`      | `#1e8a5f` | `bg-success`, `border-success` | Open-state dot/border. FILLS/BORDERS only — never `text-success`                                                               |
+| `--ice`          | `#e3eef8` | `bg-ice`                       | Page background base tone                                                                                                      |
+| `--danger-text`  | `#8c2336` | `text-danger-text`             | Error text + destructive Button/Badge text. 4.8:1 on darkest gradient stop (so safe on bare page bg), 7+ on white/`--ice`/card |
+| `--success-text` | `#0f5538` | `text-success-text`            | Success text + open chip text. 4.8:1 on darkest gradient stop, 7+ on white/`--ice`/card. Never `text-emerald-*` (3.2:1)        |
+
+**Contrast rule:** every text token must hit 4.5:1 on EVERY bg it can sit on — verify against darkest gradient stop, not just white/`--ice`. Text outside `bg-card` sits on gradient. `lib/contrast.test.ts` parses `globals.css` (tokens, gradient stops, radial tint) and asserts pairs: text tokens x gradient stops/card/white/ice, tinted fills, email theme muted, grep guard vs `text-crimson|success|destructive|primary|emerald|red|green`. Change palette/gradient → test must stay green. Lighten gradient only if darkest stop keeps navy-soft/danger/success >= 4.5.
 
 Not tokenized (used inline only, body gradient/blobs): `--sky-1 #8fc3ea`, `--sky-2 #bfe0f5`.
 
 ### Semantic tokens (shadcn-style, light mode)
 
-| Token                  | Value                    | Mapped use                      |
-| ---------------------- | ------------------------ | ------------------------------- |
-| `--background`         | `#e3eef8`                | Icy page bg (under gradient)    |
-| `--foreground`         | `#16283f`                | Navy body text                  |
-| `--card`               | `rgb(255 255 255 / 60%)` | Frosted glass card surface      |
-| `--popover`            | `rgb(255 255 255 / 92%)` | Menus/dropdowns, more opaque    |
-| `--primary`            | `#df4a5e`                | Primary buttons (= `--crimson`) |
-| `--primary-foreground` | `#fffaf9`                | Text on primary                 |
-| `--accent`             | `#8fc3ea`                | Accent sky-blue elements        |
-| `--muted`              | `#eef5fb`                | Subtle bg surfaces              |
-| `--muted-foreground`   | `#3d5872`                | Navy-soft secondary text        |
-| `--border`             | `rgb(22 40 63 / 14%)`    | Borders, dividers, inputs       |
-| `--destructive`        | `#df4a5e`                | Danger actions (= `--crimson`)  |
-| `--radius`             | `1.25rem` (20px)         | Base radius for cards/buttons   |
+| Token                  | Value                    | Mapped use                                                              |
+| ---------------------- | ------------------------ | ----------------------------------------------------------------------- |
+| `--background`         | `#e3eef8`                | Icy page bg (under gradient)                                            |
+| `--foreground`         | `#16283f`                | Navy body text                                                          |
+| `--card`               | `rgb(255 255 255 / 60%)` | Frosted glass card surface                                              |
+| `--popover`            | `rgb(255 255 255 / 92%)` | Menus/dropdowns, more opaque                                            |
+| `--primary`            | `#df4a5e`                | Primary buttons (= `--crimson`)                                         |
+| `--primary-foreground` | `#fffaf9`                | Text on primary                                                         |
+| `--accent`             | `#8fc3ea`                | Accent sky-blue elements                                                |
+| `--muted`              | `#eef5fb`                | Subtle bg surfaces                                                      |
+| `--muted-foreground`   | `#34506b`                | Navy-soft secondary text                                                |
+| `--border`             | `rgb(22 40 63 / 14%)`    | Borders, dividers, inputs                                               |
+| `--destructive`        | `#df4a5e`                | Danger fills/borders (= `--crimson`), NOT text — use `text-danger-text` |
+| `--radius`             | `1.25rem` (20px)         | Base radius for cards/buttons                                           |
 
 ### Dark mode
 
@@ -71,13 +73,15 @@ Untouched, still neutral slate (not themed for navy/crimson). Avoid dark-mode-sp
 
 `.bg-primary` also gets crimson→pink gradient overlay (`linear-gradient(135deg, var(--crimson), #f0808f)`) atop flat `--primary` color — applies to every primary button + account avatar (reuses `bg-primary`).
 
-Page bg: `body` gets fixed sky gradient (`linear-gradient(175deg, #8fc3ea, #bfe0f5 40%, #a8d2ee 65%, #6fa8d8 85%, #4a86c2 100%)`) + two blurred blob accents via `body::before`/`::after` (pure CSS, no DOM). Don't duplicate per-page — global.
+Page bg: `body` gets fixed sky gradient (`linear-gradient(175deg, #a0cbeb, #bfe0f5 40%, #b0d7f0 65%, #a3cdeb 85%, #98c5e8 100%)`, kept light for AA text, see Contrast rule) + two blurred blob accents via `body::before`/`::after` (pure CSS, no DOM). Don't duplicate per-page — global.
 
 ---
 
 ## Accessibility rules
 
-- Error `<p>` → `role="alert"`, `text-danger-text`. Success `<p>` → `role="status"`, `text-success-text`.
+- Error line → `FormError` (`components/form-error.tsx`): `<p role="alert" class="text-danger-text">`, give it `id`, spread `errorFieldProps(id, hasError)` on the input (`aria-invalid` + `aria-describedby`). Renders nothing for empty message. Success `<p>` → `role="status"`, `text-success-text`.
+- Success that unmounts the focused control (confirm button, panel) → wrap result in `FocusStatus` (`components/focus-status.tsx`): `role="status"`, `tabIndex={-1}`, focus on mount. Remount via `key` to re-announce. Admin confirm panels use `useConfirmFocus` too.
+- Pending labels = translated (`…ing…` strings in `messages/de.json`), never hard-coded `"…"`.
 - Inline confirm panels: title `<p tabIndex={-1}>` gets focus on open, trigger gets focus back on cancel. Use `useConfirmFocus` (`lib/use-confirm-focus.ts`) + `CONFIRM_TITLE_CLASS`.
 - Never bare `outline-none` on focusable element — pair with `focus-visible:ring-*`.
 - Snow hidden under `prefers-reduced-motion: reduce` (`.snow` rule in `globals.css`).
@@ -119,7 +123,7 @@ CVA-based, wraps Base UI `ButtonPrimitive`.
 
 **Sizes**: `default` (h-8), `xs` (h-6), `sm` (h-7), `lg` (h-9), `icon` (8×8), `icon-xs`, `icon-sm`, `icon-lg`
 
-Use `default` variant for primary CTAs. Use `destructive` for danger actions (soft red tint, not solid red).
+Use `default` variant for primary CTAs. Use `destructive` for danger actions (soft red tint bg, `text-danger-text`, not solid red). `link` variant = `text-navy` underlined.
 
 ### `components/ui/input-otp.tsx`
 
@@ -138,15 +142,15 @@ OTP slot input for magic-link verification. Use on `/anmelden` OTP entry.
 
 ## Common UI patterns
 
-| Need                     | Reach for                                                                                                        |
-| ------------------------ | ---------------------------------------------------------------------------------------------------------------- |
-| Primary action           | `<Button>` (default variant)                                                                                     |
-| Danger action            | `<Button variant="destructive">`                                                                                 |
-| Quiet action             | `<Button variant="ghost">` or `variant="outline"`                                                                |
-| OTP entry                | `components/ui/input-otp.tsx`                                                                                    |
-| State chips (open/drawn) | Inline `<span>` with `bg-success/10 text-success` (open) or `bg-crimson/10 text-crimson` (drawn)                 |
-| Member initials          | Inline circle div: `bg-crimson/10 text-crimson border-crimson` (admin) or `bg-secondary text-navy` (participant) |
-| Empty list               | Inline empty state with muted text + relevant icon                                                               |
+| Need                     | Reach for                                                                                                                          |
+| ------------------------ | ---------------------------------------------------------------------------------------------------------------------------------- |
+| Primary action           | `<Button>` (default variant)                                                                                                       |
+| Danger action            | `<Button variant="destructive">`                                                                                                   |
+| Quiet action             | `<Button variant="ghost">` or `variant="outline"`                                                                                  |
+| OTP entry                | `components/ui/input-otp.tsx`                                                                                                      |
+| State chips (open/drawn) | `<StateBadge>` (`components/state-badge.tsx`) — `bg-white/70`, `text-success-text` / `text-danger-text`, tint in border + dot only |
+| Member initials          | Inline circle div: `bg-white/70 text-danger-text border-crimson` (admin) or `bg-secondary text-navy` (participant)                 |
+| Empty list               | Inline empty state with muted text + relevant icon                                                                                 |
 
 For inputs, textareas, cards, badges — no shared component yet. Use Tailwind semantic tokens directly: `bg-card border-border rounded-lg` (glass auto-applies via global `.bg-card` rule).
 
@@ -157,8 +161,10 @@ For inputs, textareas, cards, badges — no shared component yet. Use Tailwind s
 ```
 bg-primary          → CTAs, avatar (crimson gradient, auto)
 bg-card             → glass surfaces (frosted blur, auto)
-bg-success          → open-state badge
-bg-crimson          → drawn-state badge, danger accents
+bg-success          → open-state dot (fill only)
+bg-crimson          → drawn-state dot, danger accents (fill only)
+text-danger-text    → error/destructive text
+text-success-text   → success/open text
 text-navy-soft      → secondary/helper text (= text-muted-foreground)
 bg-background       → page base tone (gradient layered on top via body)
 border-border       → all borders

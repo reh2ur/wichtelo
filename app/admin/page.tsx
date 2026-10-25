@@ -101,7 +101,7 @@ async function AdminContent() {
           </h2>
           <Link
             href="/admin/audit-log"
-            className="text-primary text-sm underline-offset-4 hover:underline"
+            className="text-navy text-sm underline underline-offset-4 hover:no-underline"
           >
             {t("recentActivity.viewAll")}
           </Link>
@@ -126,7 +126,7 @@ async function AdminContent() {
                   {href ? (
                     <Link
                       href={href}
-                      className="text-primary font-mono text-xs underline-offset-4 hover:underline"
+                      className="text-navy font-mono text-xs underline underline-offset-4 hover:no-underline"
                     >
                       {entry.targetId}
                     </Link>

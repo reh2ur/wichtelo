@@ -114,6 +114,20 @@ test.describe("create group page", () => {
     await expect(authedPage.locator("p.text-danger-text")).toContainText(
       "Bitte gib einen Gruppennamen ein.",
     );
+    // Announced + associated with the name field (issue #149).
+    await expect(
+      authedPage
+        .getByRole("alert")
+        .filter({ hasText: "Bitte gib einen Gruppennamen ein." }),
+    ).toBeVisible();
+    await expect(authedPage.locator("#name")).toHaveAttribute(
+      "aria-invalid",
+      "true",
+    );
+    await expect(authedPage.locator("#name")).toHaveAttribute(
+      "aria-describedby",
+      "group-error",
+    );
   });
 });
 

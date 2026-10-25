@@ -1,5 +1,6 @@
 import { Suspense } from "react";
 import { getTranslations } from "next-intl/server";
+import { StateBadge, type GroupState } from "@/components/state-badge";
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import { ArrowLeftIcon, InfoIcon } from "@phosphor-icons/react/ssr";
@@ -21,7 +22,6 @@ import { GroupDetailSkeleton } from "./group-detail-skeleton";
 import { Skeleton } from "@/components/ui/skeleton";
 import { LoadingRegion } from "@/components/ui/loading-region";
 
-type GroupState = "open" | "drawn";
 type MemberRole = "participant" | "admin";
 
 interface Group {
@@ -47,32 +47,6 @@ interface ProfileRow {
   id: string;
   first_name: string;
   last_name: string;
-}
-
-function StateBadge({
-  state,
-  t,
-}: {
-  state: GroupState;
-  t: { open: string; drawn: string };
-}) {
-  const isOpen = state === "open";
-  return (
-    <span
-      className={[
-        "inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-xs font-medium",
-        isOpen ? "bg-success/10 text-success" : "bg-crimson/10 text-crimson",
-      ].join(" ")}
-    >
-      <span
-        className={[
-          "h-1.5 w-1.5 rounded-full",
-          isOpen ? "bg-success" : "bg-crimson",
-        ].join(" ")}
-      />
-      {isOpen ? t.open : t.drawn}
-    </span>
-  );
 }
 
 // Blocking route: existence + membership checks run before streaming so
@@ -207,7 +181,7 @@ async function GruppeDetailContent({
         <div className="flex flex-wrap items-center gap-3 pt-1">
           <StateBadge
             state={g.state}
-            t={{ open: t("stateOpen"), drawn: t("stateDrawn") }}
+            labels={{ open: t("stateOpen"), drawn: t("stateDrawn") }}
           />
           {isAdmin && (
             <Link
@@ -299,7 +273,7 @@ async function GruppeDetailContent({
                     className={[
                       "flex h-8 w-8 shrink-0 items-center justify-center rounded-full border text-xs font-bold",
                       isMemberAdmin
-                        ? "border-crimson bg-crimson/10 text-crimson"
+                        ? "border-crimson text-danger-text bg-white/70"
                         : "border-border bg-secondary text-navy",
                     ].join(" ")}
                   >

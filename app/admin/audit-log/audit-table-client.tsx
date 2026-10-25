@@ -95,7 +95,7 @@ function MetadataCell({
     );
   return (
     <details>
-      <summary className="text-primary cursor-pointer text-xs underline-offset-4 hover:underline">
+      <summary className="text-navy cursor-pointer text-xs underline underline-offset-4 hover:no-underline">
         {t("table.metadataShow")}
       </summary>
       <pre className="bg-muted mt-2 max-w-xs overflow-x-auto rounded p-2 text-xs">
@@ -154,7 +154,7 @@ export function AuditTableClient({ entries }: { entries: AuditRow[] }) {
           row.original.targetHref ? (
             <Link
               href={row.original.targetHref}
-              className="text-primary font-mono text-xs underline-offset-4 hover:underline"
+              className="text-navy font-mono text-xs underline underline-offset-4 hover:no-underline"
             >
               {row.original.targetId}
             </Link>

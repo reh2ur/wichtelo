@@ -98,7 +98,7 @@ export function GroupsTableClient({ groups }: { groups: GroupRow[] }) {
         cell: ({ row }) => (
           <Link
             href={`/admin/gruppen/${row.original.id}`}
-            className="text-primary underline-offset-4 hover:underline"
+            className="text-navy underline underline-offset-4 hover:no-underline"
           >
             {row.original.name}
           </Link>
@@ -133,7 +133,7 @@ export function GroupsTableClient({ groups }: { groups: GroupRow[] }) {
           row.original.createdByUserId ? (
             <Link
               href={`/admin/benutzer/${row.original.createdByUserId}`}
-              className="text-primary underline-offset-4 hover:underline"
+              className="text-navy underline underline-offset-4 hover:no-underline"
             >
               {row.original.createdByName ?? "—"}
             </Link>

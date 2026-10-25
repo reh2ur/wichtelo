@@ -68,7 +68,7 @@
   --secondary: rgb(255 255 255 / 55%);
   --secondary-foreground: #16283f;
   --muted: #eef5fb;
-  --muted-foreground: #3d5872;
+  --muted-foreground: #34506b;
   --accent: #8fc3ea;
   --accent-foreground: #16283f;
   --destructive: #df4a5e;
@@ -93,12 +93,12 @@
   /* glacier-mark custom */
   --navy: #16283f;
   --navy-dark: #0d1a2b;
-  --navy-soft: #3d5872;
+  --navy-soft: #34506b;
   --crimson: #df4a5e;
   --success: #1e8a5f;
   /* AA text variants (>=4.5:1 on white and --ice) */
-  --danger-text: #b83247;
-  --success-text: #17704d;
+  --danger-text: #8c2336;
+  --success-text: #0f5538;
   --ice: #e3eef8;
 }
 
@@ -156,9 +156,11 @@ body {
 }
 
 html {
-  background: #7bb3dd;
+  background: #98c5e8;
 }
 
+/* Gradient stops + radial tint feed contrast guard (lib/contrast.test.ts):
+   darkest stop must keep --navy-soft >= 4.5:1. Keep stops light. */
 body {
   background-image:
     radial-gradient(
@@ -168,16 +170,16 @@ body {
     ),
     radial-gradient(
       900px 600px at 95% 10%,
-      rgb(143 195 234 / 65%),
+      rgb(152 197 232 / 65%),
       transparent 60%
     ),
     linear-gradient(
       175deg,
-      #8fc3ea,
+      #a0cbeb,
       #bfe0f5 40%,
-      #a8d2ee 65%,
-      #8fbde3 85%,
-      #7bb3dd 100%
+      #b0d7f0 65%,
+      #a3cdeb 85%,
+      #98c5e8 100%
     );
   background-repeat: no-repeat;
   background-attachment: fixed;

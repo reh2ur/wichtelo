@@ -3,6 +3,7 @@
 import { useActionState, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
+import { FormError } from "@/components/form-error";
 import {
   banUser,
   unbanUser,
@@ -12,6 +13,7 @@ import {
   type DeleteUserState,
 } from "../actions";
 import { createIntlContext } from "@/lib/create-intl-context";
+import { CONFIRM_TITLE_CLASS, useConfirmFocus } from "@/lib/use-confirm-focus";
 
 const { Provider: UserActionsProvider, useT: useUserActionsT } =
   createIntlContext("adminUsers");
@@ -46,10 +48,13 @@ function BanUserButton({ userId }: { userId: string }) {
 
   const errorMsg =
     state.status === "error" ? errorMessage(t, state.error) : null;
+  const open = confirming && state.status !== "success";
+  const { triggerRef, titleRef } = useConfirmFocus(open);
 
-  if (!confirming || state.status === "success") {
+  if (!open) {
     return (
       <Button
+        ref={triggerRef}
         type="button"
         variant="destructive"
         onClick={() => setConfirming(true)}
@@ -61,11 +66,13 @@ function BanUserButton({ userId }: { userId: string }) {
 
   return (
     <div className="border-destructive/30 bg-destructive/5 space-y-3 rounded-lg border p-4">
-      <p className="text-sm font-medium">{t("actions.banConfirmTitle")}</p>
+      <p ref={titleRef} tabIndex={-1} className={CONFIRM_TITLE_CLASS}>
+        {t("actions.banConfirmTitle")}
+      </p>
       <p className="text-muted-foreground text-sm">
         {t("actions.banConfirmMessage")}
       </p>
-      {errorMsg && <p className="text-danger-text text-sm">{errorMsg}</p>}
+      <FormError>{errorMsg}</FormError>
       <form action={action} className="flex gap-2">
         <input type="hidden" name="userId" value={userId} />
         <Button type="submit" variant="destructive" disabled={pending}>
@@ -107,7 +114,7 @@ function UnbanUserButton({ userId }: { userId: string }) {
           {pending ? t("actions.unbanning") : t("actions.unban")}
         </Button>
       </form>
-      {errorMsg && <p className="text-danger-text text-sm">{errorMsg}</p>}
+      <FormError>{errorMsg}</FormError>
     </div>
   );
 }
@@ -124,10 +131,12 @@ function DeleteUserButton({ userId }: { userId: string }) {
     state.status === "error"
       ? errorMessage(t, state.error, state.groups)
       : null;
+  const { triggerRef, titleRef } = useConfirmFocus(confirming);
 
   if (!confirming) {
     return (
       <Button
+        ref={triggerRef}
         type="button"
         variant="destructive"
         onClick={() => setConfirming(true)}
@@ -139,11 +148,13 @@ function DeleteUserButton({ userId }: { userId: string }) {
 
   return (
     <div className="border-destructive/30 bg-destructive/5 space-y-3 rounded-lg border p-4">
-      <p className="text-sm font-medium">{t("actions.deleteConfirmTitle")}</p>
+      <p ref={titleRef} tabIndex={-1} className={CONFIRM_TITLE_CLASS}>
+        {t("actions.deleteConfirmTitle")}
+      </p>
       <p className="text-muted-foreground text-sm">
         {t("actions.deleteConfirmMessage")}
       </p>
-      {errorMsg && <p className="text-danger-text text-sm">{errorMsg}</p>}
+      <FormError>{errorMsg}</FormError>
       <form action={action} className="flex gap-2">
         <input type="hidden" name="userId" value={userId} />
         <Button type="submit" variant="destructive" disabled={pending}>

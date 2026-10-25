@@ -62,6 +62,9 @@ test.describe("profile update", () => {
     await expect(authedPage.locator('text="Gespeichert."')).toBeVisible({
       timeout: 5000,
     });
+    await expect(
+      authedPage.getByRole("status").filter({ hasText: "Gespeichert." }),
+    ).toBeVisible();
   });
 
   test("email field is disabled (not editable)", async ({ authedPage }) => {
@@ -80,6 +83,11 @@ test.describe("profile update", () => {
     await expect(
       authedPage.locator('text="Bitte gib Vor- und Nachnamen ein."'),
     ).toBeVisible({ timeout: 5000 });
+    await expect(
+      authedPage
+        .getByRole("alert")
+        .filter({ hasText: "Bitte gib Vor- und Nachnamen ein." }),
+    ).toBeVisible();
   });
 });
 
@@ -117,6 +125,31 @@ test.describe("account deletion flow", () => {
     ).toBeVisible();
 
     await ctx.close();
+  });
+
+  test("requesting deletion announces the sent status and focuses it", async ({
+    browser,
+  }) => {
+    const { ctx } = await createFreshAuthedContext(browser);
+    const page = await ctx.newPage();
+
+    try {
+      await page.goto("/konto");
+      await page.locator('button:has-text("Konto löschen")').click();
+      await page
+        .locator('button:has-text("Bestätigungs-E-Mail senden")')
+        .click();
+
+      // The focused confirm button unmounts; the result takes focus + is a
+      // status region (issue #149).
+      const sent = page
+        .getByRole("status")
+        .filter({ hasText: "Bestätigungs-E-Mail gesendet" });
+      await expect(sent).toBeVisible();
+      await expect(sent).toBeFocused();
+    } finally {
+      await ctx.close();
+    }
   });
 
   test("deletion confirm link only deletes after button click", async ({

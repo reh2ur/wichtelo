@@ -3,6 +3,7 @@
 import { startTransition, useActionState, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { OtpStep } from "@/components/otp-step";
+import { FormError, errorFieldProps } from "@/components/form-error";
 import {
   requestOtp,
   verifyOtp,
@@ -103,18 +104,19 @@ export function AuthFormClient({ next }: { next: string }) {
               requestState.status === "error" ? requestState.email : ""
             }
             required
+            {...errorFieldProps("email-error", requestState.status === "error")}
             className="border-input bg-background placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-ring/50 flex h-9 w-full rounded-lg border px-3 py-1 text-sm shadow-xs transition-colors focus-visible:ring-3 focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-50"
           />
         </div>
 
         {requestState.status === "error" && (
-          <p className="text-danger-text text-sm">
+          <FormError id="email-error">
             {requestState.error === "invalid_email"
               ? t("errors.invalidEmail")
               : requestState.error === "rate_limited"
                 ? t("errors.rateLimited")
                 : t("errors.generic")}
-          </p>
+          </FormError>
         )}
 
         {/* Disabled until hydrated: a pre-hydration submit is a native POST

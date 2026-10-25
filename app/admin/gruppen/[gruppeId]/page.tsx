@@ -271,7 +271,7 @@ async function AdminGroupDetailContent({
                   {m.profileId ? (
                     <Link
                       href={`/admin/benutzer/${m.profileId}`}
-                      className="text-primary font-medium underline-offset-4 hover:underline"
+                      className="text-navy font-medium underline underline-offset-4 hover:no-underline"
                     >
                       {m.name}
                     </Link>

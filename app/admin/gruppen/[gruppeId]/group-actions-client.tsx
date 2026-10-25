@@ -3,6 +3,7 @@
 import { useActionState, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
+import { FormError } from "@/components/form-error";
 import {
   reopenGroup,
   deleteGroup,
@@ -10,6 +11,7 @@ import {
   type DeleteGroupState,
 } from "../actions";
 import { createIntlContext } from "@/lib/create-intl-context";
+import { CONFIRM_TITLE_CLASS, useConfirmFocus } from "@/lib/use-confirm-focus";
 
 const { Provider: GroupActionsProvider, useT: useGroupActionsT } =
   createIntlContext("adminGroups");
@@ -42,9 +44,13 @@ function ReopenGroupButton({ groupId }: { groupId: string }) {
   const errorMsg =
     state.status === "error" ? errorMessage(t, state.error) : null;
 
-  if (!confirming || state.status === "success") {
+  const open = confirming && state.status !== "success";
+  const { triggerRef, titleRef } = useConfirmFocus(open);
+
+  if (!open) {
     return (
       <Button
+        ref={triggerRef}
         type="button"
         variant="outline"
         onClick={() => setConfirming(true)}
@@ -56,11 +62,13 @@ function ReopenGroupButton({ groupId }: { groupId: string }) {
 
   return (
     <div className="border-border bg-muted/30 space-y-3 rounded-lg border p-4">
-      <p className="text-sm font-medium">{t("actions.reopenConfirmTitle")}</p>
+      <p ref={titleRef} tabIndex={-1} className={CONFIRM_TITLE_CLASS}>
+        {t("actions.reopenConfirmTitle")}
+      </p>
       <p className="text-muted-foreground text-sm">
         {t("actions.reopenConfirmMessage")}
       </p>
-      {errorMsg && <p className="text-danger-text text-sm">{errorMsg}</p>}
+      <FormError>{errorMsg}</FormError>
       <form action={action} className="flex gap-2">
         <input type="hidden" name="groupId" value={groupId} />
         <Button type="submit" disabled={pending}>
@@ -89,10 +97,12 @@ function DeleteGroupButton({ groupId }: { groupId: string }) {
 
   const errorMsg =
     state.status === "error" ? errorMessage(t, state.error) : null;
+  const { triggerRef, titleRef } = useConfirmFocus(confirming);
 
   if (!confirming) {
     return (
       <Button
+        ref={triggerRef}
         type="button"
         variant="destructive"
         onClick={() => setConfirming(true)}
@@ -104,11 +114,13 @@ function DeleteGroupButton({ groupId }: { groupId: string }) {
 
   return (
     <div className="border-destructive/30 bg-destructive/5 space-y-3 rounded-lg border p-4">
-      <p className="text-sm font-medium">{t("actions.deleteConfirmTitle")}</p>
+      <p ref={titleRef} tabIndex={-1} className={CONFIRM_TITLE_CLASS}>
+        {t("actions.deleteConfirmTitle")}
+      </p>
       <p className="text-muted-foreground text-sm">
         {t("actions.deleteConfirmMessage")}
       </p>
-      {errorMsg && <p className="text-danger-text text-sm">{errorMsg}</p>}
+      <FormError>{errorMsg}</FormError>
       <form action={action} className="flex gap-2">
         <input type="hidden" name="groupId" value={groupId} />
         <Button type="submit" variant="destructive" disabled={pending}>
