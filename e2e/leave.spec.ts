@@ -309,11 +309,14 @@ test.describe("admin remove participant", () => {
         return counts.reduce((a, b) => a + b, 0);
       };
       expect(await orphanedCount()).toBe(1);
-      await expect(
-        [pageB, pageC, authedPage]
-          .map((pg) => pg.getByTestId("assignment-orphaned"))
-          .reduce((a, b) => a.or(b)),
-      ).toContainText("Deine Zuteilung entfällt gerade");
+      for (const pg of [pageB, pageC, authedPage]) {
+        const orphaned = pg.getByTestId("assignment-orphaned");
+        if ((await orphaned.count()) > 0) {
+          await expect(orphaned).toContainText(
+            "Deine Zuteilung entfällt gerade",
+          );
+        }
+      }
 
       // Re-draw restores a full set of assignments for the remaining members.
       await authedPage.locator('button:has-text("Neu auslosen")').click();
