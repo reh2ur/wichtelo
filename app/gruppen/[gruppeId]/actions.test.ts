@@ -28,6 +28,8 @@ function fd(slug: string) {
 function setup(opts: {
   group: object | null;
   membership: { id: string; role: string } | null;
+  /** Simulate a DB error on the group / membership lookup. */
+  failTable?: "groups" | "memberships";
 }) {
   vi.mocked(createClient).mockResolvedValue({
     auth: {
@@ -36,11 +38,18 @@ function setup(opts: {
   } as never);
   vi.mocked(createAdminClient).mockReturnValue({
     from: vi.fn().mockImplementation((table: string) => {
-      const data = table === "groups" ? opts.group : opts.membership;
+      const failed = opts.failTable === table;
+      const data = failed
+        ? null
+        : table === "groups"
+          ? opts.group
+          : opts.membership;
+      const error = failed ? { message: "db down" } : null;
       const chain = {
         select: vi.fn().mockReturnThis(),
         eq: vi.fn().mockReturnThis(),
-        single: vi.fn().mockResolvedValue({ data, error: null }),
+        single: vi.fn().mockResolvedValue({ data, error }),
+        maybeSingle: vi.fn().mockResolvedValue({ data, error }),
       };
       return chain;
     }),
@@ -72,6 +81,20 @@ describe.each([
     expect(checkRateLimit).not.toHaveBeenCalled();
   });
 
+  it.each(["groups", "memberships"] as const)(
+    "a DB error on the %s lookup is generic, not not_admin (#139)",
+    async (failTable) => {
+      setup({
+        group,
+        membership: { id: "m1", role: "admin" },
+        failTable,
+      });
+      const res = await action({ status: "idle" }, fd("familie"));
+      expect(res).toEqual({ status: "error", error: "generic" });
+      expect(checkRateLimit).not.toHaveBeenCalled();
+    },
+  );
+
   it("admin is limited per slug and user", async () => {
     setup({ group, membership: { id: "m1", role: "admin" } });
     vi.mocked(checkRateLimit).mockResolvedValue(false);
@@ -95,4 +118,18 @@ describe("leaveGroup rate limiting (#182)", () => {
     expect(checkRateLimit).toHaveBeenCalledWith(expect.anything(), "u1");
     expect(createAdminClient).not.toHaveBeenCalled();
   });
+
+  it.each(["groups", "memberships"] as const)(
+    "a DB error on the %s lookup is generic, not not_member (#139)",
+    async (failTable) => {
+      vi.mocked(checkRateLimit).mockResolvedValue(true);
+      setup({
+        group: { id: "g1", slug: "familie", name: "F", state: "open" },
+        membership: { id: "m1", role: "participant" },
+        failTable,
+      });
+      const res = await leaveGroup({ status: "idle" }, fd("familie"));
+      expect(res).toEqual({ status: "error", error: "generic" });
+    },
+  );
 });

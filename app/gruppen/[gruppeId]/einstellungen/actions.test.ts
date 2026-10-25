@@ -37,6 +37,9 @@ function query(result: unknown) {
   const q: Record<string, unknown> = {};
   for (const m of ["select", "eq", "in", "insert"]) q[m] = vi.fn(() => q);
   q.single = vi.fn().mockResolvedValue(result);
+  // Lookups use maybeSingle; it follows whatever `single` is mocked to.
+  q.maybeSingle = (...args: unknown[]) =>
+    (q.single as (...a: unknown[]) => unknown)(...args);
   q.then = (resolve: (v: unknown) => unknown) =>
     Promise.resolve(result).then(resolve);
   return q;
@@ -223,4 +226,39 @@ describe("removeMember (#18)", () => {
     );
     expect(res).toEqual({ status: "error", error: "generic" });
   });
+});
+
+describe("assertAdmin DB errors (#139)", () => {
+  beforeEach(() => vi.clearAllMocks());
+
+  function failing(table: "groups" | "memberships") {
+    vi.mocked(createClient).mockResolvedValue({
+      auth: {
+        getUser: vi.fn().mockResolvedValue({ data: { user: { id: "u1" } } }),
+      },
+    } as never);
+    vi.mocked(createAdminClient).mockReturnValue({
+      from: vi.fn((t: string) => {
+        const q = query(
+          t === table
+            ? { data: null, error: { message: "db down" } }
+            : { data: { id: "g1", role: "admin" }, error: null },
+        );
+        return q;
+      }),
+    } as never);
+  }
+
+  it.each(["groups", "memberships"] as const)(
+    "a %s lookup error returns generic, not not_admin",
+    async (table) => {
+      failing(table);
+      const res = await removeMember(
+        { status: "idle" },
+        fd({ slug: "s", membershipId: "m-target" }),
+      );
+      expect(res).toEqual({ status: "error", error: "generic" });
+      expect(removeMembership).not.toHaveBeenCalled();
+    },
+  );
 });

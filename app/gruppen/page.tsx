@@ -1,37 +1,18 @@
 import { Suspense } from "react";
 import { getTranslations } from "next-intl/server";
-import { StateBadge, type GroupState } from "@/components/state-badge";
+import { StateBadge } from "@/components/state-badge";
 import Link from "next/link";
 import { CaretRightIcon, GiftIcon, PlusIcon } from "@phosphor-icons/react/ssr";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import {
-  abbreviateNames,
-  membersFromMemberships,
-} from "@/lib/name-abbreviator";
+  loadMembershipsWithGroups,
+  loadReceiverNamesByGroup,
+  type MembershipWithGroup,
+} from "@/lib/group-reads";
 import { getUser } from "@/lib/auth/get-user";
 import { buttonVariants } from "@/components/ui/button";
 import { GroupListSkeleton } from "./group-list-skeleton";
-
-interface GroupRow {
-  id: string;
-  slug: string;
-  name: string;
-  year: number;
-  state: GroupState;
-}
-
-interface MembershipWithGroup {
-  id: string;
-  role: "participant" | "admin";
-  group_id: string;
-  groups: GroupRow;
-}
-
-interface AssignmentRow {
-  group_id: string;
-  receiver_id: string;
-}
 
 export default async function GruppenPage() {
   const t = await getTranslations("groups");
@@ -59,12 +40,7 @@ async function GruppenPageContent() {
   const supabase = await createClient();
   const currentYear = new Date().getFullYear();
 
-  const { data: raw } = await supabase
-    .from("memberships")
-    .select("id, role, group_id, groups!inner(id, slug, name, year, state)")
-    .eq("profile_id", user.id);
-
-  const memberships = (raw ?? []) as unknown as MembershipWithGroup[];
+  const memberships = await loadMembershipsWithGroups(supabase, user.id);
 
   // Open groups stay active whatever their year (e.g. created with last
   // year's year); future-year groups are active too.
@@ -77,57 +53,11 @@ async function GruppenPageContent() {
     .filter((m) => m.groups.state === "drawn")
     .map((m) => m.id);
 
-  const receiversByGroup: Record<string, string> = {};
-  if (pastDrawnIds.length > 0) {
-    // RLS lets participants read only their own assignment/membership rows,
-    // so receiver display names are resolved server-side and abbreviated like
-    // everywhere else (issue #179).
-    const { data: assignments } = await supabase
-      .from("assignments")
-      .select("group_id, receiver_id")
-      .in("giver_id", pastDrawnIds);
-
-    const rows = (assignments as unknown as AssignmentRow[]) ?? [];
-    if (rows.length > 0) {
-      const admin = createAdminClient();
-      const { data: membersRaw } = await admin
-        .from("memberships")
-        .select("id, group_id, name_snapshot, profile_id")
-        .in(
-          "group_id",
-          rows.map((a) => a.group_id),
-        )
-        .order("joined_at", { ascending: true })
-        .order("id", { ascending: true });
-      const members = (membersRaw ?? []) as {
-        id: string;
-        group_id: string;
-        name_snapshot: string;
-        profile_id: string | null;
-      }[];
-      const profileIds = members
-        .map((m) => m.profile_id)
-        .filter((id): id is string => !!id);
-      const profilesById = new Map<
-        string,
-        { first_name: string; last_name: string }
-      >();
-      if (profileIds.length > 0) {
-        const { data: profilesRaw } = await admin
-          .from("profiles")
-          .select("id, first_name, last_name")
-          .in("id", profileIds);
-        for (const p of profilesRaw ?? []) profilesById.set(p.id, p);
-      }
-      for (const a of rows) {
-        const groupMembers = members.filter((m) => m.group_id === a.group_id);
-        const display = abbreviateNames(
-          membersFromMemberships(groupMembers, profilesById),
-        ).find((d) => d.id === a.receiver_id);
-        if (display) receiversByGroup[a.group_id] = display.displayName;
-      }
-    }
-  }
+  const receiversByGroup = await loadReceiverNamesByGroup(
+    supabase,
+    createAdminClient(),
+    pastDrawnIds,
+  );
 
   const stateBadgeTitles = { open: t("stateOpen"), drawn: t("stateDrawn") };
   const hasAnyGroups = memberships.length > 0;

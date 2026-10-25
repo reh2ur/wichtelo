@@ -202,10 +202,11 @@ test.describe("admin remove participant", () => {
     await expect(authedPage.getByTestId("removed-invite-hint")).toBeFocused();
   });
 
-  test("admin can remove a member after the draw and is told to re-draw (#18)", async ({
+  test("admin can remove a member after the draw and is told to re-draw (#18, #141)", async ({
     authedPage,
     browser,
   }) => {
+    test.setTimeout(120_000);
     const { slug, inviteUrl } = await setupGroup(
       authedPage,
       "Remove PostDraw Test",
@@ -216,12 +217,14 @@ test.describe("admin remove participant", () => {
     const ctxD = await browser.newContext(guestContextOptions());
 
     try {
-      await joinViaInvite(ctxB, inviteUrl, slug, {
+      // B and C stay logged in: one of {admin, B, C} gave to Dora and loses
+      // their assignment when Dora is removed.
+      const pageB = await joinViaInvite(ctxB, inviteUrl, slug, {
         firstName: "Bodo",
         lastName: "Bauer",
         email: `e2e+remove-pd-b-${Date.now()}@example.com`,
       });
-      await joinViaInvite(ctxC, inviteUrl, slug, {
+      const pageC = await joinViaInvite(ctxC, inviteUrl, slug, {
         firstName: "Carla",
         lastName: "Conrad",
         email: `e2e+remove-pd-c-${Date.now()}@example.com`,
@@ -231,56 +234,108 @@ test.describe("admin remove participant", () => {
         lastName: "Dietz",
         email: `e2e+remove-pd-d-${Date.now()}@example.com`,
       });
+      await ctxD.close();
+
+      // Trigger draw
+      await authedPage.goto(`/gruppen/${slug}`);
+      await authedPage.locator('button:has-text("Auslosung starten")').click();
+      await authedPage.locator('button:has-text("Jetzt auslosen")').click();
+      await expect(
+        authedPage.getByText("Ausgelost", { exact: true }),
+      ).toBeVisible({
+        timeout: 15_000,
+      });
+      // Confirm draw button is fully gone — ensures RSC re-render with drawn state completed
+      await expect(
+        authedPage.locator('button:has-text("Auslosung starten")'),
+      ).toHaveCount(0);
+
+      // Intact draw: nobody is orphaned and the admin sees no banner.
+      await authedPage.reload();
+      await expect(authedPage.getByText("Zuweisung nachschlagen")).toBeVisible({
+        timeout: 15_000,
+      });
+      await expect(authedPage.getByTestId("redraw-needed-banner")).toHaveCount(
+        0,
+      );
+
+      await authedPage.goto(`/gruppen/${slug}/einstellungen`);
+      await expect(authedPage.locator("#name")).toBeVisible();
+      // Reload to bypass any stale Supabase pooler read on Vercel preview envs
+      await authedPage.reload();
+      await expect(authedPage.locator("#name")).toBeVisible();
+
+      const removeBtn = authedPage
+        .locator("li")
+        .filter({ hasText: /Dora/ })
+        .locator('button:has-text("Entfernen")');
+      await removeBtn.click();
+      await expect(
+        authedPage.locator("text=Starte danach auf der Gruppenseite"),
+      ).toBeVisible();
+      await authedPage
+        .locator('button:has-text("Endgültig entfernen")')
+        .click();
+
+      await expect(
+        authedPage.locator("li").filter({ hasText: /Dora/ }),
+      ).not.toBeVisible({ timeout: 10_000 });
+      await expect(authedPage.getByTestId("removed-invite-hint")).toContainText(
+        "Neu auslosen",
+      );
+
+      // Admin sees a persistent banner on the group page (#141).
+      await authedPage.goto(`/gruppen/${slug}`);
+      await expect(authedPage.getByTestId("redraw-needed-banner")).toBeVisible({
+        timeout: 15_000,
+      });
+
+      // Exactly one remaining member (admin, Bodo or Carla) lost their
+      // assignment and gets an explanation instead of an empty area.
+      const orphanedCount = async () => {
+        const pages = [pageB, pageC, authedPage];
+        await Promise.all(pages.map((pg) => pg.reload()));
+        // Wait for each page's assignment island to settle either way.
+        for (const pg of pages) {
+          await expect(
+            pg
+              .getByTestId("assignment-orphaned")
+              .or(pg.getByText("Du beschenkst")),
+          ).toBeVisible({ timeout: 15_000 });
+        }
+        const counts = await Promise.all(
+          pages.map((pg) => pg.getByTestId("assignment-orphaned").count()),
+        );
+        return counts.reduce((a, b) => a + b, 0);
+      };
+      expect(await orphanedCount()).toBe(1);
+      for (const pg of [pageB, pageC, authedPage]) {
+        const orphaned = pg.getByTestId("assignment-orphaned");
+        if ((await orphaned.count()) > 0) {
+          await expect(orphaned).toContainText(
+            "Deine Zuteilung entfällt gerade",
+          );
+        }
+      }
+
+      // Re-draw restores a full set of assignments for the remaining members.
+      await authedPage.locator('button:has-text("Neu auslosen")').click();
+      await authedPage.locator('button:has-text("Wiederholen")').click();
+      // The banner is hidden while the confirm dialog is open, so first wait
+      // for the re-draw to finish (dialog closes, start button returns).
+      await expect(
+        authedPage.locator('button:has-text("Neu auslosen")'),
+      ).toBeVisible({ timeout: 15_000 });
+      await expect(authedPage.getByTestId("redraw-needed-banner")).toHaveCount(
+        0,
+        { timeout: 15_000 },
+      );
+      expect(await orphanedCount()).toBe(0);
     } finally {
       await ctxB.close();
       await ctxC.close();
       await ctxD.close();
     }
-
-    // Trigger draw
-    await authedPage.goto(`/gruppen/${slug}`);
-    await authedPage.locator('button:has-text("Auslosung starten")').click();
-    await authedPage.locator('button:has-text("Jetzt auslosen")').click();
-    await expect(
-      authedPage.getByText("Ausgelost", { exact: true }),
-    ).toBeVisible({
-      timeout: 15_000,
-    });
-    // Confirm draw button is fully gone — ensures RSC re-render with drawn state completed
-    await expect(
-      authedPage.locator('button:has-text("Auslosung starten")'),
-    ).toHaveCount(0);
-
-    await authedPage.goto(`/gruppen/${slug}/einstellungen`);
-    await expect(authedPage.locator("#name")).toBeVisible();
-    // Reload to bypass any stale Supabase pooler read on Vercel preview envs
-    await authedPage.reload();
-    await expect(authedPage.locator("#name")).toBeVisible();
-
-    const removeBtn = authedPage
-      .locator("li")
-      .filter({ hasText: /Dora/ })
-      .locator('button:has-text("Entfernen")');
-    await removeBtn.click();
-    await expect(
-      authedPage.locator("text=Starte danach auf der Gruppenseite"),
-    ).toBeVisible();
-    await authedPage.locator('button:has-text("Endgültig entfernen")').click();
-
-    await expect(
-      authedPage.locator("li").filter({ hasText: /Dora/ }),
-    ).not.toBeVisible({ timeout: 10_000 });
-    await expect(authedPage.getByTestId("removed-invite-hint")).toContainText(
-      "Neu auslosen",
-    );
-
-    // Re-draw restores a full set of assignments for the remaining members.
-    await authedPage.goto(`/gruppen/${slug}`);
-    await authedPage.locator('button:has-text("Neu auslosen")').click();
-    await authedPage.locator('button:has-text("Wiederholen")').click();
-    await expect(authedPage.locator("text=Zuweisung nachschlagen")).toBeVisible(
-      { timeout: 15_000 },
-    );
   });
 
   test("cancel remove confirmation keeps participant in list", async ({

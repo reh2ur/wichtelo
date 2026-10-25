@@ -8,6 +8,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 import { getUser } from "@/lib/auth/get-user";
 import { getOrCreateToken } from "@/lib/invite";
+import { loadMyReceiverId } from "@/lib/group-reads";
 import { buildInviteUrl, getSiteUrl } from "@/lib/site-url";
 import {
   abbreviateNames,
@@ -372,21 +373,30 @@ async function MyAssignment({
   label: string;
   adminLookupNotice?: string;
 }) {
+  const t = await getTranslations("groupDetail");
   // Uses the user-scoped client so RLS restricts the row to the caller's own assignment.
-  const supabase = await createClient();
+  const receiverId = await loadMyReceiverId(
+    await createClient(),
+    groupId,
+    myMembershipId,
+  );
 
-  const { data: assignment } = await supabase
-    .from("assignments")
-    .select("receiver_id")
-    .eq("group_id", groupId)
-    // Admin RLS can read every row in the group, so filter to the caller's own.
-    .eq("giver_id", myMembershipId)
-    .limit(1)
-    .single();
+  // Drawn group but no outgoing row: an admin removed a member (their
+  // assignments cascade) and has not re-drawn yet (#141).
+  if (!receiverId) {
+    return (
+      <section className="mb-6" data-testid="assignment-orphaned">
+        <div
+          role="status"
+          className="border-border bg-muted/30 flex items-start gap-2 rounded-lg border px-4 py-4"
+        >
+          <InfoIcon size={16} className="mt-0.5 shrink-0" />
+          <p className="text-sm">{t("assignmentPending")}</p>
+        </div>
+      </section>
+    );
+  }
 
-  if (!assignment) return null;
-
-  const receiverId = (assignment as { receiver_id: string }).receiver_id;
   const receiverDisplay = displayNames.get(receiverId);
   if (!receiverDisplay) return null;
 

@@ -23,10 +23,13 @@ export { RedrawProvider };
 export function RedrawButtonClient({
   slug,
   warning,
+  needsRedraw,
 }: {
   slug: string;
   /** Persisted failure of the current draw's mails (server-read, admin-only). */
   warning: DrawMailWarning | null;
+  /** Live members lack an assignment (member removed after the draw, #141). */
+  needsRedraw: boolean;
 }) {
   const t = useRedrawT();
   const router = useRouter();
@@ -97,6 +100,15 @@ export function RedrawButtonClient({
   if (!confirming || state.status === "success") {
     return (
       <div className="space-y-2">
+        {needsRedraw && (
+          <p
+            role="status"
+            data-testid="redraw-needed-banner"
+            className="border-danger-text/30 bg-danger-text/5 text-danger-text rounded-lg border px-4 py-3 text-sm"
+          >
+            {t("needsRedraw")}
+          </p>
+        )}
         {warning && (
           <p role="status" className="text-danger-text text-sm">
             {t("emailFailure", {

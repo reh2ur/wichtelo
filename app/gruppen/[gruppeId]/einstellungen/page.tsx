@@ -4,6 +4,7 @@ import { notFound, redirect } from "next/navigation";
 import Link from "next/link";
 import { ArrowLeftIcon } from "@phosphor-icons/react/ssr";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { loadExclusions, loadSettingsMemberships } from "@/lib/group-reads";
 import { getUser } from "@/lib/auth/get-user";
 import {
   GroupSettingsProvider,
@@ -32,21 +33,21 @@ export default async function EinstellungenPage(
 
   const admin = createAdminClient();
 
-  const { data: group } = await admin
+  // Errors throw (-> error.tsx); only a genuinely missing row is a 404.
+  const { data: group, error: groupError } = await admin
     .from("groups")
     .select("id, slug, name, state, budget_hint, note")
     .eq("slug", gruppeId)
-    .single();
+    .maybeSingle();
+  if (groupError) {
+    throw new Error(
+      `[einstellungen] group lookup failed: ${groupError.message}`,
+    );
+  }
 
   if (!group) notFound();
 
-  const { data: membershipsRaw } = await admin
-    .from("memberships")
-    .select("id, name_snapshot, role, profile_id")
-    .eq("group_id", group.id)
-    .order("joined_at", { ascending: true });
-
-  const members = (membershipsRaw ?? []) as Member[];
+  const members = (await loadSettingsMemberships(admin, group.id)) as Member[];
   const myMembership = members.find((m) => m.profile_id === user.id);
 
   if (!myMembership || myMembership.role !== "admin") {
@@ -86,20 +87,11 @@ async function EinstellungenContent({
   const messages = await getMessages();
   const admin = createAdminClient();
 
-  const { data: exclusionsRaw } = await admin
-    .from("exclusions")
-    .select("id, member_a, member_b")
-    .eq("group_id", group.id);
+  const exclusionRows = await loadExclusions(admin, group.id);
 
   const memberMap = new Map(members.map((m) => [m.id, m.name_snapshot]));
 
-  const exclusions: Exclusion[] = (
-    (exclusionsRaw ?? []) as {
-      id: string;
-      member_a: string;
-      member_b: string;
-    }[]
-  ).map((ex) => ({
+  const exclusions: Exclusion[] = exclusionRows.map((ex) => ({
     id: ex.id,
     memberA: ex.member_a,
     memberB: ex.member_b,
