@@ -1,6 +1,7 @@
 import type { createAdminClient } from "@/lib/supabase/admin";
 import type { createClient } from "@/lib/supabase/server";
 import { logger } from "@/lib/logger";
+import { reportError } from "@/lib/report-error";
 
 export interface DrawMailWarning {
   failed: number;
@@ -55,12 +56,7 @@ export async function recordDrawMailResult(
     });
     if (error) throw new Error(error.message);
   } catch (err) {
-    logger
-      .withMetadata({
-        groupId,
-        reason: err instanceof Error ? err.message : String(err),
-      })
-      .error("draw.mail_status_record_failed");
+    reportError("draw.mail_status_record_failed", err, { groupId });
   }
 }
 

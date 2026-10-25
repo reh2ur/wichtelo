@@ -1,7 +1,7 @@
 import type { ReactElement } from "react";
 import { resend, FROM_EMAIL } from "@/lib/email";
 import { logger } from "@/lib/logger";
-import { serializeError } from "@/lib/serialize-error";
+import { reportError } from "@/lib/report-error";
 import { DrawAssignmentEmail } from "@/emails/draw-assignment";
 import { GroupDeletedEmail } from "@/emails/group-deleted";
 import { ParticipantJoinedEmail } from "@/emails/participant-joined";
@@ -316,14 +316,11 @@ export async function notify(event: DomainEvent): Promise<NotifyResult> {
       result.sent += chunk.length;
     } catch (err) {
       result.failed += chunk.length;
-      logger
-        .withMetadata({
-          eventType: event.type,
-          chunk: i / BATCH_LIMIT,
-          chunkSize: chunk.length,
-          reason: serializeError(err).message,
-        })
-        .error("notification.failed");
+      reportError("notification.failed", err, {
+        eventType: event.type,
+        chunk: i / BATCH_LIMIT,
+        chunkSize: chunk.length,
+      });
     }
   }
 

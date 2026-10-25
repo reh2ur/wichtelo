@@ -12,6 +12,7 @@ import { notifyAccountDeleted } from "@/lib/account/notify";
 import { getUser } from "@/lib/auth/get-user";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { logger } from "@/lib/logger";
+import { reportError } from "@/lib/report-error";
 import { serializeError } from "@/lib/serialize-error";
 import { groupTag } from "@/lib/cache-tags";
 
@@ -68,9 +69,7 @@ export async function confirmAccountDeletion(formData: FormData) {
   try {
     deleteResult = await deleteAccount(userId);
   } catch (err) {
-    logger
-      .withMetadata({ userId, error: serializeError(err) })
-      .error("account.deletion_failed");
+    reportError("account.deletion_failed", err, { userId });
     return back("generic");
   }
 

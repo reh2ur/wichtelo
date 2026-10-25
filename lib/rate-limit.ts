@@ -1,6 +1,7 @@
 import { Ratelimit } from "@upstash/ratelimit";
 import { Redis } from "@upstash/redis";
 import { logger } from "@/lib/logger";
+import { reportError } from "@/lib/report-error";
 
 const redis =
   process.env.UPSTASH_REDIS_REST_URL && process.env.UPSTASH_REDIS_REST_TOKEN
@@ -15,9 +16,11 @@ const redis =
 // production this must be loud, since silent fail-open removes rate
 // limiting from every sensitive flow with no signal anywhere.
 if (!redis && process.env.NODE_ENV === "production") {
-  logger
-    .withMetadata({ NODE_ENV: process.env.NODE_ENV })
-    .error("rate-limit.unconfigured_in_production");
+  reportError(
+    "rate-limit.unconfigured_in_production",
+    new Error("Upstash Redis env vars missing in production"),
+    { NODE_ENV: process.env.NODE_ENV },
+  );
 }
 function makeLimiter(
   prefix: string,
