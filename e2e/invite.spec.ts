@@ -269,7 +269,7 @@ test.describe("invite page", () => {
     await guestPage.clock.runFor(61_000);
     await guestPage.getByRole("button", { name: /Code erneut senden/ }).click();
 
-    await expect(guestPage.getByRole("alert")).toContainText(
+    await expect(guestPage.locator('p[role="alert"]')).toContainText(
       "Dein letzter Code ist weiterhin gültig",
     );
     await expect(guestPage.locator("#otp")).toBeVisible();

@@ -214,7 +214,7 @@ test.describe("OTP sign-in flow", () => {
 
     // Throttled: code step (and field) stay, error shown inline, no
     // "new code sent" confirmation.
-    await expect(page.getByRole("alert")).toContainText(
+    await expect(page.locator('p[role="alert"]')).toContainText(
       "Dein letzter Code ist weiterhin gültig",
     );
     await expect(page.locator("#otp")).toBeVisible();
