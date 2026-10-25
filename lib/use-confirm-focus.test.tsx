@@ -27,19 +27,19 @@ function Panel() {
 describe("useConfirmFocus", () => {
   it("does not steal focus on first render while closed", () => {
     render(<Panel />);
-    expect(document.body).toHaveFocus();
+    expect(document.activeElement).toBe(document.body);
   });
 
   it("focuses the panel title when the panel opens", () => {
     render(<Panel />);
     fireEvent.click(screen.getByText("Löschen"));
-    expect(screen.getByText("Sicher?")).toHaveFocus();
+    expect(document.activeElement).toBe(screen.getByText("Sicher?"));
   });
 
   it("returns focus to the trigger when the panel closes again", () => {
     render(<Panel />);
     fireEvent.click(screen.getByText("Löschen"));
     fireEvent.click(screen.getByText("Abbrechen"));
-    expect(screen.getByText("Löschen")).toHaveFocus();
+    expect(document.activeElement).toBe(screen.getByText("Löschen"));
   });
 });

@@ -74,7 +74,9 @@ function setup(world: World) {
         );
       case "profiles":
         return chain(
-          world.profile ?? { data: { first_name: "Erika", last_name: "Muster" } },
+          world.profile ?? {
+            data: { first_name: "Erika", last_name: "Muster" },
+          },
         );
       default:
         throw new Error(`unexpected table ${table}`);
@@ -196,7 +198,7 @@ describe("lookupAssignment", () => {
     const { from } = setup({});
     const original = from.getMockImplementation()!;
     from.mockImplementation((table: string) => {
-      const q = original(table) as Record<string, ReturnType<typeof vi.fn>>;
+      const q = original(table) as Record<string, (...a: unknown[]) => unknown>;
       if (table === "assignments") {
         const inner = q.eq;
         q.eq = vi.fn((...args: unknown[]) => {

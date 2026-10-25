@@ -52,7 +52,9 @@ function mockAdmin(opts: {
 }) {
   const email = "email" in opts ? opts.email : "u1@example.com";
   const profile =
-    "profile" in opts ? opts.profile : { first_name: "Max", last_name: "Muster" };
+    "profile" in opts
+      ? opts.profile
+      : { first_name: "Max", last_name: "Muster" };
   vi.mocked(createAdminClient).mockReturnValue({
     auth: {
       admin: {

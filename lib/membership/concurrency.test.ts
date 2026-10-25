@@ -302,9 +302,9 @@ describe.skipIf(!hasSupabase)("membership vs draw interleavings", () => {
     expect(await removeMembership(admin, groupId, memberIds[0])).toEqual({
       result: "last_admin",
     });
-    expect(
-      await removeMembership(admin, groupId, crypto.randomUUID()),
-    ).toEqual({ result: "member_not_found" });
+    expect(await removeMembership(admin, groupId, crypto.randomUUID())).toEqual(
+      { result: "member_not_found" },
+    );
     expect(
       await removeMembership(admin, crypto.randomUUID(), memberIds[1]),
     ).toEqual({ result: "group_not_found" });

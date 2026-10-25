@@ -7,7 +7,9 @@ import { render, screen } from "@testing-library/react";
 import { useHydrated } from "./use-hydrated";
 
 function Probe() {
-  return <span data-testid="probe">{useHydrated() ? "hydrated" : "server"}</span>;
+  return (
+    <span data-testid="probe">{useHydrated() ? "hydrated" : "server"}</span>
+  );
 }
 
 describe("useHydrated", () => {
@@ -17,6 +19,6 @@ describe("useHydrated", () => {
 
   it("is true once rendered on the client", () => {
     render(<Probe />);
-    expect(screen.getByTestId("probe")).toHaveTextContent("hydrated");
+    expect(screen.getByTestId("probe").textContent).toBe("hydrated");
   });
 });

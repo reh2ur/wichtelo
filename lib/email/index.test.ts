@@ -49,13 +49,19 @@ describe("lib/email client gate", () => {
   it.each([
     ["development", { NODE_ENV: "development" }],
     ["test", { NODE_ENV: "test" }],
-    ["development on Vercel", { NODE_ENV: "development", VERCEL_ENV: "development" }],
+    [
+      "development on Vercel",
+      { NODE_ENV: "development", VERCEL_ENV: "development" },
+    ],
     ["Vercel preview build", { NODE_ENV: "production", VERCEL_ENV: "preview" }],
-  ])("uses the dry-run client in %s and never builds a real client", async (_l, env) => {
-    const { resend } = await load(env);
-    expect(isDryRun(resend)).toBe(true);
-    expect(ResendCtor).not.toHaveBeenCalled();
-  });
+  ])(
+    "uses the dry-run client in %s and never builds a real client",
+    async (_l, env) => {
+      const { resend } = await load(env);
+      expect(isDryRun(resend)).toBe(true);
+      expect(ResendCtor).not.toHaveBeenCalled();
+    },
+  );
 
   it.each([
     ["Vercel production", { NODE_ENV: "production", VERCEL_ENV: "production" }],

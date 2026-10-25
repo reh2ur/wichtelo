@@ -30,7 +30,9 @@ function row(over: Record<string, unknown>) {
 function setup(opts: { log: Result; groups?: Result }) {
   const limit = vi.fn().mockResolvedValue(opts.log);
   const order = vi.fn(() => ({ limit }));
-  const groupsIn = vi.fn().mockResolvedValue(opts.groups ?? { data: [], error: null });
+  const groupsIn = vi
+    .fn()
+    .mockResolvedValue(opts.groups ?? { data: [], error: null });
   const from = vi.fn((table: string) =>
     table === "admin_audit_log"
       ? { select: vi.fn(() => ({ order })) }
@@ -61,7 +63,9 @@ describe("fetchAuditLog", () => {
 
   it("throws on a DB error instead of returning an empty log", async () => {
     setup({ log: { data: null, error: { message: "db down" } } });
-    await expect(fetchAuditLog()).rejects.toThrow("[fetchAuditLog] failed: db down");
+    await expect(fetchAuditLog()).rejects.toThrow(
+      "[fetchAuditLog] failed: db down",
+    );
   });
 
   it("treats null data without error as an empty log and skips target lookups", async () => {
@@ -148,7 +152,9 @@ describe("fetchAuditLog", () => {
       },
       groups: { data: null, error: { message: "boom" } },
     });
-    await expect(fetchAuditLog()).rejects.toThrow("[fetchAuditLog] groups: boom");
+    await expect(fetchAuditLog()).rejects.toThrow(
+      "[fetchAuditLog] groups: boom",
+    );
   });
 
   it("propagates a failing auth user lookup", async () => {
@@ -161,19 +167,35 @@ describe("fetchAuditLog", () => {
 describe("resolveTargetHref", () => {
   it("links existing users and groups to their admin pages", () => {
     expect(
-      resolveTargetHref({ targetType: "user", targetId: "u1", targetExists: true }),
+      resolveTargetHref({
+        targetType: "user",
+        targetId: "u1",
+        targetExists: true,
+      }),
     ).toBe("/admin/benutzer/u1");
     expect(
-      resolveTargetHref({ targetType: "group", targetId: "g1", targetExists: true }),
+      resolveTargetHref({
+        targetType: "group",
+        targetId: "g1",
+        targetExists: true,
+      }),
     ).toBe("/admin/gruppen/g1");
   });
 
   it("returns null for deleted targets", () => {
     expect(
-      resolveTargetHref({ targetType: "user", targetId: "u1", targetExists: false }),
+      resolveTargetHref({
+        targetType: "user",
+        targetId: "u1",
+        targetExists: false,
+      }),
     ).toBeNull();
     expect(
-      resolveTargetHref({ targetType: "group", targetId: "g1", targetExists: false }),
+      resolveTargetHref({
+        targetType: "group",
+        targetId: "g1",
+        targetExists: false,
+      }),
     ).toBeNull();
   });
 });
