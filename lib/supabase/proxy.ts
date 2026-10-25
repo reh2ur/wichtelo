@@ -104,23 +104,21 @@ export async function updateSession(request: NextRequest) {
       // 404-ing real members during a transient outage.
       try {
         const admin = createAdminClient();
-        const { data: group, error: groupError } = await admin
+        // One round trip: the group inner-joined to the caller's own
+        // membership. Unknown slug and non-member both yield no row.
+        const { data: found, error: lookupError } = await admin
           .from("groups")
-          .select("id")
+          .select("id, memberships!inner(id, role)")
           .eq("slug", slug)
+          .eq("memberships.profile_id", user.id)
           .maybeSingle();
-        if (groupError) return supabaseResponse;
-        if (!group) return notFoundRewrite();
+        if (lookupError) return supabaseResponse;
+        const membership = (
+          found as { memberships: { id: string; role: string }[] } | null
+        )?.memberships?.[0];
         // Detail needs membership; settings needs admin membership. Non-admin
         // members and non-members get the same 404 as an unknown slug, so the
         // response never reveals whether a slug exists.
-        const { data: membership, error: membershipError } = await admin
-          .from("memberships")
-          .select("id, role")
-          .eq("group_id", group.id)
-          .eq("profile_id", user.id)
-          .maybeSingle();
-        if (membershipError) return supabaseResponse;
         if (!membership) return notFoundRewrite();
         if (GROUP_SETTINGS_RE.test(pathname) && membership.role !== "admin") {
           return notFoundRewrite();

@@ -4,10 +4,12 @@ import { NextRequest } from "next/server";
 type Res = { data: unknown; error: unknown };
 const results: Record<string, Res> = {};
 let userResult: { id: string } | null = { id: "u1" };
+let fromSpy: ((table: string) => void) | null = null;
 
 vi.mock("@/lib/supabase/admin", () => ({
   createAdminClient: () => ({
     from: (table: string) => {
+      fromSpy?.(table);
       const chain = {
         select: () => chain,
         eq: () => chain,
@@ -43,6 +45,14 @@ vi.mock("@supabase/ssr", () => ({
 
 import { updateSession } from "./proxy";
 
+// Proxy does ONE lookup: group inner-joined to the caller's own membership.
+function setLookup(membership: { id: string; role: string } | null) {
+  results.groups = {
+    data: membership ? { id: "g1", memberships: [membership] } : null,
+    error: null,
+  };
+}
+
 function req(path: string) {
   return new NextRequest(`http://localhost${path}`);
 }
@@ -56,37 +66,32 @@ function isNotFoundRewrite(res: Response) {
 describe("updateSession", () => {
   beforeEach(() => {
     userResult = { id: "u1" };
-    results.groups = { data: { id: "g1" }, error: null };
-    results.memberships = { data: { id: "m1", role: "admin" }, error: null };
+    setLookup({ id: "m1", role: "admin" });
   });
 
-  it("rewrites to not-found when group has no rows", async () => {
-    results.groups = { data: null, error: null };
+  it("rewrites to not-found when group has no rows (unknown slug or non-member)", async () => {
+    setLookup(null);
     const res = await updateSession(req("/gruppen/weg"));
     expect(isNotFoundRewrite(res)).toBe(true);
   });
 
-  it("rewrites to not-found for non-member", async () => {
-    results.memberships = { data: null, error: null };
-    const res = await updateSession(req("/gruppen/abc"));
-    expect(isNotFoundRewrite(res)).toBe(true);
+  it("does only one DB lookup for group + membership", async () => {
+    const tables: string[] = [];
+    fromSpy = (t) => tables.push(t);
+    await updateSession(req("/gruppen/abc"));
+    fromSpy = null;
+    expect(tables).toEqual(["groups"]);
   });
 
-  it("lets the request through on a group lookup error", async () => {
+  it("lets the request through on a lookup error", async () => {
     results.groups = { data: null, error: { message: "down" } };
     const res = await updateSession(req("/gruppen/abc"));
     expect(isNotFoundRewrite(res)).toBe(false);
     expect(res.headers.get("location")).toBeNull();
   });
 
-  it("lets the request through on a membership lookup error", async () => {
-    results.memberships = { data: null, error: { message: "down" } };
-    const res = await updateSession(req("/gruppen/abc"));
-    expect(isNotFoundRewrite(res)).toBe(false);
-  });
-
   it("copies refreshed cookies onto the not-found rewrite", async () => {
-    results.groups = { data: null, error: null };
+    setLookup(null);
     const res = await updateSession(req("/gruppen/weg"));
     expect(res.cookies.get("sb-rotated")?.value).toBe("new-token");
   });
@@ -105,18 +110,14 @@ describe("updateSession", () => {
   });
 
   it("rewrites settings to not-found for a non-admin member", async () => {
-    results.memberships = {
-      data: { id: "m1", role: "participant" },
-      error: null,
-    };
+    setLookup({ id: "m1", role: "participant" });
     const res = await updateSession(req("/gruppen/abc/einstellungen"));
     expect(isNotFoundRewrite(res)).toBe(true);
   });
 
   it("rewrites settings to not-found for a non-member and unknown slug alike", async () => {
-    results.memberships = { data: null, error: null };
+    setLookup(null);
     const a = await updateSession(req("/gruppen/abc/einstellungen"));
-    results.groups = { data: null, error: null };
     const b = await updateSession(req("/gruppen/weg/einstellungen"));
     expect(isNotFoundRewrite(a)).toBe(true);
     expect(isNotFoundRewrite(b)).toBe(true);

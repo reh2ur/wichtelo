@@ -1,7 +1,7 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, userAgent, type NextRequest } from "next/server";
 import { updateSession, withSessionCookies } from "@/lib/supabase/proxy";
-import { resolveToken } from "@/lib/invite";
+import { inviteTokenExists } from "@/lib/invite";
 import { isSuperAdminEmail } from "@/lib/admin/super-admin-email";
 
 const INVITE_TOKEN_RE = /^\/einladung\/([^/]+)$/;
@@ -23,14 +23,16 @@ export async function proxy(request: NextRequest) {
   // page's own notFound() for an invalid token ever gets a chance to run.
   const inviteTokenMatch = INVITE_TOKEN_RE.exec(request.nextUrl.pathname);
   if (inviteTokenMatch) {
-    let resolved: Awaited<ReturnType<typeof resolveToken>> | undefined;
+    // Existence only: the page runs the full resolveToken, so the proxy does
+    // not repeat its group/admin joins on every request.
+    let exists: boolean | undefined;
     try {
-      resolved = await resolveToken(inviteTokenMatch[1]);
+      exists = await inviteTokenExists(inviteTokenMatch[1]);
     } catch {
       // DB error is not "not found": let the page decide (it throws → 500).
-      resolved = undefined;
+      exists = undefined;
     }
-    if (resolved === null) {
+    if (exists === false) {
       // Same unmatched-path rewrite as unknown groups: Next's own fully
       // SSR'd 404 (real status, h1, lang, stylesheet). A rewrite to a
       // prerendered page that calls notFound() yields 404 but an empty

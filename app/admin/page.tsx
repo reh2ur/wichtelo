@@ -10,26 +10,28 @@ import { AdminStatsSkeleton, AdminListSkeleton } from "./admin-skeletons";
 async function fetchStats() {
   const admin = createAdminClient();
 
-  const authUsers = await listAllAuthUsers(admin);
-  const totalUsers = authUsers.length;
+  const countGroups = async (state?: "open" | "drawn") => {
+    let query = admin
+      .from("groups")
+      .select("id", { count: "exact", head: true });
+    if (state) query = query.eq("state", state);
+    const { count, error } = await query;
+    if (error) throw new Error(`[fetchStats] groups count: ${error.message}`);
+    return count ?? 0;
+  };
 
-  const { count: totalGroups } = await admin
-    .from("groups")
-    .select("id", { count: "exact", head: true });
-  const { count: openGroups } = await admin
-    .from("groups")
-    .select("id", { count: "exact", head: true })
-    .eq("state", "open");
-  const { count: drawnGroups } = await admin
-    .from("groups")
-    .select("id", { count: "exact", head: true })
-    .eq("state", "drawn");
+  const [authUsers, totalGroups, openGroups, drawnGroups] = await Promise.all([
+    listAllAuthUsers(admin),
+    countGroups(),
+    countGroups("open"),
+    countGroups("drawn"),
+  ]);
 
   return {
-    totalUsers,
-    totalGroups: totalGroups ?? 0,
-    openGroups: openGroups ?? 0,
-    drawnGroups: drawnGroups ?? 0,
+    totalUsers: authUsers.length,
+    totalGroups,
+    openGroups,
+    drawnGroups,
   };
 }
 

@@ -4,12 +4,11 @@ import { getTranslations } from "next-intl/server";
 import Link from "next/link";
 import { ArrowLeftIcon } from "@phosphor-icons/react/ssr";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { listAllAuthUsers } from "@/lib/admin/auth-users";
+import { fetchAllRows } from "@/lib/admin/paged";
 import { UsersTable } from "./users-table";
 import type { UserRow } from "./users-table-client";
 import { AdminListSkeleton } from "../admin-skeletons";
-
-const MAX_PAGES = 20;
-const PER_PAGE = 1000;
 
 interface ProfileRow {
   id: string;
@@ -18,41 +17,34 @@ interface ProfileRow {
 }
 
 interface MembershipRow {
+  id: string;
   profile_id: string | null;
 }
 
 async function fetchUsers(): Promise<UserRow[]> {
   const admin = createAdminClient();
 
-  const authUsers: {
-    id: string;
-    email?: string;
-    created_at: string;
-    last_sign_in_at?: string | null;
-    banned_until?: string | null;
-  }[] = [];
-  for (let page = 1; page <= MAX_PAGES; page++) {
-    const { data, error } = await admin.auth.admin.listUsers({
-      page,
-      perPage: PER_PAGE,
-    });
-    if (error || !data) break;
-    authUsers.push(...data.users);
-    if (data.users.length < PER_PAGE) break;
-  }
+  const [authUsers, profiles, memberships] = await Promise.all([
+    listAllAuthUsers(admin),
+    fetchAllRows<ProfileRow>("admin.users.profiles", (from, to) =>
+      admin
+        .from("profiles")
+        .select("id, first_name, last_name")
+        .order("id")
+        .range(from, to),
+    ),
+    fetchAllRows<MembershipRow>("admin.users.memberships", (from, to) =>
+      admin
+        .from("memberships")
+        .select("id, profile_id")
+        .order("id")
+        .range(from, to),
+    ),
+  ]);
 
-  const { data: profilesRaw } = await admin
-    .from("profiles")
-    .select("id, first_name, last_name");
-  const profilesById = new Map(
-    ((profilesRaw ?? []) as ProfileRow[]).map((p) => [p.id, p]),
-  );
-
-  const { data: membershipsRaw } = await admin
-    .from("memberships")
-    .select("profile_id");
+  const profilesById = new Map(profiles.map((p) => [p.id, p]));
   const groupCountByProfileId = new Map<string, number>();
-  for (const m of (membershipsRaw ?? []) as MembershipRow[]) {
+  for (const m of memberships) {
     if (!m.profile_id) continue;
     groupCountByProfileId.set(
       m.profile_id,

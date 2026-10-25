@@ -4,6 +4,7 @@ import { getTranslations } from "next-intl/server";
 import Link from "next/link";
 import { ArrowLeftIcon } from "@phosphor-icons/react/ssr";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { fetchAllRows } from "@/lib/admin/paged";
 import { GroupsTable } from "./groups-table";
 import type { GroupRow } from "./groups-table-client";
 import { AdminListSkeleton } from "../admin-skeletons";
@@ -24,29 +25,41 @@ interface ProfileRow {
 }
 
 interface MembershipRow {
+  id: string;
   group_id: string;
 }
 
 async function fetchGroups(): Promise<GroupRow[]> {
   const admin = createAdminClient();
 
-  const { data: groupsRaw } = await admin
-    .from("groups")
-    .select("id, slug, name, state, created_by, created_at");
-  const groups = (groupsRaw ?? []) as GroupRecord[];
+  const [groups, profiles, memberships] = await Promise.all([
+    fetchAllRows<GroupRecord>("admin.groups.groups", (from, to) =>
+      admin
+        .from("groups")
+        .select("id, slug, name, state, created_by, created_at")
+        .order("created_at", { ascending: false })
+        .order("id")
+        .range(from, to),
+    ),
+    fetchAllRows<ProfileRow>("admin.groups.profiles", (from, to) =>
+      admin
+        .from("profiles")
+        .select("id, first_name, last_name")
+        .order("id")
+        .range(from, to),
+    ),
+    fetchAllRows<MembershipRow>("admin.groups.memberships", (from, to) =>
+      admin
+        .from("memberships")
+        .select("id, group_id")
+        .order("id")
+        .range(from, to),
+    ),
+  ]);
 
-  const { data: profilesRaw } = await admin
-    .from("profiles")
-    .select("id, first_name, last_name");
-  const profilesById = new Map(
-    ((profilesRaw ?? []) as ProfileRow[]).map((p) => [p.id, p]),
-  );
-
-  const { data: membershipsRaw } = await admin
-    .from("memberships")
-    .select("group_id");
+  const profilesById = new Map(profiles.map((p) => [p.id, p]));
   const memberCountByGroupId = new Map<string, number>();
-  for (const m of (membershipsRaw ?? []) as MembershipRow[]) {
+  for (const m of memberships) {
     memberCountByGroupId.set(
       m.group_id,
       (memberCountByGroupId.get(m.group_id) ?? 0) + 1,

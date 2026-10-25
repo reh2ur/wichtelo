@@ -1,9 +1,9 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { NextRequest, NextResponse } from "next/server";
 
-const resolveToken = vi.fn();
+const inviteTokenExists = vi.fn();
 vi.mock("@/lib/invite", () => ({
-  resolveToken: (token: string) => resolveToken(token),
+  inviteTokenExists: (token: string) => inviteTokenExists(token),
 }));
 
 vi.mock("@supabase/ssr", () => ({
@@ -43,14 +43,14 @@ describe("proxy: invite token 404", () => {
   });
 
   it("rewrites a bad token to /__not_found__ and keeps refreshed session cookies", async () => {
-    resolveToken.mockResolvedValue(null);
+    inviteTokenExists.mockResolvedValue(false);
     const res = await proxy(req("/einladung/bad-token"));
     expect(res.headers.get("x-middleware-rewrite")).toContain("/__not_found__");
     expect(res.cookies.get("sb-rotated")?.value).toBe("new-token");
   });
 
   it("passes a valid token through", async () => {
-    resolveToken.mockResolvedValue({ group: {}, state: "open" });
+    inviteTokenExists.mockResolvedValue(true);
     const res = await proxy(req("/einladung/good-token"));
     expect(res).toBeInstanceOf(NextResponse);
     expect(res.headers.get("x-middleware-rewrite")).toBeNull();
