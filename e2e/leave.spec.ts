@@ -321,6 +321,11 @@ test.describe("admin remove participant", () => {
       // Re-draw restores a full set of assignments for the remaining members.
       await authedPage.locator('button:has-text("Neu auslosen")').click();
       await authedPage.locator('button:has-text("Wiederholen")').click();
+      // The banner is hidden while the confirm dialog is open, so first wait
+      // for the re-draw to finish (dialog closes, start button returns).
+      await expect(
+        authedPage.locator('button:has-text("Neu auslosen")'),
+      ).toBeVisible({ timeout: 15_000 });
       await expect(authedPage.getByTestId("redraw-needed-banner")).toHaveCount(
         0,
         { timeout: 15_000 },
