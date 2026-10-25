@@ -38,6 +38,7 @@ function query(one: Row) {
   const q: Record<string, unknown> = {};
   for (const m of ["select", "eq"]) q[m] = vi.fn(() => q);
   q.single = vi.fn().mockResolvedValue({ data: one, error: null });
+  q.maybeSingle = q.single;
   return q;
 }
 
