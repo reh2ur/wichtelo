@@ -101,17 +101,17 @@ describe("FROM_EMAIL", () => {
   it("prefixes the display name onto a bare address", async () => {
     const { FROM_EMAIL } = await load({
       NODE_ENV: "test",
-      RESEND_FROM_EMAIL: "noreply@wichtelo.de",
+      RESEND_FROM_EMAIL: "noreply@example.com",
     });
-    expect(FROM_EMAIL).toBe("Wichtelo <noreply@wichtelo.de>");
+    expect(FROM_EMAIL).toBe("Wichtelo <noreply@example.com>");
   });
 
   it("keeps a full 'Name <addr>' value untouched", async () => {
     const { FROM_EMAIL } = await load({
       NODE_ENV: "test",
-      RESEND_FROM_EMAIL: "Santa <noreply@wichtelo.de>",
+      RESEND_FROM_EMAIL: "Santa <noreply@example.com>",
     });
-    expect(FROM_EMAIL).toBe("Santa <noreply@wichtelo.de>");
+    expect(FROM_EMAIL).toBe("Santa <noreply@example.com>");
   });
 
   it("falls back to a localhost sender when the env is unset", async () => {
