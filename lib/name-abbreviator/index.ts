@@ -70,16 +70,21 @@ export function membersFromMemberships(
  *   - Members whose first name is unique within the group are still rendered
  *     with first name only, even when other cohorts collide.
  */
+function nameKey(s: string): string {
+  return s.normalize("NFC").toLocaleLowerCase("de");
+}
+
 export function abbreviateNames(members: Member[]): DisplayName[] {
   if (members.length === 0) return [];
 
   const cohorts = new Map<string, Member[]>();
   for (const m of members) {
-    const cohort = cohorts.get(m.firstName);
+    const key = nameKey(m.firstName);
+    const cohort = cohorts.get(key);
     if (cohort) {
       cohort.push(m);
     } else {
-      cohorts.set(m.firstName, [m]);
+      cohorts.set(key, [m]);
     }
   }
 
@@ -112,13 +117,15 @@ export function abbreviateNames(members: Member[]): DisplayName[] {
   // names) still collide: number them so every display name is unique.
   const counts = new Map<string, number>();
   for (const r of result) {
-    counts.set(r.displayName, (counts.get(r.displayName) ?? 0) + 1);
+    const k = nameKey(r.displayName);
+    counts.set(k, (counts.get(k) ?? 0) + 1);
   }
   const seen = new Map<string, number>();
   return result.map((r) => {
-    if ((counts.get(r.displayName) ?? 0) < 2) return r;
-    const n = (seen.get(r.displayName) ?? 0) + 1;
-    seen.set(r.displayName, n);
+    const k = nameKey(r.displayName);
+    if ((counts.get(k) ?? 0) < 2) return r;
+    const n = (seen.get(k) ?? 0) + 1;
+    seen.set(k, n);
     return { id: r.id, displayName: `${r.displayName} (${n})` };
   });
 }
@@ -138,10 +145,11 @@ function graphemes(str: string): string[] {
  * exists (e.g., two members share identical last names).
  */
 function minimumDistinguishingPrefix(target: string, others: string[]): string {
-  const chars = graphemes(target);
+  const chars = graphemes(target.normalize("NFC"));
+  const otherKeys = others.map(nameKey);
   for (let len = 1; len <= chars.length; len++) {
     const prefix = chars.slice(0, len).join("");
-    const collides = others.some((o) => o.startsWith(prefix));
+    const collides = otherKeys.some((o) => o.startsWith(nameKey(prefix)));
     if (!collides) return prefix;
   }
   return target;

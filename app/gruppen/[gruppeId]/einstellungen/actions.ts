@@ -13,7 +13,7 @@ import {
 import { resolveGroupContact } from "@/lib/group-admins";
 import { notify } from "@/lib/notification";
 import { logger } from "@/lib/logger";
-import { computeDraw, TOO_COMPLEX } from "@/lib/draw";
+import { computeDraw, liveMembers, TOO_COMPLEX } from "@/lib/draw";
 import { rotateToken } from "@/lib/invite";
 import { removeMembership } from "@/lib/membership";
 import { checkRateLimit, exclusionAddLimiter } from "@/lib/rate-limit";
@@ -235,7 +235,7 @@ export async function addExclusion(
     { data: allMembers, error: allMembersError },
     { data: allExclusions, error: allExclusionsError },
   ] = await Promise.all([
-    admin.from("memberships").select("id").eq("group_id", group.id),
+    admin.from("memberships").select("id, profile_id").eq("group_id", group.id),
     admin
       .from("exclusions")
       .select("member_a, member_b")
@@ -251,7 +251,15 @@ export async function addExclusion(
       .error("exclusion.feasibility_load_failed");
     return { status: "success" };
   }
-  const ids = (allMembers ?? []).map((m: { id: string }) => m.id);
+  // A re-draw only involves live members: ghosts (deleted accounts) of a
+  // drawn group must not count toward feasibility.
+  const memberRows = (allMembers ?? []) as {
+    id: string;
+    profile_id: string | null;
+  }[];
+  const ids = (
+    group.state === "drawn" ? liveMembers(memberRows) : memberRows
+  ).map((m) => m.id);
   const pairs = (
     (allExclusions ?? []) as { member_a: string; member_b: string }[]
   ).map((e): [string, string] => [e.member_a, e.member_b]);

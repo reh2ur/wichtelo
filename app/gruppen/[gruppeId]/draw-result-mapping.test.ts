@@ -138,9 +138,8 @@ describe("triggerDraw perform_draw result mapping", () => {
   it.each([
     ["state_changed", "already_drawn"],
     ["ghost_members", "ghost_members"],
-    // Join slipped in between read and draw: not specially surfaced for the
-    // first draw (the admin simply retries), but it must never send mail.
-    ["membership_changed", "generic"],
+    // Join slipped in between read and draw: admin retries, never sends mail.
+    ["membership_changed", "membership_changed"],
     ["group_not_found", "generic"],
   ])("maps rpc result %s to %s and sends nothing", async (rpcResult, error) => {
     setup("open", { data: rpcResult });

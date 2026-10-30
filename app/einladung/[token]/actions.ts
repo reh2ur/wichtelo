@@ -304,6 +304,10 @@ export async function acceptInvite(
       updateTag(groupTag(group.slug));
       redirect(`/gruppen/${group.slug}`);
     }
+    // P0001: reject_join_when_drawn trigger - draw won the race with this join.
+    if (memberError && memberError.code === "P0001") {
+      return { status: "error", error: "drawn" };
+    }
     if (memberError) {
       console.error(
         "[acceptInvite] membership insert failed:",

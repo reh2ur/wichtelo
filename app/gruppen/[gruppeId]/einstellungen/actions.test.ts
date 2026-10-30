@@ -48,6 +48,8 @@ function query(result: unknown) {
 function setup(opts: {
   state?: "open" | "drawn";
   memberIds: string[];
+  /** members with a deleted account (profile_id null) */
+  ghostIds?: string[];
   /** ids returned for the two-member membership check */
   pairFound?: number;
   exclusions?: { member_a: string; member_b: string }[];
@@ -68,7 +70,10 @@ function setup(opts: {
         });
       if (table === "memberships") {
         const q = query({
-          data: memberIds.map((id) => ({ id })),
+          data: memberIds.map((id) => ({
+            id,
+            profile_id: opts.ghostIds?.includes(id) ? null : `p-${id}`,
+          })),
           role: "admin",
         });
         // assertAdmin uses .single() -> caller membership
@@ -132,6 +137,26 @@ describe("addExclusion (#201)", () => {
       fd({ slug: "s", memberA: "a", memberB: "b" }),
     );
     expect(res).toEqual({ status: "success" });
+  });
+});
+
+describe("addExclusion feasibility ignores ghosts in drawn groups", () => {
+  beforeEach(() => vi.clearAllMocks());
+
+  it("does not count ghost members (3 live + 2 ghosts, all pairs but one excluded -> unsolvable only if ghosts ignored)", async () => {
+    // Live a,b,c with a-b excluded is unsolvable (3 members). With ghosts
+    // counted (5 members) it would look feasible and hide the warning.
+    setup({
+      state: "drawn",
+      memberIds: ["a", "b", "c", "g1", "g2"],
+      ghostIds: ["g1", "g2"],
+      exclusions: [{ member_a: "a", member_b: "b" }],
+    });
+    const res = await addExclusion(
+      { status: "idle" },
+      fd({ slug: "s", memberA: "a", memberB: "b" }),
+    );
+    expect(res).toEqual({ status: "success", warning: "unsolvable" });
   });
 });
 

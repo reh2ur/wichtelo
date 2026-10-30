@@ -275,10 +275,15 @@ function backtrackSearch(
  */
 export function computeDraw(
   members: MemberId[],
-  exclusions: ExclusionPair[],
+  allExclusions: ExclusionPair[],
   seed = cryptoSeed(),
   maxNodes = MAX_BACKTRACK_NODES,
 ): DrawResult {
+  // Exclusions referencing ids outside `members` (e.g. ghosts) are irrelevant.
+  const known = new Set<MemberId>(members);
+  const exclusions = allExclusions.filter(
+    ([a, b]) => known.has(a) && known.has(b),
+  );
   if (members.length < MIN_PARTICIPANTS) return null;
   if (!hasPerfectMatching(members, exclusions)) return null;
 

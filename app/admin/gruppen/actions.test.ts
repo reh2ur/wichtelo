@@ -18,7 +18,10 @@ import { reopenGroup, deleteGroup } from "./actions";
 
 type AdminClient = ReturnType<typeof createAdminClient>;
 
+const rpc = vi.fn();
+
 function mockAdmin() {
+  rpc.mockResolvedValue({ data: "ok", error: null });
   const ok = { error: null };
   const from = vi.fn().mockReturnValue({
     select: vi.fn().mockReturnValue({
@@ -33,6 +36,7 @@ function mockAdmin() {
   });
   vi.mocked(createAdminClient).mockReturnValue({
     from,
+    rpc,
   } as unknown as AdminClient);
 }
 
@@ -51,7 +55,29 @@ describe("super-admin group actions invalidate groupTag", () => {
   it("reopenGroup", async () => {
     const res = await reopenGroup({ status: "idle" }, form());
     expect(res.status).toBe("success");
+    expect(rpc).toHaveBeenCalledWith("reopen_group", { p_group_id: "g1" });
     expect(updateTag).toHaveBeenCalledWith("group-familie");
+  });
+
+  it("reopenGroup fails closed on rpc error", async () => {
+    rpc.mockResolvedValue({ data: null, error: { message: "boom" } });
+    const res = await reopenGroup({ status: "idle" }, form());
+    expect(res).toEqual({ status: "error", error: "generic" });
+    expect(updateTag).not.toHaveBeenCalled();
+  });
+
+  it("reopenGroup maps group_not_found and unknown results", async () => {
+    rpc.mockResolvedValue({ data: "group_not_found", error: null });
+    expect(await reopenGroup({ status: "idle" }, form())).toEqual({
+      status: "error",
+      error: "group_not_found",
+    });
+    rpc.mockResolvedValue({ data: "weird", error: null });
+    expect(await reopenGroup({ status: "idle" }, form())).toEqual({
+      status: "error",
+      error: "generic",
+    });
+    expect(updateTag).not.toHaveBeenCalled();
   });
 
   it("deleteGroup", async () => {

@@ -245,3 +245,46 @@ describe("membersFromMemberships name snapshots", () => {
     ]);
   });
 });
+
+describe("abbreviateNames normalization (#153)", () => {
+  it("treats NFC and NFD first names as the same cohort", () => {
+    const nfc = "Zo\u00eb";
+    const nfd = "Zoe\u0308";
+    const result = abbreviateNames([
+      { id: "1", firstName: nfc, lastName: "Meier" },
+      { id: "2", firstName: nfd, lastName: "Schmidt" },
+    ]);
+    expect(result[0].displayName).toBe(`${nfc} M.`);
+    expect(result[1].displayName.endsWith(" S.")).toBe(true);
+  });
+
+  it("treats first names differing only in case as the same cohort", () => {
+    const result = abbreviateNames([
+      { id: "1", firstName: "Anna", lastName: "Meier" },
+      { id: "2", firstName: "anna", lastName: "Schmidt" },
+    ]);
+    expect(result.map((r) => r.displayName)).toEqual(["Anna M.", "anna S."]);
+  });
+
+  it("compares last-name prefixes case-insensitively", () => {
+    const result = abbreviateNames([
+      { id: "1", firstName: "Anna", lastName: "Meier" },
+      { id: "2", firstName: "Anna", lastName: "meyer" },
+    ]);
+    expect(result.map((r) => r.displayName)).toEqual([
+      "Anna Mei.",
+      "Anna mey.",
+    ]);
+  });
+
+  it("numbers display names identical up to case", () => {
+    const result = abbreviateNames([
+      { id: "1", firstName: "Anna", lastName: "Meier" },
+      { id: "2", firstName: "anna", lastName: "meier" },
+    ]);
+    expect(result.map((r) => r.displayName)).toEqual([
+      "Anna Meier (1)",
+      "anna meier (2)",
+    ]);
+  });
+});
