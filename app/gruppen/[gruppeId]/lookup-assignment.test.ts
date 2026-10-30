@@ -164,4 +164,26 @@ describe("lookupAssignment (#135)", () => {
     expect(res).toEqual({ status: "error", error: "not_found" });
     expect(insert).not.toHaveBeenCalled();
   });
+
+  it.each([
+    ["slug", { membershipId: "m2" }],
+    ["membershipId", { slug: "familie" }],
+    ["both", {}],
+  ])("rejects missing %s before any auth or DB work", async (_l, fields) => {
+    const f = new FormData();
+    for (const [k, v] of Object.entries(fields)) f.set(k, v);
+    const res = await lookupAssignment({ status: "idle" }, f);
+    expect(res).toEqual({ status: "error", error: "generic" });
+    expect(createClient).not.toHaveBeenCalled();
+    expect(createAdminClient).not.toHaveBeenCalled();
+  });
+
+  it("requires a signed-in user and reads no data", async () => {
+    vi.mocked(createClient).mockResolvedValue({
+      auth: { getUser: vi.fn().mockResolvedValue({ data: { user: null } }) },
+    } as never);
+    const res = await lookupAssignment({ status: "idle" }, fd("familie"));
+    expect(res).toEqual({ status: "error", error: "not_authenticated" });
+    expect(createAdminClient).not.toHaveBeenCalled();
+  });
 });
