@@ -136,6 +136,7 @@
       "alreadyDrawn": "Die Auslosung wurde bereits durchgeführt.",
       "notEnoughMembers": "Es werden mindestens 3 Teilnehmer benötigt.",
       "ghostMembers": "Die Gruppe enthält Teilnehmer mit gelöschtem Konto. Bitte entferne diese in den Einstellungen, bevor du auslost.",
+      "membershipChanged": "Die Teilnehmerliste hat sich während der Auslosung geändert. Bitte versuche es erneut.",
       "unsolvable": "Die Auslosung ist mit den aktuellen Ausschlüssen nicht möglich. Bitte passe die Ausschlüsse an.",
       "tooComplex": "Die Auslosung ist mit diesen Ausschlüssen zu komplex, um sie zu prüfen. Bitte entferne einzelne Ausschlüsse und versuche es erneut.",
       "generic": "Etwas ist schiefgelaufen. Bitte versuche es erneut.",

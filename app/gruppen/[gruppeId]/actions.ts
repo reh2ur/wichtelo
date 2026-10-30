@@ -154,6 +154,7 @@ export type DrawState =
         | "unsolvable"
         | "too_complex"
         | "ghost_members"
+        | "membership_changed"
         | "generic"
         | "rate_limited";
     };
@@ -292,6 +293,9 @@ export async function triggerDraw(
     }
     if (drawResult === "ghost_members") {
       return { status: "error", error: "ghost_members" };
+    }
+    if (drawResult === "membership_changed") {
+      return { status: "error", error: "membership_changed" };
     }
     return { status: "error", error: "generic" };
   }
@@ -747,10 +751,36 @@ export async function resendDrawEmails(
       loadMemberships(admin, groupId),
       loadAssignment(admin, groupId),
     ]);
+    // The three reads are not one snapshot: a re-draw in between would pair
+    // new assignments with an old member list. Re-check the version after.
+    const { data: after, error: afterError } = await admin
+      .from("groups")
+      .select("state, draw_version")
+      .eq("id", groupId)
+      .maybeSingle();
+    if (afterError) {
+      throw new Error(`group re-read failed: ${afterError.message}`);
+    }
+    if (
+      !after ||
+      after.state !== "drawn" ||
+      after.draw_version !== group.draw_version
+    ) {
+      return { status: "error", error: "not_drawn" };
+    }
   } catch (err) {
     reportError("draw.resend_load_failed", err, { groupId });
     return { status: "error", error: "generic" };
   }
+  // Same participants as the original send: live members only (ghosts are
+  // removed by the re-draw and have nobody to mail), in joined_at,id order.
+  memberRows = liveMembers(memberRows);
+  const liveIds = new Set(memberRows.map((m) => m.id));
+  assignment = new Map(
+    Array.from(assignment).filter(
+      ([giver, receiver]) => liveIds.has(giver) && liveIds.has(receiver),
+    ),
+  );
   // A drawn group always has assignments + members. Empty means a lost read,
   // not "nothing to send": bail out so the stored warning stays untouched.
   if (memberRows.length === 0 || assignment.size === 0) {

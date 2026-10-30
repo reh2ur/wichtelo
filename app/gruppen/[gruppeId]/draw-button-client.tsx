@@ -30,6 +30,8 @@ function errorMessage(
       return t("errors.tooComplex");
     case "ghost_members":
       return t("errors.ghostMembers");
+    case "membership_changed":
+      return t("errors.membershipChanged");
     case "rate_limited":
       return t("errors.rateLimited");
     default:

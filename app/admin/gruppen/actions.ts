@@ -44,16 +44,26 @@ export async function reopenGroup(
   const identity = await fetchGroupIdentity(admin, groupId);
   if (!identity) return { status: "error", error: "group_not_found" };
 
-  const { error } = await admin
-    .from("groups")
-    .update({ state: "open" })
-    .eq("id", groupId);
+  // Atomic: locks group row, drops assignments + draw-mail warning, sets open.
+  const { data: result, error } = await admin.rpc("reopen_group", {
+    p_group_id: groupId,
+  });
   if (error) {
     logger
       .withMetadata({ groupId, reason: error.message })
       .error("admin.reopen_group_failed");
     return { status: "error", error: "generic" };
   }
+  if (result === "group_not_found") {
+    return { status: "error", error: "group_not_found" };
+  }
+  if (result !== "ok" && result !== "not_drawn") {
+    logger
+      .withMetadata({ groupId, result })
+      .error("admin.reopen_group_unexpected_result");
+    return { status: "error", error: "generic" };
+  }
+  // not_drawn = already open (double click / race): idempotent success.
 
   await logAdminAction("reopen_group", "group", groupId, identity);
   logger.withMetadata({ groupId }).info("admin.group_reopened");

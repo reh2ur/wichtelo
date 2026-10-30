@@ -405,3 +405,30 @@ describe("liveMembers", () => {
     expect(liveMembers([{ profile_id: null }])).toEqual([]);
   });
 });
+
+describe("computeDraw unknown ids", () => {
+  it("ignores exclusions that reference ids outside members", () => {
+    const result = computeDraw(
+      ["a", "b", "c", "d"],
+      [
+        ["a", "ghost"],
+        ["ghost", "ghost2"],
+        ["b", "c"],
+      ],
+      1,
+    );
+    expect(result).not.toBeNull();
+    expect(result).not.toBe(TOO_COMPLEX);
+    expect((result as Map<string, string>).size).toBe(4);
+  });
+
+  it("does not throw in the backtracking path with unknown ids", () => {
+    const members = ["a", "b", "c", "d", "e"];
+    const exclusions: [string, string][] = [
+      ["a", "b"],
+      ["a", "c"],
+      ["x", "a"],
+    ];
+    expect(() => computeDraw(members, exclusions, 7)).not.toThrow();
+  });
+});

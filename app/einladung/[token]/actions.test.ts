@@ -630,6 +630,15 @@ describe("acceptInvite write-error handling", () => {
     expect(notify).not.toHaveBeenCalled();
   });
 
+  it("maps the drawn-group trigger error (P0001) to drawn", async () => {
+    setup({
+      existingProfile: true,
+      memberInsertError: { code: "P0001", message: "group is already drawn" },
+    });
+    const result = await acceptInvite("t", { status: "idle" }, fd({}));
+    expect(result).toEqual({ status: "error", error: "drawn" });
+  });
+
   it("still reports other membership insert errors", async () => {
     setup({
       existingProfile: true,

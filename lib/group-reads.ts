@@ -51,7 +51,12 @@ export async function loadMembershipsWithGroups(
   if (error) {
     throw new Error(`[loadMembershipsWithGroups] failed: ${error.message}`);
   }
-  return (data ?? []) as unknown as MembershipWithGroup[];
+  // Stable list order: newest year first, then name.
+  return ((data ?? []) as unknown as MembershipWithGroup[]).sort(
+    (a, b) =>
+      b.groups.year - a.groups.year ||
+      a.groups.name.localeCompare(b.groups.name, "de"),
+  );
 }
 
 async function loadProfilesById(
@@ -227,7 +232,8 @@ export async function loadSettingsMemberships(
     .from("memberships")
     .select("id, name_snapshot, role, profile_id")
     .eq("group_id", groupId)
-    .order("joined_at", { ascending: true });
+    .order("joined_at", { ascending: true })
+    .order("id", { ascending: true });
   if (error) {
     throw new Error(`[loadSettingsMemberships] failed: ${error.message}`);
   }

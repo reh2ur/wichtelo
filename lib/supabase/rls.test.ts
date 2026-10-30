@@ -859,6 +859,73 @@ describe.skipIf(!hasSupabase)(
         expect(error?.message).toContain("already drawn");
       });
 
+      it("reopen_group (#154): clears assignments + mail warning, service role only", async () => {
+        const id = crypto.randomUUID();
+        await admin.from("groups").insert({
+          id,
+          name: "Reopen",
+          slug: `reopen-${Date.now()}`,
+          year: 2099,
+          created_by: victimId,
+        });
+        const { data: ms } = await admin
+          .from("memberships")
+          .insert([
+            {
+              group_id: id,
+              profile_id: victimId,
+              name_snapshot: "V",
+              role: "admin",
+            },
+            { group_id: id, name_snapshot: "X", role: "participant" },
+          ])
+          .select("id");
+        await admin
+          .from("assignments")
+          .insert([
+            { group_id: id, giver_id: ms![0].id, receiver_id: ms![1].id },
+          ]);
+        await admin.from("groups").update({ state: "drawn" }).eq("id", id);
+        await admin
+          .from("draw_mail_failures")
+          .insert({ group_id: id, draw_version: 0, failed: 1, total: 2 });
+
+        const anon = anonClient();
+        await signInAs(anon, attackerEmail);
+        const { error: denied } = await anon.rpc("reopen_group", {
+          p_group_id: id,
+        });
+        expect(denied).not.toBeNull();
+
+        const { data } = await admin.rpc("reopen_group", { p_group_id: id });
+        expect(data).toBe("ok");
+        const { data: g } = await admin
+          .from("groups")
+          .select("state")
+          .eq("id", id)
+          .single();
+        expect(g?.state).toBe("open");
+        const { count } = await admin
+          .from("assignments")
+          .select("*", { count: "exact", head: true })
+          .eq("group_id", id);
+        expect(count).toBe(0);
+        const { data: warn } = await admin
+          .from("draw_mail_failures")
+          .select("group_id")
+          .eq("group_id", id);
+        expect(warn).toHaveLength(0);
+
+        expect((await admin.rpc("reopen_group", { p_group_id: id })).data).toBe(
+          "not_drawn",
+        );
+        expect(
+          (await admin.rpc("reopen_group", { p_group_id: crypto.randomUUID() }))
+            .data,
+        ).toBe("group_not_found");
+        await admin.from("groups").delete().eq("id", id);
+      });
+
       it("group delete still cascades memberships of a drawn group", async () => {
         const id = crypto.randomUUID();
         await admin.from("groups").insert({
