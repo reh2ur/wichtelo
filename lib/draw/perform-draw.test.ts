@@ -127,12 +127,46 @@ describe.skipIf(!hasSupabase)("perform_draw", () => {
     expect(count).toBe(3);
   });
 
+  const pendingRow = async () => {
+    const { data } = await admin
+      .from("draw_mail_failures")
+      .select("draw_version, failed, total")
+      .eq("group_id", groupId)
+      .maybeSingle();
+    return data;
+  };
+
+  it("leaves a pending mail-warning row in the draw transaction (#140)", async () => {
+    // The app crashing right after commit must still leave the resend option.
+    expect(await pendingRow()).toEqual({
+      draw_version: 1,
+      failed: 3,
+      total: 3,
+    });
+  });
+
   it("lets only one of two parallel re-draws win", async () => {
     const results = await Promise.all([
       draw(rotate(1), "drawn", 1),
       draw(rotate(2), "drawn", 1),
     ]);
     expect(results.map((r) => r.data).sort()).toEqual(["ok", "state_changed"]);
+  });
+
+  it("re-draw replaces the pending row; a clean send clears it (#140)", async () => {
+    expect(await pendingRow()).toEqual({
+      draw_version: 2,
+      failed: 3,
+      total: 3,
+    });
+    const { error } = await admin.rpc("record_draw_mail_result", {
+      p_group_id: groupId,
+      p_draw_version: 2,
+      p_failed: 0,
+      p_total: 3,
+    });
+    expect(error).toBeNull();
+    expect(await pendingRow()).toBeNull();
   });
 
   it("keeps old assignments when the insert fails", async () => {

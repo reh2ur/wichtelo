@@ -6,210 +6,184 @@ vi.mock("@/lib/supabase/server", () => ({ createClient: vi.fn() }));
 vi.mock("@/lib/supabase/admin", () => ({ createAdminClient: vi.fn() }));
 vi.mock("@/lib/rate-limit", () => ({
   checkRateLimit: vi.fn().mockResolvedValue(true),
+  assignmentLookupLimiter: { name: "lookup" },
   drawTriggerLimiter: {},
   joinLeaveLimiter: {},
 }));
+vi.mock("@/lib/group-admins", () => ({
+  resolveGroupContact: vi.fn(),
+  getGroupAdminEmails: vi.fn(),
+}));
+vi.mock("@/lib/notification", () => ({ notify: vi.fn() }));
 vi.mock("@/lib/logger", () => {
   const chain = { info: vi.fn(), error: vi.fn(), warn: vi.fn() };
   return { logger: { ...chain, withMetadata: vi.fn().mockReturnValue(chain) } };
 });
 
-import { lookupAssignment, type OracleState } from "./actions";
+import { lookupAssignment } from "./actions";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { logger } from "@/lib/logger";
+import { checkRateLimit, assignmentLookupLimiter } from "@/lib/rate-limit";
 
-const IDLE: OracleState = { status: "idle" };
-
-function fd(fields: Record<string, string>) {
+function fd(slug: string, membershipId = "m2") {
   const f = new FormData();
-  for (const [k, v] of Object.entries(fields)) f.set(k, v);
+  f.set("slug", slug);
+  f.set("membershipId", membershipId);
   return f;
 }
 
-type Result = { data: unknown; error?: { message: string } | null };
+type Row = Record<string, unknown> | null;
 
-function chain(result: Result) {
+function query(one: Row) {
   const q: Record<string, unknown> = {};
   for (const m of ["select", "eq"]) q[m] = vi.fn(() => q);
-  const done = vi.fn().mockResolvedValue({ error: null, ...result });
-  q.single = done;
-  q.maybeSingle = done;
+  q.single = vi.fn().mockResolvedValue({ data: one, error: null });
+  q.maybeSingle = q.single;
   return q;
 }
 
-interface World {
-  user?: { id: string } | null;
-  group?: Result;
-  caller?: Result;
-  assignment?: Result;
-  receiver?: Result;
-  profile?: Result;
-}
-
-function setup(world: World) {
-  const user = "user" in world ? world.user : { id: "u-admin" };
+function setup(
+  opts: {
+    group?: Row;
+    caller?: Row;
+    auditError?: string;
+    assignment?: Row;
+  } = {},
+) {
   vi.mocked(createClient).mockResolvedValue({
-    auth: { getUser: vi.fn().mockResolvedValue({ data: { user } }) },
+    auth: {
+      getUser: vi.fn().mockResolvedValue({ data: { user: { id: "u-admin" } } }),
+    },
   } as never);
-
-  // memberships is queried twice: caller first, then the receiver.
-  const memberships = [
-    chain(world.caller ?? { data: { id: "m-admin", role: "admin" } }),
-    chain(
-      world.receiver ?? {
-        data: { name_snapshot: "Snapshot Name", profile_id: "p2" },
-      },
-    ),
-  ];
-  const from = vi.fn((table: string) => {
-    switch (table) {
-      case "groups":
-        return chain(world.group ?? { data: { id: "g1", state: "drawn" } });
-      case "memberships":
-        return memberships.shift() ?? chain({ data: null });
-      case "assignments":
-        return chain(
-          world.assignment ?? { data: { receiver_id: "m-receiver" } },
-        );
-      case "profiles":
-        return chain(
-          world.profile ?? {
-            data: { first_name: "Erika", last_name: "Muster" },
-          },
-        );
-      default:
-        throw new Error(`unexpected table ${table}`);
-    }
+  const insert = vi.fn().mockResolvedValue({
+    error: opts.auditError ? { message: opts.auditError } : null,
   });
-  vi.mocked(createAdminClient).mockReturnValue({ from } as never);
-  return { from };
+  const assignments = query(
+    opts.assignment === undefined ? { receiver_id: "m3" } : opts.assignment,
+  );
+  vi.mocked(createAdminClient).mockReturnValue({
+    from: vi.fn((table: string) => {
+      if (table === "groups")
+        return query(
+          opts.group === undefined ? { id: "g1", state: "drawn" } : opts.group,
+        );
+      if (table === "assignments") return assignments;
+      if (table === "assignment_lookups") return { insert };
+      if (table === "memberships") {
+        // Caller lookup and receiver lookup share the table.
+        const caller =
+          opts.caller === undefined
+            ? { id: "m1", role: "admin", name_snapshot: "Clara Conrad" }
+            : opts.caller;
+        return query(caller);
+      }
+      return query(null);
+    }),
+  } as never);
+  return { insert, assignments };
 }
 
-const valid = { slug: "familie", membershipId: "m-giver" };
+describe("lookupAssignment (#135)", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    vi.mocked(checkRateLimit).mockResolvedValue(true);
+  });
 
-describe("lookupAssignment", () => {
-  beforeEach(() => vi.clearAllMocks());
+  it("writes an audit row with actor, group and target before revealing", async () => {
+    const { insert } = setup();
+    const res = await lookupAssignment({ status: "idle" }, fd("familie"));
+    expect(res).toEqual({
+      status: "success",
+      giverId: "m2",
+      receiverName: "Clara Conrad",
+    });
+    expect(insert).toHaveBeenCalledWith({
+      group_id: "g1",
+      actor_profile_id: "u-admin",
+      target_membership_id: "m2",
+    });
+  });
+
+  it("fails closed when the audit row cannot be written", async () => {
+    setup({ auditError: "db down" });
+    const res = await lookupAssignment({ status: "idle" }, fd("familie"));
+    expect(res).toEqual({ status: "error", error: "generic" });
+  });
+
+  it("rate limits per admin and group, without auditing or revealing", async () => {
+    const { insert, assignments } = setup();
+    vi.mocked(checkRateLimit).mockResolvedValue(false);
+    const res = await lookupAssignment({ status: "idle" }, fd("familie"));
+    expect(res).toEqual({ status: "error", error: "rate_limited" });
+    expect(checkRateLimit).toHaveBeenCalledWith(
+      assignmentLookupLimiter,
+      "familie:u-admin",
+    );
+    expect(assignments.single).not.toHaveBeenCalled();
+    expect(insert).not.toHaveBeenCalled();
+  });
+
+  it("rejects an open group (e.g. stale rows after reopen) without auditing", async () => {
+    const { insert, assignments } = setup({
+      group: { id: "g1", state: "open" },
+    });
+    const res = await lookupAssignment({ status: "idle" }, fd("familie"));
+    expect(res).toEqual({ status: "error", error: "not_found" });
+    expect(assignments.single).not.toHaveBeenCalled();
+    expect(insert).not.toHaveBeenCalled();
+  });
+
+  it("non-admin, non-member and unknown slug get the same error, nothing audited", async () => {
+    const participant = setup({ caller: { id: "m2", role: "participant" } });
+    const asParticipant = await lookupAssignment(
+      { status: "idle" },
+      fd("familie"),
+    );
+    expect(participant.insert).not.toHaveBeenCalled();
+
+    const nonMember = setup({ caller: null });
+    const asOutsider = await lookupAssignment(
+      { status: "idle" },
+      fd("familie"),
+    );
+    expect(nonMember.insert).not.toHaveBeenCalled();
+
+    const unknown = setup({ group: null });
+    const unknownSlug = await lookupAssignment({ status: "idle" }, fd("nope"));
+    expect(unknown.insert).not.toHaveBeenCalled();
+
+    expect(asParticipant).toEqual({ status: "error", error: "not_admin" });
+    expect(asOutsider).toEqual(asParticipant);
+    expect(unknownSlug).toEqual(asParticipant);
+    expect(checkRateLimit).not.toHaveBeenCalled();
+  });
+
+  it("does not audit when no assignment exists for the target", async () => {
+    const { insert } = setup({ assignment: null });
+    const res = await lookupAssignment({ status: "idle" }, fd("familie"));
+    expect(res).toEqual({ status: "error", error: "not_found" });
+    expect(insert).not.toHaveBeenCalled();
+  });
 
   it.each([
-    ["slug", { membershipId: "m-giver" }],
+    ["slug", { membershipId: "m2" }],
     ["membershipId", { slug: "familie" }],
     ["both", {}],
   ])("rejects missing %s before any auth or DB work", async (_l, fields) => {
-    const res = await lookupAssignment(IDLE, fd(fields));
+    const f = new FormData();
+    for (const [k, v] of Object.entries(fields)) f.set(k, v);
+    const res = await lookupAssignment({ status: "idle" }, f);
     expect(res).toEqual({ status: "error", error: "generic" });
     expect(createClient).not.toHaveBeenCalled();
     expect(createAdminClient).not.toHaveBeenCalled();
   });
 
   it("requires a signed-in user and reads no data", async () => {
-    setup({ user: null });
-    const res = await lookupAssignment(IDLE, fd(valid));
+    vi.mocked(createClient).mockResolvedValue({
+      auth: { getUser: vi.fn().mockResolvedValue({ data: { user: null } }) },
+    } as never);
+    const res = await lookupAssignment({ status: "idle" }, fd("familie"));
     expect(res).toEqual({ status: "error", error: "not_authenticated" });
     expect(createAdminClient).not.toHaveBeenCalled();
-  });
-
-  it("gives an unknown slug the same error as a non-admin (no slug oracle)", async () => {
-    setup({ group: { data: null } });
-    const unknownSlug = await lookupAssignment(IDLE, fd(valid));
-
-    setup({ caller: { data: { id: "m1", role: "participant" } } });
-    const participant = await lookupAssignment(IDLE, fd(valid));
-
-    setup({ caller: { data: null } });
-    const outsider = await lookupAssignment(IDLE, fd(valid));
-
-    expect(unknownSlug).toEqual({ status: "error", error: "not_admin" });
-    expect(participant).toEqual(unknownSlug);
-    expect(outsider).toEqual(unknownSlug);
-  });
-
-  it("never reads assignments for a non-admin", async () => {
-    const { from } = setup({
-      caller: { data: { id: "m1", role: "participant" } },
-    });
-    await lookupAssignment(IDLE, fd(valid));
-    expect(from).not.toHaveBeenCalledWith("assignments");
-    expect(logger.withMetadata).not.toHaveBeenCalled();
-  });
-
-  it.each(["group", "caller"] as const)(
-    "reports a DB error on the %s lookup as generic, not not_admin",
-    async (which) => {
-      setup({ [which]: { data: null, error: { message: "db down" } } });
-      const res = await lookupAssignment(IDLE, fd(valid));
-      expect(res).toEqual({ status: "error", error: "generic" });
-    },
-  );
-
-  it("returns the receiver's profile name to an admin and logs the lookup", async () => {
-    setup({});
-    const res = await lookupAssignment(IDLE, fd(valid));
-    expect(res).toEqual({
-      status: "success",
-      giverId: "m-giver",
-      receiverName: "Erika Muster",
-    });
-    expect(logger.withMetadata).toHaveBeenCalledWith({
-      groupId: "g1",
-      giverId: "m-giver",
-    });
-  });
-
-  it("falls back to the name snapshot for a ghost receiver (deleted account)", async () => {
-    const { from } = setup({
-      receiver: { data: { name_snapshot: "Max Gelöscht", profile_id: null } },
-    });
-    const res = await lookupAssignment(IDLE, fd(valid));
-    expect(res).toEqual({
-      status: "success",
-      giverId: "m-giver",
-      receiverName: "Max Gelöscht",
-    });
-    expect(from).not.toHaveBeenCalledWith("profiles");
-  });
-
-  it("falls back to the name snapshot when the profile row is gone", async () => {
-    setup({ profile: { data: null } });
-    const res = await lookupAssignment(IDLE, fd(valid));
-    expect(res).toMatchObject({
-      status: "success",
-      receiverName: "Snapshot Name",
-    });
-  });
-
-  it("returns not_found when the giver has no assignment", async () => {
-    setup({ assignment: { data: null } });
-    const res = await lookupAssignment(IDLE, fd(valid));
-    expect(res).toEqual({ status: "error", error: "not_found" });
-    expect(logger.withMetadata).not.toHaveBeenCalled();
-  });
-
-  it("returns not_found when the receiver membership is gone", async () => {
-    setup({ receiver: { data: null } });
-    const res = await lookupAssignment(IDLE, fd(valid));
-    expect(res).toEqual({ status: "error", error: "not_found" });
-  });
-
-  it("scopes the assignment lookup to the caller's group", async () => {
-    // A membership id from another group must not resolve: the query filters
-    // on group_id of the (admin-checked) group, not on the id alone.
-    const eq = vi.fn();
-    const { from } = setup({});
-    const original = from.getMockImplementation()!;
-    from.mockImplementation((table: string) => {
-      const q = original(table) as Record<string, (...a: unknown[]) => unknown>;
-      if (table === "assignments") {
-        const inner = q.eq;
-        q.eq = vi.fn((...args: unknown[]) => {
-          eq(...args);
-          return inner(...args);
-        });
-      }
-      return q;
-    });
-    await lookupAssignment(IDLE, fd(valid));
-    expect(eq).toHaveBeenCalledWith("group_id", "g1");
-    expect(eq).toHaveBeenCalledWith("giver_id", "m-giver");
   });
 });

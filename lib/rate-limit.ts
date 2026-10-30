@@ -97,6 +97,13 @@ export const drawTriggerLimiter = makeLimiter("draw-trigger", 10, "1 h");
 // Join/leave each email every admin — cap per user so an invite holder can't
 // loop join/leave to flood admins or burn the Resend quota (#182).
 export const joinLeaveLimiter = makeLimiter("join-leave", 10, "1 h");
+// Admin assignment lookup (oracle): reveals one secret pairing per call, so cap
+// per admin and group (#135).
+export const assignmentLookupLimiter = makeLimiter(
+  "assignment-lookup",
+  10,
+  "1 h",
+);
 export const exclusionAddLimiter = makeLimiter("exclusion-add", 30, "1 h");
 export const accountDeletionLimiter = makeLimiter(
   "account-deletion",

@@ -341,6 +341,21 @@ test.describe("draw trigger", () => {
       await expect(
         freshTab.locator("text=1 von 3 E-Mails konnten nicht zugestellt"),
       ).toHaveCount(0);
+
+      // Mail step skipped entirely (crash/timeout after perform_draw commit,
+      // #140): perform_draw leaves failed = total = all members, so the resend
+      // option is there although no result was ever recorded.
+      await seedMailFailure(slug, 3, 3);
+      await freshTab.reload();
+      await expect(
+        freshTab.locator("text=3 von 3 E-Mails konnten nicht zugestellt"),
+      ).toBeVisible({ timeout: 15_000 });
+      await freshTab
+        .locator('button:has-text("Fehlgeschlagene E-Mails erneut senden")')
+        .click();
+      await expect(
+        freshTab.locator("text=Alle E-Mails wurden zugestellt."),
+      ).toBeVisible({ timeout: 15_000 });
     } finally {
       await freshTab.close();
     }

@@ -54,7 +54,9 @@ export function AdminOracleClient({
         ? t("errors.notAdmin")
         : state.error === "not_found"
           ? t("errors.notFound")
-          : t("errors.generic")
+          : state.error === "rate_limited"
+            ? t("errors.rateLimited")
+            : t("errors.generic")
       : null;
 
   return (

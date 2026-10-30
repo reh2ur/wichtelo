@@ -140,6 +140,34 @@ describe.each([
   });
 });
 
+describe.each([
+  ["triggerDraw", triggerDraw, "open"],
+  ["retriggerDraw", retriggerDraw, "drawn"],
+] as const)(
+  "%s mail step crash after commit (#140)",
+  (_name, action, state) => {
+    beforeEach(() => vi.clearAllMocks());
+
+    it("keeps the pending warning when notify throws: nothing is cleared", async () => {
+      const { rpc } = setup(state, {});
+      vi.mocked(notify).mockRejectedValueOnce(new Error("function timeout"));
+      const res = await action({ status: "idle" }, fd("familie"));
+      // perform_draw wrote the pending row; no result is recorded, so it stays.
+      expect(rpc).toHaveBeenCalledWith("perform_draw", expect.anything());
+      expect(rpc).not.toHaveBeenCalledWith(
+        "record_draw_mail_result",
+        expect.anything(),
+      );
+      // Admin sees the failure right away instead of an error page.
+      expect(res).toEqual({
+        status: "success",
+        emailsFailed: 3,
+        emailsTotal: 3,
+      });
+    });
+  },
+);
+
 describe("resendDrawEmails DB read errors (#131)", () => {
   beforeEach(() => vi.clearAllMocks());
 

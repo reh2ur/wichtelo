@@ -267,6 +267,7 @@
     "errors": {
       "notAdmin": "Nur Admins können Zuweisungen nachschlagen.",
       "notFound": "Zuweisung nicht gefunden.",
+      "rateLimited": "Zu viele Abfragen. Bitte warte einen Moment und versuche es erneut.",
       "generic": "Etwas ist schiefgelaufen. Bitte versuche es erneut."
     }
   },
@@ -613,7 +614,7 @@
     },
     "oracleAccess": {
       "heading": "Einsicht durch Gruppen-Admins",
-      "body": "Der Admin einer Gruppe kann für einzelne Teilnehmende die zugeloste Empfängerin bzw. den zugelosten Empfänger einsehen. Diese Funktion dient der Unterstützung bei Rückfragen und wird ausschließlich auf gezielte Auswahl der Teilnehmenden hin ausgeführt."
+      "body": "Der Admin einer Gruppe kann für einzelne Teilnehmende die zugeloste Empfängerin bzw. den zugelosten Empfänger einsehen. Diese Funktion dient der Unterstützung bei Rückfragen und wird ausschließlich auf gezielte Auswahl der Teilnehmenden hin ausgeführt. Jede Einsicht wird mit Zeitpunkt, einsehendem Admin und betroffener Teilnehmerin bzw. betroffenem Teilnehmer protokolliert; das Protokoll wird mit der Gruppe gelöscht."
     },
     "rights": {
       "heading": "Rechte der Nutzer",
