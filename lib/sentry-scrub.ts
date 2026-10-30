@@ -2,11 +2,12 @@
 // (anyone holding it can join an open group), so it must never leave the app
 // in event URLs, transaction names, breadcrumbs or span data. Used by client,
 // server and edge Sentry.init via beforeSend / beforeSendTransaction /
-// beforeBreadcrumb.
+// beforeBreadcrumb. Also filters one-time login credentials in query strings
+// (token, token_hash, code; also bare Sentry query_string values) as used by emailed sign-in links.
 
 const INVITE_PATH_RE =
   /\/einladung\/(?!ungueltig(?![^/?#\s"'\\])|\[token\])[^/?#\s"'\\]+/g;
-const TOKEN_PARAM_RE = /([?&]token=)[^&#\s"'\\]*/gi;
+const TOKEN_PARAM_RE = /((?:^|[?&])(?:token_hash|token|code)=)[^&#\s"'\\]*/gi;
 
 export function scrubString(value: string): string {
   return value

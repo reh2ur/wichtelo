@@ -4,10 +4,14 @@ import { cookies, headers } from "next/headers";
 import { redirect } from "next/navigation";
 import type { Route } from "next";
 import { z } from "zod";
+import { otpSchema } from "@/lib/auth/otp";
 import { getSiteUrl } from "@/lib/site-url";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { isTestBackdoorEnabled } from "@/lib/test-backdoor";
+import {
+  isSimulatedResendThrottle,
+  isTestBackdoorEnabled,
+} from "@/lib/test-backdoor";
 import { safeNext, NEXT_COOKIE } from "@/lib/safe-next";
 import { getClientIp } from "@/lib/request-ip";
 import { isSuperAdminEmail } from "@/lib/admin/super-admin-email";
@@ -62,7 +66,6 @@ export type VerifyOtpState =
     };
 
 const emailSchema = z.email().max(254);
-const otpSchema = z.string().length(6).regex(/^\d+$/);
 
 export async function requestOtp(
   _prevState: RequestOtpState,
@@ -105,6 +108,9 @@ export async function requestOtp(
   const useDevOtp = isTestBackdoorEnabled(await headers());
 
   if (useDevOtp) {
+    if (isSimulatedResendThrottle(email, formData)) {
+      return { status: "error", error: "rate_limited", email };
+    }
     // Skip email entirely: use admin API to generate the OTP directly.
     // This avoids hitting Supabase's email rate limit on dev and preview.
     //
@@ -206,7 +212,8 @@ export async function verifyOtp(
     return { status: "error", error: "invalid_otp", email };
   }
 
-  // Per-email limit caps guesses at one code regardless of source IPs;
+  // Per-email limit caps guesses made via this action at one code regardless
+  // of source IPs (direct GoTrue /verify calls bypass it, see lib/auth/otp.ts);
   // per-IP backstop is looser so a shared Wi-Fi/CGNAT doesn't lock users out.
   const ip = await getClientIp();
   if (

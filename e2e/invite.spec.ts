@@ -215,6 +215,7 @@ test.describe("invite page", () => {
     const { inviteUrl } = await setupGroup(authedPage, "OTP Resend Test");
     const guestCtx = await browser.newContext(guestContextOptions());
     const guestPage = await guestCtx.newPage();
+    await guestPage.clock.install();
     await guestPage.goto(inviteUrl);
 
     const email = `e2e+resend-${Date.now()}@example.com`;
@@ -222,7 +223,14 @@ test.describe("invite page", () => {
     await guestPage.locator('button[type="submit"]').click();
     await expect(guestPage.locator("#otp")).toBeVisible();
 
-    await guestPage.getByRole("button", { name: "Code erneut senden" }).click();
+    // Resend is disabled for 60 s after each send.
+    const resend = guestPage.getByRole("button", {
+      name: /Code erneut senden/,
+    });
+    await expect(resend).toBeDisabled();
+    await guestPage.clock.runFor(61_000);
+    await expect(resend).toBeEnabled();
+    await resend.click();
     await expect(guestPage.getByRole("status")).toContainText("neuen Code");
 
     // Back to the email form, submit the same email again -> OTP step again
@@ -233,10 +241,44 @@ test.describe("invite page", () => {
     await expect(guestPage.locator("#otp")).toBeVisible();
 
     // Wrong code clears the field and refocuses it
-    await guestPage.locator("#otp").fill("000000");
+    await guestPage.locator("#otp").fill("00000000");
     await guestPage.locator('button[type="submit"]').click();
     await expect(guestPage.locator("p.text-danger-text")).toBeVisible();
     await expect(guestPage.locator("#otp")).toHaveValue("");
+
+    await guestCtx.close();
+  });
+
+  test("OTP step: throttled resend keeps the code step with an inline message", async ({
+    authedPage,
+    browser,
+  }) => {
+    const { inviteUrl } = await setupGroup(authedPage, "OTP Throttle Test");
+    const guestCtx = await browser.newContext(guestContextOptions());
+    const guestPage = await guestCtx.newPage();
+    await guestPage.clock.install();
+    await guestPage.goto(inviteUrl);
+
+    // `throttled-` prefix: test backdoor answers a resend with rate_limited.
+    await guestPage
+      .locator("#email")
+      .fill(`throttled-${Date.now()}@example.com`);
+    await guestPage.locator('button[type="submit"]').click();
+    await expect(guestPage.locator("#otp")).toBeVisible();
+
+    await guestPage.clock.runFor(61_000);
+    await guestPage.getByRole("button", { name: /Code erneut senden/ }).click();
+
+    await expect(guestPage.locator('p[role="alert"]')).toContainText(
+      "Dein letzter Code ist weiterhin gültig",
+    );
+    await expect(guestPage.locator("#otp")).toBeVisible();
+    await expect(guestPage.getByRole("status")).toHaveCount(0);
+
+    // Backing out must not leave the stale resend error on the email form.
+    await guestPage.getByRole("button", { name: "Andere E-Mail" }).click();
+    await expect(guestPage.locator("#email")).toBeVisible();
+    await expect(guestPage.locator("p.text-danger-text")).toHaveCount(0);
 
     await guestCtx.close();
   });

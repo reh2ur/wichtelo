@@ -29,7 +29,20 @@ Sentry.init({
     httpBodies: [],
     httpHeaders: { deny: ["forwarded", "-ip", "remote-", "via", "-user"] },
     cookies: { deny: ["forwarded", "-ip", "remote-", "via", "-user"] },
-    urlQueryParams: { deny: ["forwarded", "-ip", "remote-", "via", "-user"] },
+    urlQueryParams: {
+      deny: [
+        "forwarded",
+        "-ip",
+        "remote-",
+        "via",
+        "-user",
+        // One-time login credentials in emailed links (/auth/callback,
+        // /einladung/[token]/magiclink).
+        "token",
+        "token_hash",
+        "code",
+      ],
+    },
   },
 });
 
