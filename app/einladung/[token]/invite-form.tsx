@@ -1,5 +1,6 @@
 "use client";
 
+import { Input } from "@/components/ui/input";
 import { startTransition, useActionState, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { OtpStep } from "@/components/otp-step";
@@ -14,9 +15,6 @@ import {
 } from "./actions";
 import { signOutToInvite } from "@/lib/auth/sign-out";
 import { createIntlContext } from "@/lib/create-intl-context";
-
-const INPUT_CLASS =
-  "flex h-9 w-full rounded-lg border border-input bg-background px-3 py-1 text-sm shadow-xs transition-colors placeholder:text-muted-foreground focus-visible:border-ring focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50 disabled:cursor-not-allowed disabled:opacity-50";
 
 const { Provider: InviteProvider, useT: useInviteT } =
   createIntlContext("invite");
@@ -132,7 +130,7 @@ export function InviteAuthForm({ token }: { token: string }) {
           <label htmlFor="email" className="text-sm font-bold">
             {t("auth.emailLabel")}
           </label>
-          <input
+          <Input
             id="email"
             name="email"
             type="email"
@@ -142,7 +140,6 @@ export function InviteAuthForm({ token }: { token: string }) {
               requestState.status !== "idle" ? requestState.email : ""
             }
             {...errorFieldProps("email-error", requestError !== null)}
-            className={INPUT_CLASS}
           />
         </div>
 
@@ -214,7 +211,7 @@ export function InviteAcceptForm({
               <label htmlFor="firstName" className="text-sm font-bold">
                 {t("accept.firstNameLabel")}
               </label>
-              <input
+              <Input
                 id="firstName"
                 name="firstName"
                 type="text"
@@ -225,20 +222,18 @@ export function InviteAcceptForm({
                   acceptState.status === "error" &&
                     acceptState.error === "missing_name",
                 )}
-                className={INPUT_CLASS}
               />
             </div>
             <div className="space-y-1.5">
               <label htmlFor="lastName" className="text-sm font-bold">
                 {t("accept.lastNameLabel")}
               </label>
-              <input
+              <Input
                 id="lastName"
                 name="lastName"
                 type="text"
                 autoComplete="family-name"
                 required
-                className={INPUT_CLASS}
               />
             </div>
             <p className="text-muted-foreground col-span-2 text-xs">

@@ -67,11 +67,11 @@ test.describe("profile update", () => {
     ).toBeVisible();
   });
 
-  test("email field is disabled (not editable)", async ({ authedPage }) => {
+  test("email field is read-only (not editable)", async ({ authedPage }) => {
     await authedPage.goto("/konto");
     await expect(authedPage.locator("#firstName")).toBeVisible();
     const emailInput = authedPage.locator("#email-display");
-    await expect(emailInput).toBeDisabled();
+    await expect(emailInput).toHaveAttribute("readonly", "");
   });
 
   test("shows error when name fields empty", async ({ authedPage }) => {

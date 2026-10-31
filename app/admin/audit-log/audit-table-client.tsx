@@ -1,5 +1,7 @@
 "use client";
 
+import { Select } from "@/components/ui/select";
+import { SortableTableHead } from "@/components/ui/sortable-table-head";
 import { useMemo, useState } from "react";
 import type { Route } from "next";
 import Link from "next/link";
@@ -190,14 +192,14 @@ export function AuditTableClient({ entries }: { entries: AuditRow[] }) {
         <label htmlFor="action-filter" className="text-sm">
           {t("table.actionFilterLabel")}
         </label>
-        <select
+        <Select
           id="action-filter"
           value={actionFilter}
           onChange={(e) => {
             setActionFilter(e.target.value);
             table.setPageIndex(0);
           }}
-          className="border-input bg-background focus-visible:ring-ring/50 h-9 rounded-lg border px-3 text-sm shadow-xs transition-colors focus-visible:ring-3 focus-visible:outline-none"
+          className="w-auto"
         >
           <option value="all">{t("table.actionFilterAll")}</option>
           {ACTIONS.map((action) => (
@@ -205,7 +207,7 @@ export function AuditTableClient({ entries }: { entries: AuditRow[] }) {
               {t(`actions.${action}`)}
             </option>
           ))}
-        </select>
+        </Select>
       </div>
       <div className="border-border overflow-hidden rounded-lg border">
         <Table>
@@ -213,23 +215,7 @@ export function AuditTableClient({ entries }: { entries: AuditRow[] }) {
             {table.getHeaderGroups().map((headerGroup) => (
               <TableRow key={headerGroup.id}>
                 {headerGroup.headers.map((header) => (
-                  <TableHead
-                    key={header.id}
-                    className={
-                      header.column.getCanSort()
-                        ? "cursor-pointer select-none"
-                        : undefined
-                    }
-                    onClick={header.column.getToggleSortingHandler()}
-                  >
-                    {flexRender(
-                      header.column.columnDef.header,
-                      header.getContext(),
-                    )}
-                    {{ asc: " ↑", desc: " ↓" }[
-                      header.column.getIsSorted() as string
-                    ] ?? ""}
-                  </TableHead>
+                  <SortableTableHead key={header.id} header={header} />
                 ))}
               </TableRow>
             ))}

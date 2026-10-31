@@ -31,9 +31,14 @@ vi.mock("@/lib/rate-limit", async () => {
     await vi.importActual<typeof import("@/lib/rate-limit")>(
       "@/lib/rate-limit",
     );
+  const checkRateLimit = vi.fn().mockResolvedValue(true);
   return {
     ...actual,
-    checkRateLimit: vi.fn().mockResolvedValue(true),
+    checkRateLimit,
+    checkRateLimits: async (checks: [unknown, string][]) =>
+      (await Promise.all(checks.map(([l, id]) => checkRateLimit(l, id)))).every(
+        Boolean,
+      ),
     // Distinct sentinels: real limiters are null without Redis, which would
     // make them indistinguishable in assertions.
     anmeldenOtpRequestLimiter: { name: "anmelden-email" },

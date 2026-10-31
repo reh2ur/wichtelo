@@ -7,6 +7,7 @@ jobs:
   e2e:
     name: Playwright E2E (Vercel preview)
     runs-on: ubuntu-latest
+    timeout-minutes: 45
     # All PR previews share one staging Supabase: serialize runs (queued run
     # waits, finished one is never cancelled mid-test). GitHub keeps only the
     # newest pending run per group, so an older queued push is superseded.
@@ -180,6 +181,9 @@ jobs:
     name: Playwright E2E (admin, local Supabase)
     runs-on: ubuntu-latest
     timeout-minutes: 30
+    concurrency:
+      group: e2e-admin-${{ github.ref }}
+      cancel-in-progress: true
     permissions:
       contents: read
     env:
@@ -201,11 +205,6 @@ jobs:
           node-version: 22
           cache: pnpm
 
-      # Keep version in sync with devDependency `supabase` in package.json.
-      - uses: supabase/setup-cli@45a513f8c64c0bc8e0e3dfe572b5c95be85f6359 # v3.0.1
-        with:
-          version: 2.119.0
-
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
@@ -213,13 +212,13 @@ jobs:
         run: pnpm exec playwright install chromium --with-deps
 
       - name: Start local Supabase (applies migrations)
-        run: supabase start
+        run: pnpm exec supabase start
 
       # Same wiring as the db-lint job in ci.yml, plus a throwaway E2E secret
       # (the stack is ephemeral, so no repo secret needed).
       - name: Export local Supabase env
         run: |
-          supabase status -o env > "$RUNNER_TEMP/supabase.env"
+          pnpm exec supabase status -o env > "$RUNNER_TEMP/supabase.env"
           get() { grep -E "^$1=" "$RUNNER_TEMP/supabase.env" | head -n1 | cut -d= -f2- | sed -e 's/^"//' -e 's/"$//'; }
           URL=$(get API_URL)
           ANON=$(get ANON_KEY)

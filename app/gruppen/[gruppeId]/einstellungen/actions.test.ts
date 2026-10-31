@@ -170,9 +170,27 @@ describe("updateGroupInfo too-long input (#186)", () => {
       status: "error",
       error: "too_long",
       max: 100,
-      values: { name: "x".repeat(101), budgetHint: "10 Euro", note: "" },
+      values: {
+        name: "x".repeat(101),
+        budgetHint: "10 Euro",
+        note: "",
+        year: "",
+      },
     });
   });
+});
+
+describe("updateGroupInfo year (#156)", () => {
+  it.each(["1999", "2101", "abc", "2026.5"])(
+    "rejects invalid year %s",
+    async (year) => {
+      const res = await updateGroupInfo(
+        { status: "idle" },
+        fd({ slug: "s", name: "Gruppe", year }),
+      );
+      expect(res).toMatchObject({ status: "error", error: "invalid_year" });
+    },
+  );
 });
 
 describe("regenerateInviteLink (#187)", () => {

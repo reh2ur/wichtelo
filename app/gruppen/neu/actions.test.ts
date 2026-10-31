@@ -17,7 +17,7 @@ vi.mock("@/lib/supabase/server", () => ({
 vi.mock("@/lib/logger", () => ({
   logger: {
     info: vi.fn(),
-    withMetadata: vi.fn().mockReturnValue({ info: vi.fn() }),
+    withMetadata: vi.fn().mockReturnValue({ info: vi.fn(), error: vi.fn() }),
   },
 }));
 

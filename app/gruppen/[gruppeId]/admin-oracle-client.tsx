@@ -1,5 +1,6 @@
 "use client";
 
+import { Select } from "@/components/ui/select";
 import { useActionState, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { FocusStatus } from "@/components/focus-status";
@@ -7,9 +8,6 @@ import { FormError } from "@/components/form-error";
 import { lookupAssignment, type OracleState } from "./actions";
 import { createIntlContext } from "@/lib/create-intl-context";
 import { CONFIRM_TITLE_CLASS, useConfirmFocus } from "@/lib/use-confirm-focus";
-
-const INPUT_CLASS =
-  "flex h-9 w-full rounded-lg border border-input bg-background px-3 py-1 text-sm shadow-xs transition-colors placeholder:text-muted-foreground focus-visible:border-ring focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50 disabled:cursor-not-allowed disabled:opacity-50";
 
 export interface Member {
   id: string;
@@ -71,9 +69,8 @@ export function AdminOracleClient({
             <label htmlFor="oracle-select" className="text-sm font-bold">
               {t("selectPrompt")}
             </label>
-            <select
+            <Select
               id="oracle-select"
-              className={INPUT_CLASS}
               value={selectedId}
               onChange={(e) => setSelectedId(e.target.value)}
             >
@@ -85,7 +82,7 @@ export function AdminOracleClient({
                   {m.name_snapshot}
                 </option>
               ))}
-            </select>
+            </Select>
           </div>
           <Button
             ref={triggerRef}

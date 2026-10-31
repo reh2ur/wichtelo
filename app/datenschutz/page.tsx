@@ -1,13 +1,16 @@
+import type { Metadata } from "next";
 import { ArrowLeftIcon } from "@phosphor-icons/react/ssr";
 import Link from "next/link";
 import { getTranslations } from "next-intl/server";
 
-export const metadata = {
-  title: "Datenschutz – Wichtelo",
-};
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await getTranslations("datenschutz");
+  return { title: t("title") };
+}
 
 export default async function DatenschutzPage() {
   const t = await getTranslations("datenschutz");
+  const tc = await getTranslations("common");
 
   return (
     <main className="mx-auto w-full max-w-2xl flex-1 px-4 py-10">
@@ -16,7 +19,7 @@ export default async function DatenschutzPage() {
         className="text-muted-foreground hover:text-foreground mb-8 inline-flex items-center gap-1.5 text-sm transition-colors"
       >
         <ArrowLeftIcon size={14} aria-hidden="true" />
-        Zurück
+        {tc("back")}
       </Link>
 
       <h1 className="mb-6 text-3xl font-extrabold tracking-tight">

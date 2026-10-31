@@ -71,7 +71,7 @@ Untouched, still neutral slate (not themed for navy/crimson). Avoid dark-mode-sp
 
 `app/globals.css` extends Tailwind's `.bg-card`/`.bg-popover` utilities w/ `backdrop-filter: blur(18px) saturate(160%)` + soft inset/drop shadow — global, automatic. Any element using `bg-card` gets frosted glass free, no per-component work.
 
-`.bg-primary` also gets crimson→pink gradient overlay (`linear-gradient(135deg, var(--crimson), #f0808f)`) atop flat `--primary` color — applies to every primary button + account avatar (reuses `bg-primary`).
+`.bg-primary` also gets darker crimson gradient overlay (`linear-gradient(135deg, #c23e52, #a8344a)`, AA for white text) atop flat `--primary` color — applies to every primary button + account avatar (reuses `bg-primary`).
 
 Page bg: `body` gets fixed sky gradient (`linear-gradient(175deg, #a0cbeb, #bfe0f5 40%, #b0d7f0 65%, #a3cdeb 85%, #98c5e8 100%)`, kept light for AA text, see Contrast rule) + two blurred blob accents via `body::before`/`::after` (pure CSS, no DOM). Don't duplicate per-page — global.
 
@@ -107,11 +107,11 @@ Server component. Single-layer sticky glass header — no candy stripe (removed,
 
 ### `components/footer.tsx`
 
-Full-width winter-landscape SVG strip (`public/brand/footer-landscape.svg`, `next/image fill`) at the very bottom of every page. Impressum/Datenschutz links overlaid `absolute bottom-3` (12px from bottom), centered, `text-gray-400` (subtle), sit on white ground band of landscape art.
+Full-width winter-landscape SVG strip (`public/brand/footer-landscape.svg`, `next/image fill`) at the very bottom of every page. Impressum/Datenschutz links overlaid `absolute bottom-3` (12px from bottom), centered, `text-gray-600` (AA on white band), sit on white ground band of landscape art.
 
 ### `components/snow.tsx`
 
-`'use client'`. Fixed-position overlay, `pointer-events-none`, `z-0`. 12 hardcoded flakes (❄/❅ chars), varied `left`/`delay`/`duration`/`fontSize`. `fall` keyframe. Color `rgba(255,255,255,0.88)` + `text-shadow: 0 0 5px rgba(169,205,236,0.6)` for icy glow.
+Server Component (no hooks, CSS animation only). Fixed-position overlay, `pointer-events-none`, `z-0`. 12 hardcoded flakes (`SnowflakeIcon`, Phosphor), varied `left`/`delay`/`duration`/`fontSize`. `fall` keyframe. Color `rgba(255,255,255,0.88)` + `text-shadow: 0 0 5px rgba(169,205,236,0.6)` for icy glow.
 
 Mounted in `app/layout.tsx` before main content. Content sits at `z-[1]` to layer above snow.
 

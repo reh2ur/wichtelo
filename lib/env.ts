@@ -48,6 +48,20 @@ const productionSchema = baseSchema.extend({
   ACCOUNT_DELETION_SECRET: z
     .string({ error: "ACCOUNT_DELETION_SECRET is required" })
     .min(32, "ACCOUNT_DELETION_SECRET must be at least 32 characters"),
+  // Test-backdoor guards (see lib/test-backdoor.ts): the live project ref must
+  // be known, and E2E mode / weak secrets must never ship to production.
+  SUPABASE_PROJECT_REF_LIVE: required("SUPABASE_PROJECT_REF_LIVE"),
+  E2E_TEST_MODE: z
+    .string()
+    .optional()
+    .refine((v) => v !== "1", "E2E_TEST_MODE=1 must not be set in production"),
+  E2E_TEST_SECRET: z
+    .string()
+    .optional()
+    .refine(
+      (v) => !v || v.length >= 32,
+      "E2E_TEST_SECRET must be unset or at least 32 characters in production",
+    ),
 });
 
 /** Returns a list of human-readable problems; empty when env is valid. */

@@ -69,9 +69,9 @@ export function DrawAssignmentEmail({
         <Button
           href={`${siteUrl}/gruppen/${encodeURIComponent(groupSlug)}`}
           style={{
-            backgroundColor: colors.crimson,
+            backgroundColor: colors.ctaBackground,
             borderRadius: "20px",
-            color: "#fffaf9",
+            color: colors.ctaText,
             fontSize: "15px",
             fontWeight: 800,
             padding: "10px 24px",

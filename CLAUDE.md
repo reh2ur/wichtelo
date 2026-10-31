@@ -88,7 +88,7 @@ Full design spec (palette, tokens, components, icon rules) in **`docs/design.md`
 
 **Real 404 status.** `notFound()` after streaming starts = HTTP 200 (status already fixed), `noindex` tag only. Root layout's `Nav` suspends every request (uncached session cookie read) — under `cacheComponents`, its Suspense fallback flush starts the response and fixes status 200 before ANY page-level check gets a turn, no matter where that check sits (page body, `generateMetadata` — tried both, verified both fail in a real `next build && next start`; `next dev` hides this, don't trust it for this class of bug). `generateMetadata`'s per-request data does NOT get special before-streaming treatment here: under `cacheComponents` it just joins the same deferred/streamed bucket as the rest of the page (confirmed in Next's own docs: "If other parts also defer to request time: ... metadata streams in with other deferred content").
 
-Fix lives in **`proxy.ts` / `lib/supabase/proxy.ts`**, which runs before any React rendering, so there's no Suspense to race: `/einladung/[token]` checks `inviteTokenExists` (1 light query; page runs full `resolveToken`) and rewrites bad tokens to `/__not_found__` too; `/gruppen/[slug]` and `.../einstellungen` check group existence + membership in ONE query (group inner-joined to caller membership; unknown slug = non-member = same 404) (settings: admin role required, non-admin member = same 404 as unknown slug, no slug-existence oracle) and rewrite to `/__not_found__` (matches no route → Next's own generic 404 takes over, same as a truly unmatched URL, fully SSR'd: status 404, h1, lang, stylesheet). Invite 404 shows generic "Seite nicht gefunden" copy — invite-specific copy dropped. Do NOT rewrite to prerendered page that calls `notFound()` (e.g. old `/einladung/ungueltig`): status 404 but body = empty `__next_error__` shell, copy only in RSC payload. `NextResponse.rewrite(..., {status})` ignored — no way to set status on rewrite. **Errors ≠ not-found:** `resolveToken` throws on DB error (only no-rows → `null`); proxy lets request through on lookup error (page throws → `error.tsx`); `fetchGroupData` throws on error so failure never cached. Proxy redirects/rewrites copy `supabaseResponse` cookies (refreshed session tokens) via `withSessionCookies`. Page-level `notFound()` checks (`export const instant = false` above `<Suspense>`) stay as defense in depth, not as the actual guarantee. New dynamic-slug pages needing a real 404 must add their check in proxy, not just the page.
+Fix lives in **`proxy.ts` / `lib/supabase/proxy.ts`**, which runs before any React rendering, so there's no Suspense to race: `/einladung/[token]` checks `inviteTokenExists` (1 light query; page runs full `resolveToken`) and rewrites bad tokens to `/__not_found__` too; `/gruppen/[slug]` and `.../einstellungen` check group existence + membership in ONE query (group inner-joined to caller membership; unknown slug = non-member = same 404) (settings: admin role required, non-admin member = same 404 as unknown slug, no slug-existence oracle) and rewrite to `/__not_found__` (matches no route → Next's own generic 404 takes over, same as a truly unmatched URL, fully SSR'd: status 404, h1, lang, stylesheet). Proxy-rewritten invite 404 shows generic "Seite nicht gefunden" copy; page-level `notFound()` fallback (`app/einladung/not-found.tsx`, defense in depth) still shows invite copy `invite.notFoundTitle`. Do NOT rewrite to prerendered page that calls `notFound()` (e.g. old `/einladung/ungueltig`): status 404 but body = empty `__next_error__` shell, copy only in RSC payload. `NextResponse.rewrite(..., {status})` ignored — no way to set status on rewrite. **Errors ≠ not-found:** `resolveToken` throws on DB error (only no-rows → `null`); proxy lets request through on lookup error (page throws → `error.tsx`); `fetchGroupData` throws on error so failure never cached. Proxy redirects/rewrites copy `supabaseResponse` cookies (refreshed session tokens) via `withSessionCookies`. Page-level `notFound()` checks (`export const instant = false` above `<Suspense>`) stay as defense in depth, not as the actual guarantee. New dynamic-slug pages needing a real 404 must add their check in proxy, not just the page.
 
 **Self-signup off.** `enable_signup = false` (`[auth]`, `[auth.email]`; remotes inherit; push w/ `supabase config push`). Never `signInWithOtp` with `shouldCreateUser: true`. New accounts only via `ensureAuthUser` (admin `createUser`, `lib/supabase/ensure-auth-user.ts`) after server validated invite token (`requestInviteOtp`) or super-admin email (`requestOtp`). See `docs/security.md`.
 
@@ -108,30 +108,37 @@ Fix lives in **`proxy.ts` / `lib/supabase/proxy.ts`**, which runs before any Rea
 
 ## Routes (German slugs, no locale prefix)
 
-| Route                               | Purpose                                        |
-| ----------------------------------- | ---------------------------------------------- |
-| `/`                                 | Landing (logged-out) or redirect to `/gruppen` |
-| `/anmelden`                         | Magic link request + OTP entry                 |
-| `/gruppen`                          | Groups overview                                |
-| `/gruppen/neu`                      | Create group                                   |
-| `/gruppen/[gruppeId]`               | Group detail                                   |
-| `/gruppen/[gruppeId]/einstellungen` | Admin settings (admin-only)                    |
-| `/einladung/[token]`                | Invite landing                                 |
-| `/konto`                            | Account settings + deletion                    |
-| `/impressum`                        | Impressum (static)                             |
-| `/datenschutz`                      | Datenschutzerklärung (static)                  |
+| Route                               | Purpose                                             |
+| ----------------------------------- | --------------------------------------------------- |
+| `/`                                 | Landing (logged-out) or redirect to `/gruppen`      |
+| `/anmelden`                         | Magic link request + OTP entry                      |
+| `/gruppen`                          | Groups overview                                     |
+| `/gruppen/neu`                      | Create group                                        |
+| `/gruppen/[gruppeId]`               | Group detail                                        |
+| `/gruppen/[gruppeId]/einstellungen` | Admin settings (admin-only)                         |
+| `/einladung/[token]`                | Invite landing                                      |
+| `/konto`                            | Account settings + deletion                         |
+| `/impressum`                        | Impressum (static)                                  |
+| `/datenschutz`                      | Datenschutzerklärung (static)                       |
+| `/einladung/[token]/magiclink`      | Invite magic-link confirm page                      |
+| `/auth/callback`                    | Magic-link / OTP confirm page (login)               |
+| `/konto/delete/confirm`             | Account-deletion confirm (GET page + POST act)      |
+| `/admin/**`                         | Super-admin back-office (`docs/admin-dashboard.md`) |
+| `/api/health`                       | DB health probe                                     |
+| `/api/test/*`                       | E2E backdoors (gated, `lib/test-backdoor.ts`)       |
 
 ## Data model (Supabase PostgreSQL, RLS on all tables)
 
 | Table                | Key columns                                                                                                                             |
 | -------------------- | --------------------------------------------------------------------------------------------------------------------------------------- |
 | `profiles`           | `id` (→ auth.users), `first_name`, `last_name`                                                                                          |
-| `groups`             | `slug` (unique, auto-generated), `name`, `year`, `state` (`open`\|`drawn`), `budget_hint?`, `note?`, `created_by`                       |
-| `memberships`        | `group_id`, `profile_id` (nullable), `name_snapshot`, `role` (`participant`\|`admin`)                                                   |
+| `groups`             | `slug` (unique, auto-generated), `name`, `year`, `state` (`open`\|`drawn`), `budget_hint?`, `note?`, `created_by`, `draw_version`       |
+| `memberships`        | `group_id`, `profile_id` (nullable), `name_snapshot`, `first_name_snapshot`, `last_name_snapshot`, `role` (`participant`\|`admin`)      |
 | `assignments`        | `group_id`, `giver_id`, `receiver_id` — overwritten entirely on re-draw                                                                 |
 | `exclusions`         | `group_id`, `member_a`, `member_b` — bidirectional, canonical ordering enforced via check constraint                                    |
 | `invite_tokens`      | `group_id`, `token` (unique) — logically invalidated when group state becomes `drawn`                                                   |
 | `draw_mail_failures` | `group_id` (pk), `draw_version`, `failed`, `total` — latest draw-mail partial failure, admin-read only                                  |
+| `admin_audit_log`    | super-admin action trail, service-role only (no RLS policies, grants revoked from `anon, authenticated`)                                |
 | `assignment_lookups` | `group_id`, `actor_profile_id`, `target_membership_id`, `looked_up_at` — admin oracle audit trail, service-role only, cascades w/ group |
 
 **RLS:** User JWT = read-mostly. Participants + admins read only own assignment row (admin lookup = `lookupAssignment` action, service role: admin-only, drawn groups only, 10/h per admin+group, writes `assignment_lookups` row BEFORE reveal, fails closed). Memberships: own row or group admin reads. Profiles: owner only. `invite_tokens`: NO user-JWT access (policy dropped, SELECT revoked from `anon, authenticated`) — app reads via service role only. User JWT may write only: `profiles` insert/update (names), RPC `create_group`. ALL other writes (groups, memberships, assignments, exclusions, invite_tokens, profile delete) = service role only — INSERT/UPDATE/DELETE revoked from `anon, authenticated`, write policies dropped (migration `20261010120000`). New user-JWT write path → needs explicit grant + policy + RLS integration test in `lib/supabase/rls.test.ts`. `create_group` validates name 1–100, year 2000–2100, slug `^[a-z0-9-]{1,120}$`, skips reserved `neu`; `groups` CHECK constraints mirror it. Also DB-level cap: ≥5 groups by caller in last 24h → errcode `54000` (per-user advisory lock, parallel-safe); `createGroup` maps it to `rate_limited`. Backstop for direct `/rest/v1/rpc` calls bypassing Upstash limiter. Stays `authenticated`-callable (auth.uid() semantics).
@@ -166,19 +173,23 @@ Fix lives in **`proxy.ts` / `lib/supabase/proxy.ts`**, which runs before any Rea
 
 **Membership delete guarded.** `BEFORE DELETE` trigger on `memberships` rejects delete while group `drawn` (delete cascades 2 assignment rows → someone gets no gift). Passes when parent group row gone (group delete cascade) or txn-local flag `app.allow_drawn_membership_delete = on` (set only inside `remove_membership` / `perform_draw`, service-role-only security definer). All app membership deletes go through `removeMembership` (`lib/membership`) → RPC `remove_membership(group_id, membership_id, allow_drawn, enforce_last_admin)`: locks group row (`FOR UPDATE`, serializes vs draw), returns `ok|group_not_found|member_not_found|already_drawn|last_admin`. `leaveGroup` + `deleteAccount` = `allow_drawn false` (participants still cannot leave after draw). Admin `removeMember` = `allow_drawn true`: any member, also after draw; UI shows hint to press "Neu auslosen" (removed member's assignments cascade). Never `.from("memberships").delete()` in app code.
 
+**Demote admin (#156).** Admin action `demoteAdmin` → service-role-only RPC `demote_admin(group_id, membership_id)`: locks group row, `ok|group_not_found|member_not_found|not_admin|last_admin` (same last-live-admin rule as `remove_membership`; also self-demote). Group year editable in settings (2000–2100, zod + `groups_year_range` CHECK).
+
+**Assignment reveal (#155).** `MyAssignment` renders name only after tap (`RevealAssignment`, client, auto-hides 15 s); `draw_version > 1` → `assignment-redrawn` note.
+
 ## Deep modules (pure logic, independently testable)
 
 Extract all complex business logic into pure or near-pure modules. Do not embed in Server Actions or components.
 
-| Module                       | Signature                                                                |
-| ---------------------------- | ------------------------------------------------------------------------ |
-| **Draw Engine**              | `computeDraw(members, exclusions) → assignment \| null \| TOO_COMPLEX`   |
-| **Slug Generator**           | `generateSlug(name, existingSlugs) → string`                             |
-| **Name Abbreviator**         | `abbreviateNames(members[]) → DisplayName[]`                             |
-| **Invite Token**             | `createToken(groupId)`, `resolveToken(token) → {group,state} \| 'drawn'` |
-| **Group State Machine**      | `canDraw(group, members, exclusions) → true \| ErrorReason`              |
-| **Notification Dispatcher**  | `notify(event: DomainEvent) → void`                                      |
-| **Account Deletion Cascade** | `deleteAccount(userId) → AffectedGroups`                                 |
+| Module                       | Signature                                                                                              |
+| ---------------------------- | ------------------------------------------------------------------------------------------------------ |
+| **Draw Engine**              | `computeDraw(members, exclusions) → assignment \| null \| TOO_COMPLEX`                                 |
+| **Slug Generator**           | `generateSlug(name, existingSlugs) → string`                                                           |
+| **Name Abbreviator**         | `abbreviateNames(members[]) → DisplayName[]`                                                           |
+| **Invite Token**             | `createToken(groupId)`, `resolveToken(token) → ResolvedInvite \| null`                                 |
+| **Draw gating**              | no state-machine module: min 3 members inline in group page + actions; `perform_draw` RPC guards state |
+| **Notification Dispatcher**  | `notify(event: DomainEvent) → NotifyResult` (`{sent, failed}`)                                         |
+| **Account Deletion Cascade** | `deleteAccount(userId) → DeleteAccountResult`                                                          |
 
 ## Draw algorithm
 
@@ -208,7 +219,7 @@ Before writing or reviewing tests, read **`docs/testing.md`** — covers unit/in
 
 ## Out of scope
 
-Open registration, wishlists, draw scheduling, back-office panel, multi-language support, analytics, gift budget enforcement, multiple draws per group per year, decline-invite flow, cold invite emails.
+Open registration, wishlists, draw scheduling, multi-language support, analytics, gift budget enforcement, multiple draws per group per year, decline-invite flow, cold invite emails.
 
 <!-- BEGIN:nextjs-agent-rules -->
 

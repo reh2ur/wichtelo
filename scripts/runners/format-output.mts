@@ -12,7 +12,7 @@ export function getModifiedFiles(): string[] {
   }
 }
 
-export function stripAnsi(s: string): string {
+function stripAnsi(s: string): string {
   return s
     .replace(/\x1b\[[0-9;]*[mGKFHJsu]/g, "")
     .replace(/\x1b\].*?\x07/g, "");

@@ -1,14 +1,17 @@
+import type { Metadata } from "next";
 import { ArrowLeftIcon } from "@phosphor-icons/react/ssr";
 import Link from "next/link";
 import { getTranslations } from "next-intl/server";
 import { getOperator } from "@/lib/operator";
 
-export const metadata = {
-  title: "Impressum – Wichtelo",
-};
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await getTranslations("impressum");
+  return { title: t("title") };
+}
 
 export default async function ImpressumPage() {
   const t = await getTranslations("impressum");
+  const tc = await getTranslations("common");
   const operator = getOperator();
 
   return (
@@ -18,7 +21,7 @@ export default async function ImpressumPage() {
         className="text-muted-foreground hover:text-foreground mb-8 inline-flex items-center gap-1.5 text-sm transition-colors"
       >
         <ArrowLeftIcon size={14} aria-hidden="true" />
-        Zurück
+        {tc("back")}
       </Link>
 
       <h1 className="mb-2 text-3xl font-extrabold tracking-tight">
@@ -43,7 +46,7 @@ export default async function ImpressumPage() {
         <section className="space-y-2">
           <h2 className="text-lg font-bold">{t("contactSection")}</h2>
           <p className="text-muted-foreground">
-            E-Mail:{" "}
+            {t("contactEmailLabel")}{" "}
             <a
               href={`mailto:${operator.contactEmail}`}
               className="hover:text-foreground underline"

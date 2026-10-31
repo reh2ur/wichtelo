@@ -4,7 +4,7 @@ import { logger } from "@/lib/logger";
 import { removeMembership } from "@/lib/membership";
 import { isProductionDeploy } from "@/lib/env";
 
-export interface AffectedDrawnGroup {
+interface AffectedDrawnGroup {
   groupId: string;
   name: string;
   slug: string;
@@ -13,7 +13,7 @@ export interface AffectedDrawnGroup {
   adminEmails: string[];
 }
 
-export type AffectedOpenGroup = AffectedDrawnGroup;
+type AffectedOpenGroup = AffectedDrawnGroup;
 
 export interface DeleteAccountResult {
   affectedDrawnGroups: AffectedDrawnGroup[];
@@ -94,13 +94,6 @@ export async function isDeletionNonceCurrent(
   return typeof stored === "string" && safeEqual(stored, nonce);
 }
 
-interface MembershipRow {
-  id: string;
-  group_id: string;
-  name_snapshot: string;
-  groups: { id: string; name: string; slug: string; state: string } | null;
-}
-
 interface AdminMembershipRow {
   profile_id: string | null;
 }
@@ -129,29 +122,32 @@ export async function findSoleAdminGroups(
     .eq("role", "admin");
   if (ownError) throw ownError;
 
-  const own = (ownRaw ?? []) as unknown as {
-    group_id: string;
-    groups: { id: string; name: string; slug: string } | null;
-  }[];
+  const own = ownRaw ?? [];
+
+  const groupIds = own.filter((m) => m.groups).map((m) => m.group_id);
+  if (groupIds.length === 0) return [];
+
+  // One query for all other live admins of those groups (was one per group).
+  const { data: othersRaw, error: othersError } = await admin
+    .from("memberships")
+    .select("group_id")
+    .in("group_id", groupIds)
+    .eq("role", "admin")
+    .not("profile_id", "is", null)
+    .neq("profile_id", userId);
+  if (othersError) throw othersError;
+  const withOtherAdmin = new Set(
+    ((othersRaw ?? []) as { group_id: string }[]).map((r) => r.group_id),
+  );
 
   const result: SoleAdminGroup[] = [];
   for (const m of own) {
-    if (!m.groups) continue;
-    const { data: others, error: othersError } = await admin
-      .from("memberships")
-      .select("id")
-      .eq("group_id", m.group_id)
-      .eq("role", "admin")
-      .not("profile_id", "is", null)
-      .neq("profile_id", userId);
-    if (othersError) throw othersError;
-    if ((others ?? []).length === 0) {
-      result.push({
-        groupId: m.groups.id,
-        name: m.groups.name,
-        slug: m.groups.slug,
-      });
-    }
+    if (!m.groups || withOtherAdmin.has(m.group_id)) continue;
+    result.push({
+      groupId: m.groups.id,
+      name: m.groups.name,
+      slug: m.groups.slug,
+    });
   }
   return result;
 }
@@ -233,7 +229,7 @@ export async function deleteAccount(
     .eq("profile_id", userId);
   if (membershipsError) throw membershipsError;
 
-  const memberships = (membershipsRaw ?? []) as unknown as MembershipRow[];
+  const memberships = membershipsRaw ?? [];
   const nullifiedMembershipCount = memberships.length;
   const live = memberships.filter((m) => m.groups);
   const openEntries = live.filter((m) => m.groups!.state !== "drawn");

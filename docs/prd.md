@@ -126,6 +126,11 @@ All routes use German slugs with no locale prefix:
 | `/konto`                            | Account settings + deletion              |
 | `/impressum`                        | Impressum                                |
 | `/datenschutz`                      | Datenschutzerklärung                     |
+| `/einladung/[token]/magiclink`      | Invite magic-link confirm                |
+| `/auth/callback`                    | Login magic-link / OTP confirm           |
+| `/konto/delete/confirm`             | Account-deletion confirm                 |
+| `/admin/**`                         | Super-admin back-office                  |
+| `/api/health`, `/api/test/*`        | Health probe, gated E2E backdoors        |
 
 ### Group IDs
 
@@ -133,20 +138,21 @@ Gruppe slugs are auto-generated from the group name at creation time. Umlaut tra
 
 ### Data Model
 
-Six core tables in Supabase PostgreSQL. Row Level Security enforced on all tables.
+Nine tables in Supabase PostgreSQL. Row Level Security enforced on all tables.
 
 - **profiles** — extends `auth.users`. Stores `first_name`, `last_name`. No additional personal data.
-- **groups** — `name`, `year` (integer), `slug` (unique), `budget_hint` (nullable text), `note` (nullable text), `state` (enum: `open` | `drawn`), `created_by`.
-- **memberships** — join table between profiles and groups. Stores `role` (enum: `participant` | `admin`) and `name_snapshot` (text, preserved when account is deleted).
+- **groups** — `name`, `year` (integer), `slug` (unique), `budget_hint` (nullable text), `note` (nullable text), `state` (enum: `open` | `drawn`), `created_by`, `draw_version` (bumped per draw).
+- **memberships** — join table between profiles and groups. Stores `role` (enum: `participant` | `admin`) and `name_snapshot` + `first_name_snapshot`/`last_name_snapshot` (preserved when account is deleted).
 - **assignments** — one row per giver/receiver pair per group. Overwritten entirely on re-draw.
 - **exclusions** — bidirectional exclusion pairs per group. Canonical ordering (`member_a < member_b`) enforced via check constraint to prevent duplicates.
 - **invite_tokens** — one active token per group. Invalidated logically once group state becomes `drawn`.
+- **draw_mail_failures**, **assignment_lookups**, **admin_audit_log** — service-role bookkeeping: latest draw-mail partial failure, admin oracle audit trail, super-admin action log.
 
 RLS rules: participants + admins read only own assignment row (admin lookup = audited action, service role); profiles readable by owner only; user JWT writes only profile names + `create_group` RPC.
 
 ### Deep Modules
 
-Seven independently testable modules encapsulate all complex logic:
+Independently testable modules encapsulate all complex logic:
 
 1. **Draw Engine** — pure function: `computeDraw(members, exclusions) → assignment | null`. Produces a valid derangement with no mutual pairs and all exclusion constraints respected. Two-stage: rejection sampling (Fisher-Yates, 200 attempts), then exhaustive randomized backtracking. Returns `null` iff no valid assignment exists (unsolvable constraints).
 
@@ -154,13 +160,13 @@ Seven independently testable modules encapsulate all complex logic:
 
 3. **Name Abbreviator** — `abbreviateNames(members[]) → DisplayName[]`. Pure function. Returns minimum last-name abbreviation per member such that all display names within the group are unique.
 
-4. **Invite Token** — `createToken(groupId) → token`, `resolveToken(token) → { group, state } | 'expired' | 'drawn'`. Encapsulates token lifecycle and post-draw dead-end detection.
+4. **Invite Token** — `createToken(groupId) → token`, `resolveToken(token) → ResolvedInvite | null` (`state` field `drawn` = dead end; no expiry). Encapsulates token lifecycle and post-draw dead-end detection.
 
-5. **Group State Machine** — `canDraw(group, members, exclusions) → true | ErrorReason`, `transition(group, event) → newState`. All state guards in one place, testable without database.
+5. **Draw gating** — no standalone state-machine module. Min 3 members checked inline (group page + draw actions); state transitions guarded atomically by `perform_draw` / `reopen_group` RPCs.
 
-6. **Notification Dispatcher** — `notify(event: DomainEvent) → void`. Maps domain events (DrawTriggered, ParticipantLeft, AccountDeleted, etc.) to the correct React Email template and Resend dispatch call. Single entry point for all email sending.
+6. **Notification Dispatcher** — `notify(event: DomainEvent) → NotifyResult`. Maps domain events (DrawTriggered, ParticipantLeft, AccountDeleted, etc.) to the correct React Email template and Resend dispatch call. Single entry point for all email sending.
 
-7. **Account Deletion Cascade** — `deleteAccount(userId) → AffectedGroups`. Snapshots names in memberships, nullifies profile references, returns the list of admin-notification payloads needed. Deterministic and testable against a local Supabase instance.
+7. **Account Deletion Cascade** — `deleteAccount(userId) → DeleteAccountResult`. Snapshots names in memberships, nullifies profile references, returns the list of admin-notification payloads needed. Deterministic and testable against a local Supabase instance.
 
 ### Draw Algorithm Constraints
 

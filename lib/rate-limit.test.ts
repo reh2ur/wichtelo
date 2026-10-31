@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { checkRateLimit } from "./rate-limit";
+import { checkRateLimit, checkRateLimits } from "./rate-limit";
 
 describe("checkRateLimit", () => {
   it("allows when no limiter is configured (redis unset)", async () => {
@@ -82,5 +82,42 @@ describe("per-flow OTP limiter isolation", () => {
     expect(inviteOtpRequestLimiter).not.toBeNull();
     expect(anmeldenOtpRequestLimiter).not.toBe(inviteOtpRequestLimiter);
     expect(anmeldenOtpVerifyLimiter).not.toBe(inviteOtpVerifyLimiter);
+  });
+});
+
+describe("checkRateLimit failure policy", () => {
+  const rejecting = {
+    limit: () => Promise.reject(new Error("redis down")),
+  } as unknown as Parameters<typeof checkRateLimit>[0];
+
+  it("fails open by default when the limiter rejects", async () => {
+    expect(await checkRateLimit(rejecting, "k")).toBe(true);
+  });
+
+  it("fails closed when requested", async () => {
+    expect(await checkRateLimit(rejecting, "k", { failClosed: true })).toBe(
+      false,
+    );
+  });
+
+  it("checkRateLimits requires all checks to pass", async () => {
+    const ok = {
+      limit: () => Promise.resolve({ success: true }),
+    } as unknown as Parameters<typeof checkRateLimit>[0];
+    const denied = {
+      limit: () => Promise.resolve({ success: false }),
+    } as unknown as Parameters<typeof checkRateLimit>[0];
+    expect(
+      await checkRateLimits([
+        [ok, "a"],
+        [ok, "b"],
+      ]),
+    ).toBe(true);
+    expect(
+      await checkRateLimits([
+        [ok, "a"],
+        [denied, "b"],
+      ]),
+    ).toBe(false);
   });
 });

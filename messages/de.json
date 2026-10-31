@@ -1,20 +1,22 @@
 {
   "common": {
-    "loading": "Lädt…"
+    "loading": "Lädt…",
+    "back": "Zurück"
   },
   "app": {
     "name": "Wichtelo",
     "accountDeleted": "Dein Konto wurde gelöscht.",
     "hero": {
-      "title": "Eure Wichtel-Runde, organisiert.",
-      "subtitle": "Gruppe anlegen, Einladungslink teilen, Los auslösen. Wichtelo übernimmt die Zuteilung – fair und geheim.",
+      "title": "Eure Wichtelrunde, organisiert.",
+      "subtitle": "Gruppe anlegen, Einladungslink teilen, Auslosung starten. Wichtelo übernimmt die Zuteilung – fair und geheim.",
       "cta": "Jetzt starten",
       "ctaHint": "Kostenlos. Keine Werbung, kein Tracking."
     },
     "inviteOnly": {
       "title": "Nur auf Einladung",
       "description": "Wichtelo hat keine offene Registrierung. Mitmachen kann nur, wer einen Einladungslink von einem Gruppen-Admin erhält."
-    }
+    },
+    "description": "Organisiere deine Wichtelrunde"
   },
   "signIn": {
     "title": "Anmelden",
@@ -27,8 +29,7 @@
       "sending": "Wird gesendet…"
     },
     "otp": {
-      "sentPrefix": "Wir haben dir einen Code an",
-      "sentSuffix": "gesendet. Gib ihn hier ein oder klicke auf den Link in der E-Mail.",
+      "sent": "Wir haben dir einen Code an {email} gesendet. Gib ihn hier ein oder klicke auf den Link in der E-Mail.",
       "label": "Einmal-Code",
       "submit": "Anmelden",
       "back": "Andere E-Mail-Adresse verwenden",
@@ -86,9 +87,11 @@
       "tooLong": "Maximal {max} Zeichen.",
       "generic": "Etwas ist schiefgelaufen. Bitte versuche es erneut.",
       "rateLimited": "Zu viele Gruppen erstellt. Bitte warte einen Moment und versuche es erneut."
-    }
+    },
+    "optional": "(optional)"
   },
   "groupDetail": {
+    "pageTitle": "Gruppe",
     "backToGroups": "Meine Gruppen",
     "participants": "Teilnehmer",
     "budget": "Budget-Hinweis",
@@ -98,13 +101,17 @@
     "adminBadge": "Admin",
     "settings": "Einstellungen",
     "youGiveTo": "Du beschenkst",
+    "revealAssignment": "Anzeigen",
+    "hideAssignment": "Verbergen",
+    "redrawnNote": "Neu ausgelost: Diese Zuteilung ersetzt die vorherige. Bereits gekaufte Geschenke passen eventuell nicht mehr.",
     "assignmentPending": "Deine Zuteilung entfällt gerade, weil ein Teilnehmer entfernt wurde. Der Admin lost neu aus, du bekommst dann eine E-Mail.",
     "waitingForDraw": "Die Auslosung steht noch aus. Du bekommst eine E-Mail, sobald ausgelost wurde.",
     "adminLookupNotice": "Hinweis: Der Admin dieser Gruppe kann bei Bedarf einzelne Zuordnungen einsehen, z. B. für Rückfragen.",
     "inviteLink": {
       "copy": "Link kopieren",
       "copied": "Kopiert!",
-      "copyFailed": "Kopieren fehlgeschlagen. Bitte kopiere den Link manuell."
+      "urlLabel": "Einladungslink",
+      "failed": "Kopieren fehlgeschlagen. Markiere den Link und kopiere ihn manuell."
     },
     "leave": {
       "button": "Gruppe verlassen",
@@ -116,15 +123,16 @@
       "drawnBlocked": "Nach der Auslosung kannst du die Gruppe nicht mehr verlassen. Bitte wende dich an den Admin."
     },
     "errors": {
-      "lastAdmin": "Du bist der einzige Admin. Befördere zuerst eine andere Person zum Admin.",
+      "lastAdmin": "Du bist der einzige Admin. Befördere zuerst eine andere Person zum Admin oder lösche die Gruppe in den Einstellungen.",
       "generic": "Etwas ist schiefgelaufen. Bitte versuche es erneut.",
       "rateLimited": "Zu viele Versuche. Bitte warte einen Moment und versuche es erneut."
-    }
+    },
+    "year": "Jahr"
   },
   "draw": {
     "start": "Auslosung starten",
     "starting": "Wird ausgelost…",
-    "emailFailure": "{failed} von {total} E-Mails konnten nicht zugestellt werden – Teilnehmer können ihre Zuteilung jederzeit in der App sehen.",
+    "emailFailure": "{failed} von {total, plural, one {# E-Mail} other {# E-Mails}} {failed, plural, one {konnte} other {konnten}} nicht zugestellt werden – Teilnehmer können ihre Zuteilung jederzeit in der App sehen.",
     "confirm": {
       "title": "Auslosung starten?",
       "message": "Danach kann niemand mehr beitreten, alle erhalten eine E-Mail. Darin sind dein Name und deine E-Mail-Adresse als Ansprechperson angegeben.",
@@ -151,6 +159,7 @@
     "groupInfo": {
       "section": "Gruppendetails",
       "nameLabel": "Gruppenname",
+      "yearLabel": "Jahr",
       "budgetLabel": "Budget-Hinweis",
       "budgetPlaceholder": "z. B. 25 €",
       "noteLabel": "Notiz",
@@ -171,16 +180,23 @@
       "removing": "Wird entfernt…",
       "effectAfterRedraw": "Wirkt erst bei erneuter Auslosung.",
       "unsolvableWarning": "Mit diesen Ausschlüssen ist keine Auslosung mehr möglich. Bitte entferne einen Ausschluss.",
-      "tooComplexWarning": "Ob mit diesen Ausschlüssen eine Auslosung möglich ist, konnte nicht geprüft werden (zu komplex). Bitte entferne einzelne Ausschlüsse."
+      "tooComplexWarning": "Ob mit diesen Ausschlüssen eine Auslosung möglich ist, konnte nicht geprüft werden (zu komplex). Bitte entferne einzelne Ausschlüsse.",
+      "personA": "Person A",
+      "personB": "Person B"
     },
     "participants": {
       "section": "Teilnehmer",
       "promoteToAdmin": "Zum Admin machen",
       "promoting": "Wird befördert…",
       "promoteConfirmTitle": "{name} zum Admin machen?",
-      "promoteConfirmMessage": "Admins können Einstellungen ändern, Teilnehmer entfernen und alle Zuteilungen einsehen. Das lässt sich nicht rückgängig machen.",
+      "promoteConfirmMessage": "Admins können Einstellungen ändern, Teilnehmer entfernen und alle Zuteilungen einsehen. Du kannst die Rechte später wieder entziehen.",
       "promoteConfirm": "Zum Admin machen",
       "promoted": "{name} ist jetzt Admin.",
+      "demote": "Admin entziehen",
+      "demoting": "Wird entzogen…",
+      "demoteConfirmTitle": "{name} die Admin-Rechte entziehen?",
+      "demoteConfirmMessage": "Die Person bleibt Teilnehmer, kann aber keine Einstellungen mehr ändern. Du kannst sie später wieder zum Admin machen.",
+      "demoteConfirm": "Admin entziehen",
       "deletedAccount": "Konto gelöscht",
       "remove": "Entfernen",
       "removing": "Wird entfernt…",
@@ -216,6 +232,8 @@
       "noAccount": "Diese Person hat kein Konto mehr und kann nicht befördert werden.",
       "lastAdmin": "Dieser Teilnehmer ist der letzte Admin. Befördere zuerst eine andere Person.",
       "tooFewMembers": "Nach der Auslosung muss die Gruppe mindestens 3 Teilnehmer behalten, sonst ist keine neue Auslosung mehr möglich. Entferne diese Person nicht.",
+      "lastAdminDemote": "Das ist der letzte Admin mit Konto. Befördere zuerst eine andere Person.",
+      "invalidYear": "Bitte gib ein Jahr zwischen 2000 und 2100 ein.",
       "notAdmin": "Nur Admins können die Einstellungen ändern.",
       "groupNotFound": "Diese Gruppe wurde nicht gefunden.",
       "missingName": "Bitte gib einen Gruppennamen ein.",
@@ -225,13 +243,15 @@
       "exclusionExists": "Dieser Ausschluss existiert bereits.",
       "generic": "Etwas ist schiefgelaufen. Bitte versuche es erneut.",
       "rateLimited": "Zu viele Versuche. Bitte warte einen Moment und versuche es erneut."
-    }
+    },
+    "optional": "(optional)",
+    "adminLabel": "Admin"
   },
   "redraw": {
     "start": "Neu auslosen",
     "needsRedraw": "Ein Teilnehmer wurde nach der Auslosung entfernt, deshalb haben einige keine Zuteilung mehr. Bitte starte „Neu auslosen“.",
     "starting": "Wird ausgelost…",
-    "emailFailure": "{failed} von {total} E-Mails konnten nicht zugestellt werden – Teilnehmer können ihre Zuteilung jederzeit in der App sehen.",
+    "emailFailure": "{failed} von {total, plural, one {# E-Mail} other {# E-Mails}} {failed, plural, one {konnte} other {konnten}} nicht zugestellt werden – Teilnehmer können ihre Zuteilung jederzeit in der App sehen.",
     "dismissWarning": "Ausblenden",
     "resend": "Fehlgeschlagene E-Mails erneut senden",
     "resending": "Wird gesendet…",
@@ -242,7 +262,7 @@
     },
     "confirm": {
       "title": "Auslosung wirklich wiederholen?",
-      "message": "Alle bisherigen Zuweisungen werden überschrieben. Alle erhalten eine neue E-Mail, in der dein Name und deine E-Mail-Adresse als Ansprechperson angegeben sind.",
+      "message": "Alle bisherigen Zuweisungen werden überschrieben und sind ungültig, auch bereits gekaufte Geschenke passen dann eventuell nicht mehr. Alle erhalten eine neue E-Mail, in der dein Name und deine E-Mail-Adresse als Ansprechperson angegeben sind.",
       "button": "Wiederholen",
       "cancel": "Abbrechen"
     },
@@ -332,7 +352,7 @@
   },
   "invite": {
     "groupLabel": "Gruppe",
-    "tagline": "Du wurdest zu einer Wichtel-Gruppe eingeladen.",
+    "tagline": "Du wurdest zu einer Wichtelrunde eingeladen.",
     "explanation": "Beim Wichteln zieht jeder eine Person und schenkt ihr ein Geschenk. Die Auslosung erfolgt zufällig.",
     "notFoundTitle": "Ungültiger Einladungslink",
     "notFoundMessage": "Dieser Einladungslink ist ungültig oder abgelaufen.",
@@ -361,7 +381,7 @@
       "title": "Gruppe beitreten",
       "firstNameLabel": "Vorname",
       "lastNameLabel": "Nachname",
-      "lastNameNote": "Andere Teilnehmende sehen deinen Nachnamen höchstens abgekürzt; Admins sehen ihn vollständig.",
+      "lastNameNote": "Andere Teilnehmer sehen deinen Nachnamen höchstens abgekürzt; Admins sehen ihn vollständig.",
       "submitJoin": "Beitreten",
       "accepting": "Bitte warten…"
     },
@@ -382,7 +402,8 @@
   "nav": {
     "menu": "Menü öffnen",
     "account": "Konto",
-    "logout": "Abmelden"
+    "logout": "Abmelden",
+    "signIn": "Anmelden"
   },
   "adminUsers": {
     "title": "Benutzer",
@@ -397,6 +418,7 @@
       "statusActive": "Aktiv",
       "statusBanned": "Gesperrt",
       "never": "Nie",
+      "filterLabel": "Benutzer filtern",
       "filterPlaceholder": "Nach E-Mail oder Name filtern…",
       "empty": "Keine Benutzer gefunden.",
       "pageInfo": "Seite {current} von {total}",
@@ -434,6 +456,7 @@
     "errors": {
       "notAdmin": "Nur der Super-Admin kann diese Aktion ausführen.",
       "userNotFound": "Dieser Benutzer wurde nicht gefunden.",
+      "self": "Du kannst dich nicht selbst sperren oder löschen.",
       "soleAdmin": "Dieser Benutzer ist der einzige Admin von: {groups}. Befördere zuerst eine andere Person zum Admin oder lösche die Gruppe(n).",
       "generic": "Etwas ist schiefgelaufen. Bitte versuche es erneut."
     }
@@ -447,9 +470,10 @@
       "state": "Status",
       "stateOpen": "Offen",
       "stateDrawn": "Ausgelost",
-      "memberCount": "Mitglieder",
+      "memberCount": "Teilnehmer",
       "createdBy": "Erstellt von",
       "createdAt": "Erstellt am",
+      "filterLabel": "Gruppen filtern",
       "filterPlaceholder": "Nach Name oder Slug filtern…",
       "empty": "Keine Gruppen gefunden.",
       "pageInfo": "Seite {current} von {total}",
@@ -470,8 +494,8 @@
       "createdByLabel": "Erstellt von",
       "createdAtLabel": "Erstellt am",
       "inviteTokenLabel": "Einladungs-Token",
-      "membersSection": "Mitglieder",
-      "membersEmpty": "Keine Mitglieder.",
+      "membersSection": "Teilnehmer",
+      "membersEmpty": "Keine Teilnehmer.",
       "roleAdmin": "Admin",
       "roleParticipant": "Teilnehmer",
       "assignmentsSection": "Zuordnungen",
@@ -563,7 +587,8 @@
     "contactEmail": "{email}",
     "contactResponseTime": "Wir sind bemüht, Anfragen innerhalb von 48 Stunden zu beantworten.",
     "responsibleSection": "Verantwortlich für den Inhalt nach § 18 Abs. 2 MStV",
-    "responsibleName": "{name}"
+    "responsibleName": "{name}",
+    "contactEmailLabel": "E-Mail:"
   },
   "datenschutz": {
     "title": "Datenschutzerklärung",
@@ -574,11 +599,11 @@
     },
     "dataCollected": {
       "heading": "Erhobene Daten",
-      "body": "Bei der Registrierung und Nutzung der Plattform werden folgende personenbezogene Daten verarbeitet: E-Mail-Adresse, Vorname und Nachname; Gruppeninhalte (Gruppenname, Jahr, Hinweistext, Budget-Hinweis, Mitgliedschaften und Rollen); Ausschlüsse (Paare, die nicht gegenseitig gelost werden sollen) und Auslosungsergebnisse (wer wen beschenkt). Beim Aufruf und bei der Anmeldung fallen zudem technisch bedingt IP-Adressen an (Anfrage-Protokolle bei Vercel und Supabase); für die Ratenbegrenzung bei Upstash werden IP-Adressen und pseudonymisierte Kennungen (Hash der E-Mail-Adresse, Konto-ID) verarbeitet. Der Nachname wird ausschließlich zur eindeutigen Anzeige innerhalb einer Gruppe erhoben und, falls nicht zur Unterscheidung nötig, anderen Teilnehmenden nicht angezeigt."
+      "body": "Bei der Registrierung und Nutzung der Plattform werden folgende personenbezogene Daten verarbeitet: E-Mail-Adresse, Vorname und Nachname; Gruppeninhalte (Gruppenname, Jahr, Notiz, Budget-Hinweis, Mitgliedschaften und Rollen); Ausschlüsse (Paare, die nicht gegenseitig gelost werden sollen) und Auslosungsergebnisse (wer wen beschenkt). Beim Aufruf und bei der Anmeldung fallen zudem technisch bedingt IP-Adressen an (Anfrage-Protokolle bei Vercel und Supabase); für die Ratenbegrenzung bei Upstash werden IP-Adressen und pseudonymisierte Kennungen (Hash der E-Mail-Adresse, Konto-ID) verarbeitet. Der Nachname wird ausschließlich zur eindeutigen Anzeige innerhalb einer Gruppe erhoben und, falls nicht zur Unterscheidung nötig, anderen Teilnehmenden nicht angezeigt."
     },
     "purpose": {
       "heading": "Zweck der Verarbeitung",
-      "body": "Die Daten werden verwendet, um Nutzerkonten zu verwalten, Gruppenmitgliedschaften zuzuordnen, die Wichtel-Auslosung durchzuführen und Benachrichtigungs-E-Mails zu versenden."
+      "body": "Die Daten werden verwendet, um Benutzerkonten zu verwalten, Gruppenmitgliedschaften zuzuordnen, die Wichtel-Auslosung durchzuführen und Benachrichtigungs-E-Mails zu versenden."
     },
     "legalBasis": {
       "heading": "Rechtsgrundlagen",
@@ -600,11 +625,11 @@
     },
     "speedInsights": {
       "heading": "Performance-Messung (Vercel Speed Insights)",
-      "body": "Zur Überwachung der Ladezeiten und technischen Performance setzen wir Vercel Speed Insights ein. Dabei werden Seitenaufrufe, Performance-Kennzahlen (z. B. Ladezeiten) und die ungefähre Position anhand der IP-Adresse verarbeitet. Es handelt sich um technische Leistungsmessung, keine personenbezogene Nutzerverfolgung — es werden keine Cookies gesetzt und kein individuelles Nutzerprofil erstellt. Rechtsgrundlage ist Art. 6 Abs. 1 lit. f DSGVO (berechtigtes Interesse an einer performanten und zuverlässigen Plattform). Verarbeitung erfolgt durch Vercel gemäß dessen Auftragsverarbeitungsvertrag."
+      "body": "Zur Überwachung der Ladezeiten und technischen Performance setzen wir Vercel Speed Insights ein. Dabei werden Seitenaufrufe, Performance-Kennzahlen (z. B. Ladezeiten) und die ungefähre Position anhand der IP-Adresse verarbeitet. Es handelt sich um technische Leistungsmessung, keine personenbezogene Benutzerverfolgung — es werden keine Cookies gesetzt und kein individuelles Benutzerprofil erstellt. Rechtsgrundlage ist Art. 6 Abs. 1 lit. f DSGVO (berechtigtes Interesse an einer performanten und zuverlässigen Plattform). Verarbeitung erfolgt durch Vercel gemäß dessen Auftragsverarbeitungsvertrag."
     },
     "operatorAccess": {
       "heading": "Zugriff durch den Plattformbetreiber",
-      "body": "Der Plattformbetreiber hat im Rahmen des Betriebs und der Wartung der Plattform Zugriff auf alle gespeicherten Nutzerdaten, einschließlich Name, E-Mail-Adresse, Gruppenmitgliedschaften und Auslosungsergebnisse. Dieser Zugriff erfolgt ausschließlich zu betrieblichen Zwecken (z. B. technischer Support, Missbrauchsprävention, Erfüllung gesetzlicher Pflichten) und auf Grundlage von Art. 6 Abs. 1 lit. b DSGVO (Vertragserfüllung) sowie Art. 6 Abs. 1 lit. f DSGVO (berechtigtes Interesse)."
+      "body": "Der Plattformbetreiber hat im Rahmen des Betriebs und der Wartung der Plattform Zugriff auf alle gespeicherten Benutzerdaten, einschließlich Name, E-Mail-Adresse, Gruppenmitgliedschaften und Auslosungsergebnisse. Dieser Zugriff erfolgt ausschließlich zu betrieblichen Zwecken (z. B. technischer Support, Missbrauchsprävention, Erfüllung gesetzlicher Pflichten) und auf Grundlage von Art. 6 Abs. 1 lit. b DSGVO (Vertragserfüllung) sowie Art. 6 Abs. 1 lit. f DSGVO (berechtigtes Interesse)."
     },
     "retentionActive": {
       "heading": "Speicherdauer",
@@ -631,8 +656,8 @@
       "body": "Der Admin einer Gruppe kann für einzelne Teilnehmende die zugeloste Empfängerin bzw. den zugelosten Empfänger einsehen. Diese Funktion dient der Unterstützung bei Rückfragen und wird ausschließlich auf gezielte Auswahl der Teilnehmenden hin ausgeführt. Jede Einsicht wird mit Zeitpunkt, einsehendem Admin und betroffener Teilnehmerin bzw. betroffenem Teilnehmer protokolliert; das Protokoll wird mit der Gruppe gelöscht."
     },
     "rights": {
-      "heading": "Rechte der Nutzer",
-      "intro": "Nutzerinnen und Nutzer haben nach der DSGVO folgende Rechte:",
+      "heading": "Rechte der Benutzer",
+      "intro": "Benutzerinnen und Benutzer haben nach der DSGVO folgende Rechte:",
       "access": "Auskunft über die gespeicherten Daten (Art. 15 DSGVO)",
       "rectification": "Berichtigung unrichtiger Daten (Art. 16 DSGVO)",
       "erasure": "Löschung der Daten (Art. 17 DSGVO)",
@@ -651,7 +676,7 @@
     },
     "memberVisibility": {
       "heading": "Sichtbarkeit innerhalb einer Gruppe",
-      "body": "Mitglieder einer Gruppe sehen den Gruppennamen, den Hinweis- und Budgettext, die Teilnehmerliste (Vornamen, bei Bedarf mit abgekürztem Nachnamen) sowie ihre eigene Zuweisung. In den E-Mails zur Auslosung, zur Löschung einer Gruppe und zur Entfernung aus einer Gruppe werden Name und E-Mail-Adresse des Gruppen-Admins angegeben, damit Teilnehmende ihn bei Rückfragen kontaktieren können. Gruppen-Admins sehen die vollständigen Namen der Teilnehmenden. Hinweis- und Budgettext sind nur für Mitglieder sichtbar; wer lediglich den Einladungslink kennt (auch nach der Auslosung), sieht nur den Gruppennamen."
+      "body": "Mitglieder einer Gruppe sehen den Gruppennamen, die Notiz und den Budget-Hinweis, die Teilnehmerliste (Vornamen, bei Bedarf mit abgekürztem Nachnamen) sowie ihre eigene Zuweisung. In den E-Mails zur Auslosung, zur Löschung einer Gruppe und zur Entfernung aus einer Gruppe werden Name und E-Mail-Adresse des Gruppen-Admins angegeben, damit Teilnehmende ihn bei Rückfragen kontaktieren können. Gruppen-Admins sehen die vollständigen Namen der Teilnehmenden. Notiz und Budget-Hinweis sind nur für Mitglieder sichtbar; wer lediglich den Einladungslink kennt (auch nach der Auslosung), sieht nur den Gruppennamen."
     },
     "auditLog": {
       "heading": "Protokoll von Administrationsvorgängen",

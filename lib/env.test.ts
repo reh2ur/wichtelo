@@ -18,6 +18,7 @@ const prod = {
   NEXT_PUBLIC_SENTRY_DSN: "https://k@o1.ingest.de.sentry.io/1",
   UPSTASH_REDIS_REST_URL: "https://x.upstash.io",
   UPSTASH_REDIS_REST_TOKEN: "t",
+  SUPABASE_PROJECT_REF_LIVE: "liveref",
   OPERATOR_NAME: "Erika Mustermann",
   OPERATOR_ADDRESS_LINE1: "Musterstr. 1",
   OPERATOR_ADDRESS_LINE2: "12345 Musterstadt",
@@ -84,6 +85,19 @@ describe("env validation", () => {
         "UPSTASH_REDIS_REST_URL is required",
         "UPSTASH_REDIS_REST_TOKEN is required",
       ]),
+    );
+  });
+
+  it("rejects E2E mode, weak E2E secret and missing live ref in production", () => {
+    const problems = envProblems({
+      ...prod,
+      SUPABASE_PROJECT_REF_LIVE: undefined,
+      E2E_TEST_MODE: "1",
+      E2E_TEST_SECRET: "short",
+    });
+    expect(problems).toHaveLength(3);
+    expect(envProblems({ ...prod, E2E_TEST_SECRET: "x".repeat(32) })).toEqual(
+      [],
     );
   });
 

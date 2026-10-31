@@ -61,7 +61,7 @@ test.describe("invite page", () => {
     await guestPage.goto(inviteUrl);
     await expect(guestPage.locator("h1")).toContainText("Gültige Einladung");
     await expect(
-      guestPage.locator("text=Du wurdest zu einer Wichtel-Gruppe eingeladen."),
+      guestPage.locator("text=Du wurdest zu einer Wichtelrunde eingeladen."),
     ).toBeVisible();
     // Not logged in → auth form with "Weiter" button
     await expect(guestPage.locator('button[type="submit"]')).toContainText(
