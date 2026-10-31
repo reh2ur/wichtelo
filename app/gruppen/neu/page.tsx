@@ -1,9 +1,10 @@
+import type { Metadata } from "next";
 import { Suspense } from "react";
 import { getTranslations } from "next-intl/server";
 import Link from "next/link";
 import { ArrowLeftIcon } from "@phosphor-icons/react/ssr";
 import { createClient } from "@/lib/supabase/server";
-import { getUser } from "@/lib/auth/get-user";
+import { requireUser } from "@/lib/auth/require-auth";
 import { Skeleton } from "@/components/ui/skeleton";
 import { LoadingRegion } from "@/components/ui/loading-region";
 import { GroupForm } from "./group-form";
@@ -22,8 +23,14 @@ function GroupFormSkeleton() {
   );
 }
 
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await getTranslations("createGroup");
+  return { title: t("title") };
+}
+
 export default async function NeuePage() {
   const t = await getTranslations("createGroup");
+  const tc = await getTranslations("common");
 
   return (
     <main className="mx-auto w-full max-w-md px-4 py-8">
@@ -33,7 +40,7 @@ export default async function NeuePage() {
           className="text-muted-foreground inline-flex items-center gap-1 text-sm underline-offset-4 hover:underline"
         >
           <ArrowLeftIcon size={14} aria-hidden="true" />
-          Zurück
+          {tc("back")}
         </Link>
       </div>
 
@@ -47,7 +54,7 @@ export default async function NeuePage() {
 }
 
 async function NeuePageContent() {
-  const user = (await getUser())!;
+  const user = await requireUser();
   const supabase = await createClient();
   const { data: profile } = await supabase
     .from("profiles")

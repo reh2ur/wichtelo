@@ -658,6 +658,33 @@ describe.skipIf(!hasSupabase)(
         }
       });
 
+      it("rejects over-long budget hint and note (#164)", async () => {
+        const hint = await client.rpc("create_group", {
+          p_name: "Valid Gruppe",
+          p_year: 2099,
+          p_budget_hint: "x".repeat(201),
+          p_note: null,
+          p_slugs: [`bh-${Date.now()}`],
+        });
+        expect(hint.error).not.toBeNull();
+        const note = await client.rpc("create_group", {
+          p_name: "Valid Gruppe",
+          p_year: 2099,
+          p_budget_hint: null,
+          p_note: "x".repeat(1001),
+          p_slugs: [`nt-${Date.now()}`],
+        });
+        expect(note.error).not.toBeNull();
+      });
+
+      it("rejects empty profile names via PostgREST (#164)", async () => {
+        const { error } = await client
+          .from("profiles")
+          .update({ first_name: "   " })
+          .eq("id", attackerId);
+        expect(error).not.toBeNull();
+      });
+
       it("rejects years outside 2000-2100", async () => {
         for (const year of [1999, 2101, 30000]) {
           const { error } = await call({ year });

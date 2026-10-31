@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import { Suspense } from "react";
 import { getTranslations } from "next-intl/server";
 import { StateBadge, type GroupState } from "@/components/state-badge";
@@ -10,10 +11,7 @@ import { getUser } from "@/lib/auth/get-user";
 import { getOrCreateToken } from "@/lib/invite";
 import { loadMyReceiverId } from "@/lib/group-reads";
 import { buildInviteUrl, getSiteUrl } from "@/lib/site-url";
-import {
-  abbreviateNames,
-  membersFromMemberships,
-} from "@/lib/name-abbreviator";
+import { buildDisplayNameMap } from "@/lib/member-display-names";
 import { CopyInviteLink } from "./copy-invite-link";
 import { DrawButton } from "./draw-button";
 import { RedrawButton } from "./redraw-button";
@@ -22,18 +20,9 @@ import { LeaveGroupButton } from "./leave-button";
 import { GroupDetailSkeleton } from "./group-detail-skeleton";
 import { Skeleton } from "@/components/ui/skeleton";
 import { LoadingRegion } from "@/components/ui/loading-region";
+import { RevealAssignment } from "./reveal-assignment";
 
 type MemberRole = "participant" | "admin";
-
-interface Group {
-  id: string;
-  slug: string;
-  name: string;
-  year: number;
-  state: GroupState;
-  budget_hint: string | null;
-  note: string | null;
-}
 
 interface Member {
   id: string;
@@ -56,6 +45,11 @@ interface ProfileRow {
 // unknown slugs / non-members before any rendering starts — this check is
 // defense in depth for direct hits that somehow bypass that.
 export const instant = false;
+
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await getTranslations("groupDetail");
+  return { title: t("pageTitle") };
+}
 
 export default async function GruppeDetailPage(
   props: PageProps<"/gruppen/[gruppeId]">,
@@ -99,7 +93,7 @@ async function fetchGroupData(slug: string) {
   const { data: groupRaw, error: groupError } = await supabase
     .from("groups")
     .select(
-      `id, slug, name, year, state, budget_hint, note,
+      `id, slug, name, year, state, draw_version, budget_hint, note,
        memberships(id, name_snapshot, first_name_snapshot, last_name_snapshot, role, profile_id, profiles(id, first_name, last_name))`,
     )
     .eq("slug", slug)
@@ -114,10 +108,7 @@ async function fetchGroupData(slug: string) {
 
   if (!groupRaw) return null;
 
-  const { memberships: membershipRows, ...group } =
-    groupRaw as unknown as Group & {
-      memberships: (Member & { profiles: ProfileRow | null })[];
-    };
+  const { memberships: membershipRows, ...group } = groupRaw;
 
   const members: Member[] = [];
   const profilesById = new Map<string, ProfileRow>();
@@ -126,9 +117,7 @@ async function fetchGroupData(slug: string) {
     if (profiles) profilesById.set(profiles.id, profiles);
   }
 
-  const displayNames = abbreviateNames(
-    membersFromMemberships(members, profilesById),
-  ).map((d): [string, string] => [d.id, d.displayName]);
+  const displayNames = [...buildDisplayNameMap(members, profilesById)];
 
   return { group, members, displayNames };
 }
@@ -205,6 +194,7 @@ async function GruppeDetailContent({
           groupId={g.id}
           slug={g.slug}
           state={g.state}
+          drawVersion={g.draw_version}
           isAdmin={isAdmin}
           myMembershipId={myMembership.id}
           memberCount={members.length}
@@ -216,7 +206,7 @@ async function GruppeDetailContent({
       <div className="mb-6 grid grid-cols-2 gap-3">
         {[
           { label: t("participants"), value: members.length },
-          { label: "Jahr", value: g.year },
+          { label: t("year"), value: g.year },
         ].map(({ label, value }) => (
           <div
             key={label}
@@ -252,7 +242,7 @@ async function GruppeDetailContent({
                 key={m.id}
                 className="border-border bg-card flex items-center justify-between rounded-lg border px-4 py-3"
               >
-                <div className="flex items-center gap-3">
+                <div className="flex min-w-0 items-center gap-3">
                   <div
                     className={[
                       "flex h-8 w-8 shrink-0 items-center justify-center rounded-full border text-xs font-bold",
@@ -263,7 +253,9 @@ async function GruppeDetailContent({
                   >
                     {memberInitials}
                   </div>
-                  <span className="font-medium">{displayName}</span>
+                  <span className="min-w-0 font-medium break-words">
+                    {displayName}
+                  </span>
                 </div>
                 {isMemberAdmin && (
                   <span className="text-muted-foreground text-xs">
@@ -293,6 +285,7 @@ async function AssignmentSection({
   groupId,
   slug,
   state,
+  drawVersion,
   isAdmin,
   myMembershipId,
   memberCount,
@@ -302,6 +295,7 @@ async function AssignmentSection({
   groupId: string;
   slug: string;
   state: GroupState;
+  drawVersion: number;
   isAdmin: boolean;
   myMembershipId: string;
   memberCount: number;
@@ -342,6 +336,7 @@ async function AssignmentSection({
           myMembershipId={myMembershipId}
           displayNames={displayNames}
           label={t("youGiveTo")}
+          redrawn={drawVersion > 1}
         />
         <AdminOracle slug={slug} members={members} />
         <RedrawButton slug={slug} groupId={groupId} />
@@ -355,6 +350,7 @@ async function AssignmentSection({
       myMembershipId={myMembershipId}
       displayNames={displayNames}
       label={t("youGiveTo")}
+      redrawn={drawVersion > 1}
       adminLookupNotice={t("adminLookupNotice")}
     />
   );
@@ -365,12 +361,14 @@ async function MyAssignment({
   myMembershipId,
   displayNames,
   label,
+  redrawn,
   adminLookupNotice,
 }: {
   groupId: string;
   myMembershipId: string;
   displayNames: Map<string, string>;
   label: string;
+  redrawn: boolean;
   adminLookupNotice?: string;
 }) {
   const t = await getTranslations("groupDetail");
@@ -403,10 +401,20 @@ async function MyAssignment({
   return (
     <section className="mb-6 space-y-2">
       <div className="border-border bg-card rounded-lg border px-4 py-4">
-        <p className="text-sm">
-          <span className="font-medium">{label}:</span>{" "}
-          <span className="font-semibold">{receiverDisplay}</span>
-        </p>
+        <RevealAssignment
+          label={label}
+          name={receiverDisplay}
+          revealLabel={t("revealAssignment")}
+          hideLabel={t("hideAssignment")}
+        />
+        {redrawn && (
+          <p
+            className="text-muted-foreground mt-2 text-xs"
+            data-testid="assignment-redrawn"
+          >
+            {t("redrawnNote")}
+          </p>
+        )}
       </div>
       {adminLookupNotice && (
         <p className="text-muted-foreground flex items-start gap-1.5 text-xs">

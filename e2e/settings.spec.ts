@@ -123,6 +123,31 @@ test.describe("group info editing", () => {
     ).toBeVisible();
   });
 
+  test("admin can change the year; invalid year is rejected (#156)", async ({
+    authedPage,
+  }) => {
+    const { slug } = await setupGroup(authedPage, "Jahr Test");
+    await authedPage.goto(`/gruppen/${slug}/einstellungen`);
+
+    // Bypass native min/max so the server-side validation is exercised.
+    await authedPage.locator("#year").evaluate((el) => {
+      (el as HTMLInputElement).form!.noValidate = true;
+    });
+    await authedPage.locator("#year").fill("1999");
+    await authedPage.locator('button:has-text("Speichern")').click();
+    await expect(
+      authedPage.getByText("Bitte gib ein Jahr zwischen 2000 und 2100 ein."),
+    ).toBeVisible({ timeout: 10_000 });
+
+    await authedPage.locator("#year").fill("2031");
+    await authedPage.locator('button:has-text("Speichern")').click();
+    await expect(authedPage.locator("text=Gespeichert.")).toBeVisible({
+      timeout: 10_000,
+    });
+    await authedPage.goto(`/gruppen/${slug}`);
+    await expect(authedPage.getByText("2031").first()).toBeVisible();
+  });
+
   test("slug does not change after rename", async ({ authedPage }) => {
     const { slug } = await setupGroup(authedPage, "Slug Unchanged Test");
 
@@ -347,6 +372,30 @@ test.describe("promote to admin", () => {
     await expect(bertaRow.getByText("Admin", { exact: true })).toBeVisible({
       timeout: 10_000,
     });
+
+    // Demote Berta again (#156): works while another live admin remains
+    await bertaRow.getByRole("button", { name: "Admin entziehen" }).click();
+    await bertaRow
+      .getByRole("button", { name: "Admin entziehen" })
+      .last()
+      .click();
+    await expect(
+      bertaRow.getByRole("button", { name: "Zum Admin machen" }),
+    ).toBeVisible({ timeout: 10_000 });
+
+    // The only remaining admin cannot be demoted
+    const ownRow = authedPage
+      .locator("li")
+      .filter({ hasText: /Admin/ })
+      .first();
+    await ownRow.getByRole("button", { name: "Admin entziehen" }).click();
+    await ownRow
+      .getByRole("button", { name: "Admin entziehen" })
+      .last()
+      .click();
+    await expect(
+      authedPage.getByText("Das ist der letzte Admin mit Konto."),
+    ).toBeVisible({ timeout: 10_000 });
   });
 });
 

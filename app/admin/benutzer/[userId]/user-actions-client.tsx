@@ -22,7 +22,13 @@ export { UserActionsProvider };
 
 function errorMessage(
   t: ReturnType<typeof useUserActionsT>,
-  error: "not_admin" | "user_not_found" | "sole_admin" | "generic" | undefined,
+  error:
+    | "not_admin"
+    | "user_not_found"
+    | "sole_admin"
+    | "self"
+    | "generic"
+    | undefined,
   groups?: string[],
 ): string | null {
   if (!error) return null;
@@ -30,6 +36,7 @@ function errorMessage(
     return t("errors.soleAdmin", { groups: (groups ?? []).join(", ") });
   if (error === "not_admin") return t("errors.notAdmin");
   if (error === "user_not_found") return t("errors.userNotFound");
+  if (error === "self") return t("errors.self");
   return t("errors.generic");
 }
 

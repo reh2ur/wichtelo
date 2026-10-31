@@ -1,5 +1,3 @@
-"use client";
-
 import { SnowflakeIcon } from "@phosphor-icons/react/ssr";
 
 const FLAKES = [

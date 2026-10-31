@@ -22,12 +22,13 @@ export function NavUserMenuClient({
 
   return (
     <Menu.Root>
-      <Menu.Trigger
-        aria-label={t("menu")}
-        className="text-navy focus-visible:ring-crimson flex items-center gap-2 rounded-full text-xs outline-none focus-visible:ring-2 focus-visible:ring-offset-2"
-      >
+      <Menu.Trigger className="text-navy focus-visible:ring-crimson flex min-h-11 items-center gap-2 rounded-full text-xs outline-none focus-visible:ring-2 focus-visible:ring-offset-2">
         {firstName && <span>{firstName}</span>}
-        <div className="bg-primary text-primary-foreground flex h-9 w-9 items-center justify-center rounded-full border-2 border-white text-xs font-extrabold">
+        <span className="sr-only">{t("menu")}</span>
+        <div
+          aria-hidden="true"
+          className="bg-primary text-primary-foreground flex h-11 w-11 items-center justify-center rounded-full border-2 border-white text-xs font-extrabold md:h-9 md:w-9"
+        >
           {avatarInitials || "?"}
         </div>
       </Menu.Trigger>
@@ -41,7 +42,7 @@ export function NavUserMenuClient({
           <Menu.Popup className="border-border bg-background text-foreground min-w-[160px] rounded-lg border p-1 text-sm shadow-lg">
             <Menu.Item
               render={<Link href="/konto" />}
-              className="data-[highlighted]:bg-muted flex items-center gap-2 rounded-md px-2.5 py-1.5 outline-none"
+              className="data-[highlighted]:bg-muted flex min-h-11 items-center gap-2 rounded-md px-2.5 py-1.5 outline-none md:min-h-8"
             >
               <UserIcon className="size-4" />
               {t("account")}
@@ -50,7 +51,7 @@ export function NavUserMenuClient({
               onClick={async () => {
                 await signOut();
               }}
-              className="data-[highlighted]:bg-muted flex items-center gap-2 rounded-md px-2.5 py-1.5 outline-none"
+              className="data-[highlighted]:bg-muted flex min-h-11 items-center gap-2 rounded-md px-2.5 py-1.5 outline-none md:min-h-8"
             >
               <SignOutIcon className="size-4" />
               {t("logout")}

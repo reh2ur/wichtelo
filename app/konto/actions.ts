@@ -103,9 +103,7 @@ export async function updateProfile(
     return { status: "error", error: "generic" };
   }
 
-  for (const m of (memberships ?? []) as unknown as {
-    groups: { slug: string };
-  }[]) {
+  for (const m of memberships ?? []) {
     updateTag(groupTag(m.groups.slug));
   }
 
@@ -145,7 +143,11 @@ export async function requestAccountDeletion(): Promise<RequestDeletionState> {
     };
   }
 
-  if (!(await checkRateLimit(accountDeletionLimiter, user.id))) {
+  if (
+    !(await checkRateLimit(accountDeletionLimiter, user.id, {
+      failClosed: true,
+    }))
+  ) {
     return { status: "error", error: "rate_limited" };
   }
 

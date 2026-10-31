@@ -7,7 +7,7 @@ import { slugCandidate } from "@/lib/slug";
 import { logger } from "@/lib/logger";
 import { checkRateLimit, groupCreateLimiter } from "@/lib/rate-limit";
 
-export type CreateGroupValues = {
+type CreateGroupValues = {
   name: string;
   year: string;
   budgetHint: string;
@@ -106,10 +106,9 @@ export async function createGroup(
       .from("profiles")
       .insert({ id: user.id, first_name: firstName, last_name: lastName });
     if (profileError) {
-      console.error(
-        "[createGroup] profile insert failed:",
-        profileError.message,
-      );
+      logger
+        .withMetadata({ reason: profileError.message })
+        .error("group.profile_insert_failed");
       return fail("generic");
     }
   }
@@ -126,17 +125,20 @@ export async function createGroup(
     .rpc("create_group", {
       p_name: name,
       p_year: year,
-      p_budget_hint: budgetHint,
-      p_note: note,
+      // Function accepts NULL; generated types mark args non-null.
+      p_budget_hint: budgetHint as string,
+      p_note: note as string,
       p_slugs: slugs,
     })
-    .single<{ group_id: string; slug: string; invite_token: string }>();
+    .single();
 
   // 54000 = DB-level cap inside create_group (backstop for the limiter above).
   if (error?.code === "54000") return fail("rate_limited");
 
   if (error || !data) {
-    console.error("[createGroup] create_group rpc failed:", error?.message);
+    logger
+      .withMetadata({ reason: error?.message })
+      .error("group.create_rpc_failed");
     return fail("generic");
   }
 

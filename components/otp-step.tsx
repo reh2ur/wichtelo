@@ -195,7 +195,7 @@ export function OtpStep({
       <div className="flex flex-col items-start gap-1">
         <button
           type="button"
-          className="text-muted-foreground py-1 text-sm underline-offset-4 hover:underline disabled:no-underline disabled:opacity-50"
+          className="text-muted-foreground md:min-h-0-offset-4 min-h-11 py-1 text-sm underline hover:underline disabled:no-underline disabled:opacity-50"
           disabled={resendPending || coolingDown}
           onClick={onResend}
         >
@@ -203,7 +203,7 @@ export function OtpStep({
         </button>
         <button
           type="button"
-          className="text-muted-foreground py-1 text-sm underline-offset-4 hover:underline"
+          className="text-muted-foreground md:min-h-0-offset-4 min-h-11 py-1 text-sm underline hover:underline"
           onClick={onBack}
         >
           {labels.back}

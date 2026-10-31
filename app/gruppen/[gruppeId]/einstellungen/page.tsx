@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import { Suspense } from "react";
 import { getTranslations, getMessages } from "next-intl/server";
 import { notFound, redirect } from "next/navigation";
@@ -5,7 +6,7 @@ import Link from "next/link";
 import { ArrowLeftIcon } from "@phosphor-icons/react/ssr";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { loadExclusions, loadSettingsMemberships } from "@/lib/group-reads";
-import { getUser } from "@/lib/auth/get-user";
+import { requireUser } from "@/lib/auth/require-auth";
 import {
   GroupSettingsProvider,
   UpdateGroupInfoForm,
@@ -25,18 +26,23 @@ import { SettingsSkeleton } from "./settings-skeleton";
 // hits that bypass that.
 export const instant = false;
 
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await getTranslations("groupSettings");
+  return { title: t("title") };
+}
+
 export default async function EinstellungenPage(
   props: PageProps<"/gruppen/[gruppeId]/einstellungen">,
 ) {
   const { gruppeId } = await props.params;
-  const user = (await getUser())!;
+  const user = await requireUser();
 
   const admin = createAdminClient();
 
   // Errors throw (-> error.tsx); only a genuinely missing row is a 404.
   const { data: group, error: groupError } = await admin
     .from("groups")
-    .select("id, slug, name, state, budget_hint, note")
+    .select("id, slug, name, year, state, budget_hint, note")
     .eq("slug", gruppeId)
     .maybeSingle();
   if (groupError) {
@@ -76,6 +82,7 @@ async function EinstellungenContent({
     id: string;
     slug: string;
     name: string;
+    year: number;
     state: "open" | "drawn";
     budget_hint: string | null;
     note: string | null;
@@ -122,6 +129,7 @@ async function EinstellungenContent({
           group={{
             slug: g.slug,
             name: g.name,
+            year: g.year,
             budget_hint: g.budget_hint,
             note: g.note,
           }}

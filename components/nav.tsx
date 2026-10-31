@@ -1,6 +1,6 @@
 import Image from "next/image";
 import Link from "next/link";
-import { getMessages } from "next-intl/server";
+import { getMessages, getTranslations } from "next-intl/server";
 import { Suspense } from "react";
 import { getUser } from "@/lib/auth/get-user";
 import { createClient } from "@/lib/supabase/server";
@@ -10,13 +10,14 @@ import {
   NavUserMenuClient,
 } from "@/components/nav-user-menu-client";
 
-function SignInLink() {
+async function SignInLink() {
+  const t = await getTranslations("nav");
   return (
     <Link
       href="/anmelden"
-      className="focus-visible:outline-crimson text-navy hover:bg-navy/10 rounded-md px-2 py-1 text-xs font-bold transition-colors focus-visible:outline-2 focus-visible:outline-offset-2"
+      className="focus-visible:outline-crimson text-navy hover:bg-navy/10 inline-flex min-h-11 items-center rounded-md px-3 py-1 text-sm font-bold transition-colors focus-visible:outline-2 focus-visible:outline-offset-2"
     >
-      Anmelden
+      {t("signIn")}
     </Link>
   );
 }
@@ -25,7 +26,7 @@ function UserMenuPlaceholder() {
   return (
     <span aria-hidden="true" className="flex items-center gap-2">
       <Skeleton className="h-4 w-14 rounded" />
-      <Skeleton className="h-9 w-9 rounded-full" />
+      <Skeleton className="h-11 w-11 rounded-full" />
     </span>
   );
 }

@@ -10,6 +10,10 @@ export const colors = {
   card: "#ffffff",
   foreground: "#16283f",
   muted: "#486279",
+  // CTA button: #fffaf9 on crimson (#df4a5e) is only 3.84:1; this is 5.07:1.
+  // Mirror in supabase/templates/*.html.
+  ctaBackground: "#c23a4d",
+  ctaText: "#fffaf9",
   border: "#c9dcee",
 };
 

@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import { Suspense } from "react";
 import { connection } from "next/server";
 import { getTranslations } from "next-intl/server";
@@ -65,6 +66,11 @@ async function fetchUsers(): Promise<UserRow[]> {
       banned,
     };
   });
+}
+
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await getTranslations("adminUsers");
+  return { title: t("title") };
 }
 
 export default async function AdminUsersPage() {

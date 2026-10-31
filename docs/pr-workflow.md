@@ -18,6 +18,15 @@ pnpm e2e:dev        # run against local dev server (https://localhost:3000)
 pnpm e2e:pr <NUM>   # run against deployed Vercel preview for PR number NUM
 ```
 
+Shortcut: `pnpm verify` runs format + lint + typecheck + unit + e2e in order, stops at first failure.
+
+Also run (CI runs both):
+
+```bash
+pnpm knip           # unused files/exports/deps — must exit 0
+pnpm check:pii      # no hardcoded personal identifiers in tracked files
+```
+
 No PR if any fail.
 
 ## GitHub issue workflow

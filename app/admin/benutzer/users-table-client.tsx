@@ -1,5 +1,7 @@
 "use client";
 
+import { Input } from "@/components/ui/input";
+import { SortableTableHead } from "@/components/ui/sortable-table-head";
 import { useMemo, useState } from "react";
 import Link from "next/link";
 import {
@@ -119,11 +121,16 @@ export function UsersTableClient({ users }: { users: UserRow[] }) {
 
   return (
     <div>
-      <input
+      <label htmlFor="table-filter" className="sr-only">
+        {t("table.filterLabel")}
+      </label>
+      <Input
+        id="table-filter"
+        type="search"
         value={globalFilter}
         onChange={(e) => table.setGlobalFilter(e.target.value)}
         placeholder={t("table.filterPlaceholder")}
-        className="border-input bg-background focus-visible:ring-ring/50 mb-3 h-9 w-full max-w-sm rounded-lg border px-3 text-sm shadow-xs transition-colors focus-visible:ring-3 focus-visible:outline-none"
+        className="mb-3 max-w-sm"
       />
       <div className="border-border overflow-hidden rounded-lg border">
         <Table>
@@ -131,19 +138,7 @@ export function UsersTableClient({ users }: { users: UserRow[] }) {
             {table.getHeaderGroups().map((headerGroup) => (
               <TableRow key={headerGroup.id}>
                 {headerGroup.headers.map((header) => (
-                  <TableHead
-                    key={header.id}
-                    className="cursor-pointer select-none"
-                    onClick={header.column.getToggleSortingHandler()}
-                  >
-                    {flexRender(
-                      header.column.columnDef.header,
-                      header.getContext(),
-                    )}
-                    {{ asc: " ↑", desc: " ↓" }[
-                      header.column.getIsSorted() as string
-                    ] ?? ""}
-                  </TableHead>
+                  <SortableTableHead key={header.id} header={header} />
                 ))}
               </TableRow>
             ))}

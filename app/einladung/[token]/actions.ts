@@ -19,10 +19,12 @@ import { getGroupAdminEmails } from "@/lib/group-admins";
 import { notify } from "@/lib/notification";
 import { logger } from "@/lib/logger";
 import { reportError } from "@/lib/report-error";
+import { deferNotice } from "@/lib/notification/defer";
 import { isUniqueViolation } from "@/lib/supabase/errors";
 import { getClientIp } from "@/lib/request-ip";
 import {
   checkRateLimit,
+  checkRateLimits,
   inviteOtpRequestLimiter,
   inviteOtpRequestIpLimiter,
   inviteOtpVerifyLimiter,
@@ -82,8 +84,10 @@ export async function requestInviteOtp(
   // rate_limited response either way: no account-existence signal.
   const ip = await getClientIp();
   if (
-    !(await checkRateLimit(inviteOtpRequestIpLimiter, ip)) ||
-    !(await checkRateLimit(inviteOtpRequestLimiter, rateLimitKey(email)))
+    !(await checkRateLimits([
+      [inviteOtpRequestIpLimiter, ip],
+      [inviteOtpRequestLimiter, rateLimitKey(email)],
+    ]))
   ) {
     return { status: "error", error: "rate_limited", email };
   }
@@ -121,10 +125,9 @@ export async function requestInviteOtp(
         email,
       });
     if (linkError) {
-      console.error(
-        "[requestInviteOtp] generateLink failed:",
-        linkError.message,
-      );
+      logger
+        .withMetadata({ reason: linkError.message })
+        .error("invite.generate_link_failed");
       return { status: "error", error: "generic", email };
     }
     const devOtp = linkData?.properties?.email_otp ?? undefined;
@@ -185,8 +188,10 @@ export async function verifyInviteOtp(
   // per-IP backstop is looser so a shared Wi-Fi/CGNAT doesn't lock users out.
   const ip = await getClientIp();
   if (
-    !(await checkRateLimit(inviteOtpVerifyIpLimiter, ip)) ||
-    !(await checkRateLimit(inviteOtpVerifyLimiter, rateLimitKey(email)))
+    !(await checkRateLimits([
+      [inviteOtpVerifyIpLimiter, ip],
+      [inviteOtpVerifyLimiter, rateLimitKey(email)],
+    ]))
   ) {
     return { status: "error", error: "rate_limited", email };
   }
@@ -316,22 +321,23 @@ export async function acceptInvite(
       return { status: "error", error: "drawn" };
     }
     if (memberError) {
-      console.error(
-        "[acceptInvite] membership insert failed:",
-        memberError.message,
-      );
+      logger
+        .withMetadata({ reason: memberError.message })
+        .error("invite.membership_insert_failed");
       return { status: "error", error: "generic" };
     }
     logger
       .withMetadata({ groupId: group.id, profileId: user.id })
       .info("invite.used");
 
-    const adminEmails = await getGroupAdminEmails(admin, group.id, user.id);
-    await notify({
-      type: "participant.joined",
-      groupName: group.name,
-      participantName: nameSnapshot,
-      adminEmails,
+    deferNotice(async () => {
+      const adminEmails = await getGroupAdminEmails(admin, group.id, user.id);
+      await notify({
+        type: "participant.joined",
+        groupName: group.name,
+        participantName: nameSnapshot,
+        adminEmails,
+      });
     });
   }
 
