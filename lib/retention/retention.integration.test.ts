@@ -95,6 +95,7 @@ describe.skipIf(!hasSupabase)("runRetention (integration)", () => {
         action: "delete_group",
         target_type: "group",
         target_id: `${auditTarget}-fresh`,
+        created_at: new Date().toISOString(),
       },
     ]);
     if (le) throw le;
