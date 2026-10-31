@@ -24,17 +24,15 @@ const dbUrl =
  * with granted = false). Deterministic replacement for fixed sleeps: proves
  * the call is really queued behind our open transaction.
  */
-async function waitUntilBlocked(pg: Client, fn: string, timeoutMs = 10_000) {
+async function waitUntilBlocked(pg: Client, fn: string, timeoutMs = 4_000) {
   const deadline = Date.now() + timeoutMs;
   while (Date.now() < deadline) {
+    // pg_locks is readable by any role; pg_stat_activity hides other roles'
+    // query text/wait events (PostgREST runs as `authenticator`).
     const { rows } = await pg.query(
-      `select 1 from pg_stat_activity a
-        where a.pid <> pg_backend_pid()
-          and a.wait_event_type = 'Lock'
-          and a.query ilike $1
-          and exists (select 1 from pg_locks l
-                       where l.pid = a.pid and not l.granted)`,
-      [`%${fn}%`],
+      `select 1 from pg_locks
+        where not granted and pid <> pg_backend_pid()
+          and locktype in ('transactionid', 'tuple')`,
     );
     if (rows.length > 0) return;
     await new Promise((r) => setTimeout(r, 25));
