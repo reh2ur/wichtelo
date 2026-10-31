@@ -19,6 +19,7 @@
   "signIn": {
     "title": "Anmelden",
     "description": "Gib deine E-Mail-Adresse ein. Wir schicken dir einen Anmeldelink oder Code.",
+    "inviteOnlyHint": "Ein Konto gibt es nur über einen Einladungslink. Ohne bestehendes Konto kommt hier keine E-Mail an.",
     "email": {
       "label": "E-Mail-Adresse",
       "placeholder": "du@beispiel.de",
@@ -213,6 +214,7 @@
     "errors": {
       "noAccount": "Diese Person hat kein Konto mehr und kann nicht befördert werden.",
       "lastAdmin": "Dieser Teilnehmer ist der letzte Admin. Befördere zuerst eine andere Person.",
+      "tooFewMembers": "Nach der Auslosung muss die Gruppe mindestens 3 Teilnehmer behalten, sonst ist keine neue Auslosung mehr möglich. Entferne diese Person nicht.",
       "notAdmin": "Nur Admins können die Einstellungen ändern.",
       "groupNotFound": "Diese Gruppe wurde nicht gefunden.",
       "missingName": "Bitte gib einen Gruppennamen ein.",
@@ -605,11 +607,15 @@
     },
     "retentionActive": {
       "heading": "Speicherdauer",
-      "body": "Daten werden gespeichert, solange das Konto bzw. die Gruppe besteht. Eine automatische Löschung nach Ablauf einer festen Frist erfolgt nicht."
+      "body": "Wir löschen Daten automatisch (täglicher Löschlauf). Gruppen samt Mitgliedschaften, Namensangaben, Auslosungsergebnissen, Ausschlüssen und Einladungslink werden sechs Monate nach dem 31. Dezember des Gruppenjahres gelöscht, eine Gruppe aus 2026 also am 1. Juli 2027. Du kannst eine Gruppe und dein Konto jederzeit früher löschen. Konten, bei denen sich drei Jahre lang niemand angemeldet und keiner Gruppe beigetreten ist, werden gelöscht; 30 Tage vorher erhältst du dazu eine Warnung per E-Mail an deine hinterlegte Adresse, die du durch eine Anmeldung abwenden kannst. Einträge im Protokoll der Administrationsaktionen (enthält die E-Mail-Adresse des Betreibers sowie Kennungen betroffener Konten und Gruppen) werden nach zwölf Monaten gelöscht. Bis dahin werden Daten gespeichert, solange das Konto bzw. die Gruppe besteht."
+    },
+    "retentionBackups": {
+      "heading": "Sicherungskopien",
+      "body": "Zur Wiederherstellung nach einem Ausfall erstellen wir täglich verschlüsselte Sicherungskopien der Datenbank (EU-Region). Es werden die letzten 14 Tagessicherungen und die letzten 8 Wochensicherungen aufbewahrt und danach automatisch überschrieben. Gelöschte Konten und Gruppen können daher noch bis zu rund acht Wochen in Sicherungskopien enthalten sein; sie werden nicht gezielt aus Sicherungen entfernt. Die Sicherungen werden ansonsten nicht ausgewertet."
     },
     "retentionAfterDeletion": {
       "heading": "Speicherung nach Kontolöschung",
-      "body": "Wird ein Konto gelöscht, wird der Nutzer-Account entfernt. In Gruppen, die noch nicht ausgelost wurden, wird die Mitgliedschaft vollständig gelöscht; die Gruppen-Admins werden benachrichtigt. In bereits ausgelosten Gruppen wird die Zuordnung zum Nutzerkonto aufgehoben. Der zum Zeitpunkt der Löschung gespeicherte Name bleibt dort jedoch innerhalb bestehender Gruppen und Auslosungsergebnisse sichtbar, damit die Wichtel-Historie für andere Gruppenmitglieder nachvollziehbar bleibt. Eine erneute Zuordnung zu einem Nutzerkonto findet nach der Löschung nicht mehr statt."
+      "body": "Wird ein Konto gelöscht, wird der Nutzer-Account entfernt. In Gruppen, die noch nicht ausgelost wurden, wird die Mitgliedschaft vollständig gelöscht; die Gruppen-Admins werden benachrichtigt. In bereits ausgelosten Gruppen wird die Zuordnung zum Nutzerkonto aufgehoben. Der zum Zeitpunkt der Löschung gespeicherte Name bleibt dort jedoch innerhalb bestehender Gruppen und Auslosungsergebnisse sichtbar, damit die Wichtel-Historie für andere Gruppenmitglieder nachvollziehbar bleibt, bis die Gruppe nach der oben genannten Frist gelöscht wird. Eine erneute Zuordnung zu einem Nutzerkonto findet nach der Löschung nicht mehr statt."
     },
     "cookies": {
       "heading": "Cookies",

@@ -94,6 +94,11 @@ export default async function DatenschutzPage() {
         </section>
 
         <section className="space-y-2">
+          <h2 className="text-lg font-bold">{t("retentionBackups.heading")}</h2>
+          <p className="text-muted-foreground">{t("retentionBackups.body")}</p>
+        </section>
+
+        <section className="space-y-2">
           <h2 className="text-lg font-bold">
             {t("retentionAfterDeletion.heading")}
           </h2>

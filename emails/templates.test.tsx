@@ -6,6 +6,7 @@ import { siteUrl } from "./components/theme";
 import { AccountDeletionEmail } from "./account-deletion";
 import { AccountDeletionAdminNoticeEmail } from "./account-deletion-admin-notice";
 import { AccountDeletionConfirmedEmail } from "./account-deletion-confirmed";
+import { AccountInactivityWarningEmail } from "./account-inactivity-warning";
 import { DrawAssignmentEmail } from "./draw-assignment";
 import { GroupDeletedEmail } from "./group-deleted";
 import { ParticipantJoinedEmail } from "./participant-joined";
@@ -47,6 +48,17 @@ const templates: Array<{
   {
     file: "account-deletion-confirmed",
     element: () => <AccountDeletionConfirmedEmail name={EVIL} />,
+    userStrings: true,
+  },
+  {
+    file: "account-inactivity-warning",
+    element: () => (
+      <AccountInactivityWarningEmail
+        name={EVIL}
+        deletionDate="30. November 2026"
+      />
+    ),
+    cta: `${siteUrl}/anmelden`,
     userStrings: true,
   },
   {

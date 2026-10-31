@@ -9,6 +9,12 @@ import type { SupabaseClient, User } from "@supabase/supabase-js";
 const GROUP_DETAIL_RE = /^\/gruppen\/([^/]+)$/;
 const GROUP_SETTINGS_RE = /^\/gruppen\/([^/]+)\/einstellungen$/;
 
+export function isBanned(user: Pick<User, "banned_until">): boolean {
+  if (!user.banned_until) return false;
+  const until = Date.parse(user.banned_until);
+  return Number.isFinite(until) && until > Date.now();
+}
+
 // Fast-path claims check (local JWT decode) plus authoritative getUser()
 // (DB round-trip) — catches stale sessions where the auth.users row is gone
 // (e.g. after a DB reset or account deletion) even though the JWT is still
@@ -22,6 +28,10 @@ async function getVerifiedUser(
   const {
     data: { user },
   } = await supabase.auth.getUser();
+  // GoTrue should already reject banned users on GET /user; belt and braces so
+  // a still-valid access token (jwt_expiry 3600) never passes for a banned
+  // account if that behaviour ever changes (#166).
+  if (user && isBanned(user)) return null;
   return user;
 }
 

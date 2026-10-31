@@ -1,0 +1,114 @@
+name: DB backup (prod)
+
+on:
+  schedule:
+    - cron: "43 2 * * *" # daily, off-peak
+  workflow_dispatch:
+
+# Nothing in the repo is touched; secrets carry all access.
+permissions: {}
+
+# One backup at a time; never cancel a running upload.
+concurrency:
+  group: db-backup
+  cancel-in-progress: false
+
+jobs:
+  backup:
+    name: Encrypted pg_dump to S3
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      SUPABASE_DB_URL_PROD: ${{ secrets.SUPABASE_DB_URL_PROD }}
+      BACKUP_AGE_PUBLIC_KEY: ${{ secrets.BACKUP_AGE_PUBLIC_KEY }}
+      BACKUP_S3_ENDPOINT: ${{ secrets.BACKUP_S3_ENDPOINT }}
+      BACKUP_S3_BUCKET: ${{ secrets.BACKUP_S3_BUCKET }}
+      AWS_ACCESS_KEY_ID: ${{ secrets.BACKUP_S3_ACCESS_KEY_ID }}
+      AWS_SECRET_ACCESS_KEY: ${{ secrets.BACKUP_S3_SECRET_ACCESS_KEY }}
+      AWS_DEFAULT_REGION: ${{ secrets.BACKUP_S3_REGION || 'eu-central-1' }}
+      AWS_REQUEST_CHECKSUM_CALCULATION: when_required
+      AWS_RESPONSE_CHECKSUM_VALIDATION: when_required
+      KEEP_DAILY: "14"
+      KEEP_WEEKLY: "8"
+
+    steps:
+      # Forks / unconfigured repos have no secrets: skip with a notice, not red.
+      - name: Check secrets
+        id: gate
+        run: |
+          missing=""
+          for v in SUPABASE_DB_URL_PROD BACKUP_AGE_PUBLIC_KEY BACKUP_S3_ENDPOINT BACKUP_S3_BUCKET AWS_ACCESS_KEY_ID AWS_SECRET_ACCESS_KEY; do
+            if [ -z "${!v}" ]; then missing="$missing $v"; fi
+          done
+          if [ -n "$missing" ]; then
+            echo "::notice title=DB backup skipped::Secrets not set:$missing (expected on forks)."
+            echo "run=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "run=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      # Runner ships pg client 16; prod is Postgres 17 (pg_dump must be >= server).
+      - name: Install postgresql-client-17 + age
+        if: steps.gate.outputs.run == 'true'
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq postgresql-common
+          sudo /usr/share/postgresql-common/pgdg/apt.postgresql.org.sh -y
+          sudo apt-get install -y -qq postgresql-client-17 age
+
+      - name: Dump, encrypt, upload
+        if: steps.gate.outputs.run == 'true'
+        run: |
+          set -euo pipefail
+          umask 077
+          stamp=$(date -u +%Y-%m-%d)
+          dump="$RUNNER_TEMP/wichtelo-$stamp.dump"
+          enc="$dump.age"
+
+          # public (app data) + auth (users, identities). Custom format = pg_restore-able, compressed.
+          /usr/lib/postgresql/17/bin/pg_dump "$SUPABASE_DB_URL_PROD" \
+            --format=custom --no-owner --no-privileges \
+            --schema=public --schema=auth --file="$dump"
+
+          # Sanity: archive readable + has content, before encrypting.
+          entries=$(/usr/lib/postgresql/17/bin/pg_restore --list "$dump" | grep -c 'TABLE DATA' || true)
+          echo "Table-data entries in dump: $entries"
+          if [ "$entries" -lt 5 ]; then
+            echo "::error::Dump looks empty ($entries table-data entries)"
+            exit 1
+          fi
+
+          age -r "$BACKUP_AGE_PUBLIC_KEY" -o "$enc" "$dump"
+          rm -f "$dump"
+
+          s3() { aws s3 --endpoint-url "$BACKUP_S3_ENDPOINT" "$@"; }
+          s3api() { aws s3api --endpoint-url "$BACKUP_S3_ENDPOINT" "$@"; }
+
+          s3 cp "$enc" "s3://$BACKUP_S3_BUCKET/daily/$(basename "$enc")" --only-show-errors
+          # Sunday (ISO 7) copy = weekly tier.
+          if [ "$(date -u +%u)" = "7" ]; then
+            s3 cp "$enc" "s3://$BACKUP_S3_BUCKET/weekly/$(basename "$enc")" --only-show-errors
+          fi
+
+          # Verify upload landed w/ matching size.
+          want=$(stat -c %s "$enc")
+          got=$(s3api head-object --bucket "$BACKUP_S3_BUCKET" --key "daily/$(basename "$enc")" --query ContentLength --output text)
+          if [ "$want" != "$got" ]; then
+            echo "::error::Uploaded size $got != local size $want"
+            exit 1
+          fi
+          echo "Uploaded daily/$(basename "$enc") ($got bytes)"
+
+          # Retention: keep newest N per tier (names sort chronologically).
+          prune() {
+            prefix=$1; keep=$2
+            s3api list-objects-v2 --bucket "$BACKUP_S3_BUCKET" --prefix "$prefix/" \
+              --query 'Contents[].Key' --output text | tr '\t' '\n' | grep '\.age$' | sort -r \
+              | tail -n +$((keep + 1)) | while read -r key; do
+                [ -n "$key" ] || continue
+                echo "Pruning $key"
+                s3api delete-object --bucket "$BACKUP_S3_BUCKET" --key "$key"
+              done
+          }
+          prune daily "$KEEP_DAILY"
+          prune weekly "$KEEP_WEEKLY"

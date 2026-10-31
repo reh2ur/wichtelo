@@ -3,7 +3,9 @@ import { NextRequest } from "next/server";
 
 type Res = { data: unknown; error: unknown };
 const results: Record<string, Res> = {};
-let userResult: { id: string } | null = { id: "u1" };
+let userResult: { id: string; banned_until?: string | null } | null = {
+  id: "u1",
+};
 let fromSpy: ((table: string) => void) | null = null;
 
 vi.mock("@/lib/supabase/admin", () => ({
@@ -73,6 +75,25 @@ describe("updateSession", () => {
     setLookup(null);
     const res = await updateSession(req("/gruppen/weg"));
     expect(isNotFoundRewrite(res)).toBe(true);
+  });
+
+  it("treats a banned user with a still-valid token as signed out", async () => {
+    userResult = {
+      id: "u1",
+      banned_until: new Date(Date.now() + 3600_000).toISOString(),
+    };
+    const res = await updateSession(req("/gruppen"));
+    expect(res.status).toBe(307);
+    expect(res.headers.get("location")).toContain("/anmelden");
+  });
+
+  it("lets a user through whose ban already expired", async () => {
+    userResult = {
+      id: "u1",
+      banned_until: new Date(Date.now() - 1000).toISOString(),
+    };
+    const res = await updateSession(req("/gruppen"));
+    expect(res.status).toBe(200);
   });
 
   it("does only one DB lookup for group + membership", async () => {

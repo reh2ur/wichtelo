@@ -7,7 +7,12 @@ const PER_PAGE = 1000;
 
 export type AuthUserSummary = Pick<
   User,
-  "id" | "email" | "created_at" | "last_sign_in_at" | "banned_until"
+  | "id"
+  | "email"
+  | "created_at"
+  | "last_sign_in_at"
+  | "banned_until"
+  | "app_metadata"
 >;
 
 /**
