@@ -1,11 +1,13 @@
+import type { Metadata } from "next";
 import { Suspense } from "react";
 import { getTranslations } from "next-intl/server";
 import { parseEmailLinkError } from "@/lib/auth/email-link";
 import { AuthForm } from "./auth-form";
 
-export const metadata = {
-  title: "Anmelden – Wichtelo",
-};
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await getTranslations("signIn");
+  return { title: t("title") };
+}
 
 export default async function AnmeldenPage(props: PageProps<"/anmelden">) {
   const t = await getTranslations("signIn");

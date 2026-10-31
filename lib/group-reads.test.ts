@@ -67,6 +67,77 @@ describe("page read helpers throw on DB errors (#139)", () => {
     ).rejects.toThrow("db down");
   });
 
+  it("loadReceiverNamesByGroup: resolves own recipient per group, abbreviated (story 18)", async () => {
+    const supabase = client({
+      assignments: {
+        data: [
+          { group_id: "g1", receiver_id: "m3" },
+          { group_id: "g2", receiver_id: "n2" },
+        ],
+        error: null,
+      },
+    });
+    const admin = client({
+      memberships: {
+        data: [
+          {
+            id: "m1",
+            group_id: "g1",
+            name_snapshot: "Anna Becker",
+            profile_id: null,
+          },
+          {
+            id: "m2",
+            group_id: "g1",
+            name_snapshot: "Anna Conrad",
+            profile_id: null,
+          },
+          {
+            id: "m3",
+            group_id: "g1",
+            name_snapshot: "Bernd Meier",
+            profile_id: null,
+          },
+          {
+            id: "n1",
+            group_id: "g2",
+            name_snapshot: "Clara Zeller",
+            profile_id: null,
+          },
+          {
+            id: "n2",
+            group_id: "g2",
+            name_snapshot: "Clara Zimmer",
+            profile_id: null,
+          },
+        ],
+        error: null,
+      },
+    });
+    const result = await loadReceiverNamesByGroup(supabase, admin, [
+      "m1",
+      "n1",
+    ]);
+    // Unique first name -> first name only; shared first name -> abbreviated.
+    expect(result.g1).toBe("Bernd");
+    expect(result.g2).toBe("Clara Zi.");
+    expect(Object.keys(result).sort()).toEqual(["g1", "g2"]);
+  });
+
+  it("loadReceiverNamesByGroup: no ids or no assignments -> empty, no admin read", async () => {
+    const admin = client({});
+    await expect(
+      loadReceiverNamesByGroup(client({}), admin, []),
+    ).resolves.toEqual({});
+    await expect(
+      loadReceiverNamesByGroup(
+        client({ assignments: { data: [], error: null } }),
+        admin,
+        ["m1"],
+      ),
+    ).resolves.toEqual({});
+  });
+
   it("loadMyReceiverId: assignment error throws instead of 'no assignment'", async () => {
     await expect(
       loadMyReceiverId(client({ assignments: dbError }), "g1", "m1"),

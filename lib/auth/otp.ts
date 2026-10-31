@@ -7,6 +7,7 @@ import { z } from "zod";
  * key, bypassing the app's per-email limiter (see docs/security.md).
  */
 export const OTP_LENGTH = 8;
+/** @public Documents config.toml `otp_expiry`; not read at runtime. */
 export const OTP_EXPIRY_MINUTES = 10;
 
 /** Matches GoTrue `max_frequency = "60s"`: a quicker resend is throttled. */

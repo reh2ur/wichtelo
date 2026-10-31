@@ -1,9 +1,6 @@
 import type { createAdminClient } from "@/lib/supabase/admin";
 import type { Assignment } from "@/lib/draw";
-import {
-  abbreviateNames,
-  membersFromMemberships,
-} from "@/lib/name-abbreviator";
+import { loadMemberDisplayNames } from "@/lib/member-display-names";
 import type { DrawAssignmentRecipient } from "@/lib/notification";
 import { logger } from "@/lib/logger";
 
@@ -53,33 +50,7 @@ export async function buildDrawAssignmentRecipients(
   memberRows: MembershipRow[],
   assignment: Assignment,
 ): Promise<DrawRecipients> {
-  const profileIds = memberRows
-    .map((m) => m.profile_id)
-    .filter((id): id is string => !!id);
-
-  const profilesById = new Map<
-    string,
-    { first_name: string; last_name: string }
-  >();
-  if (profileIds.length > 0) {
-    const { data } = await admin
-      .from("profiles")
-      .select("id, first_name, last_name")
-      .in("id", profileIds);
-    for (const p of (data ?? []) as {
-      id: string;
-      first_name: string;
-      last_name: string;
-    }[]) {
-      profilesById.set(p.id, p);
-    }
-  }
-
-  const receiverDisplayById = new Map(
-    abbreviateNames(membersFromMemberships(memberRows, profilesById)).map(
-      (d) => [d.id, d.displayName],
-    ),
-  );
+  const receiverDisplayById = await loadMemberDisplayNames(admin, memberRows);
 
   const emailByMembershipId = new Map<string, string>();
   // Parallel lookups: sequential getUserById per member risks serverless timeouts.

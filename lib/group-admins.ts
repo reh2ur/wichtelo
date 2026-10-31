@@ -28,12 +28,13 @@ export async function getGroupAdminEmails(
     .map((m) => m.profile_id)
     .filter((id): id is string => id !== null);
 
-  const emails: string[] = [];
-  for (const profileId of profileIds) {
-    const { data: userData } = await admin.auth.admin.getUserById(profileId);
-    if (userData?.user?.email) emails.push(userData.user.email);
-  }
-  return emails;
+  const emails = await Promise.all(
+    profileIds.map(async (profileId) => {
+      const { data: userData } = await admin.auth.admin.getUserById(profileId);
+      return userData?.user?.email ?? null;
+    }),
+  );
+  return emails.filter((e): e is string => !!e);
 }
 
 export interface GroupContact {
@@ -83,11 +84,15 @@ export async function resolveGroupContact(
     .eq("role", "admin")
     .neq("profile_id", actingProfileId);
 
-  for (const m of (admins ?? []) as { profile_id: string | null }[]) {
-    if (!m.profile_id) continue;
-    const contact = await resolveContactForProfile(admin, m.profile_id);
-    if (contact) return contact;
-  }
+  const candidates = ((admins ?? []) as { profile_id: string | null }[])
+    .map((m) => m.profile_id)
+    .filter((id): id is string => id !== null);
+  // Resolve in parallel; keep membership order for the first hit.
+  const contacts = await Promise.all(
+    candidates.map((id) => resolveContactForProfile(admin, id)),
+  );
+  const contact = contacts.find((c) => c !== null);
+  if (contact) return contact;
 
   logger.withMetadata({ groupId }).warn("group_contact.unresolved");
   return null;

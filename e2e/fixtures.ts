@@ -5,6 +5,7 @@ import {
   RUN_ID,
   testApiHeaders,
   browserExtraHeaders,
+  projectDeviceOptions,
 } from "./helpers";
 
 // Parses Set-Cookie response headers into Playwright's addCookies() format.
@@ -64,7 +65,7 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
 
   // Runs once per worker process — all tests in that worker share the session.
   authedContext: [
-    async ({ browser, workerEmail: email }, use) => {
+    async ({ browser, workerEmail: email }, use, workerInfo) => {
       // Single request: creates user, verifies OTP, returns session as Set-Cookie headers.
       const res = await fetch(`${BASE_URL}/api/test/auth`, {
         method: "POST",
@@ -77,6 +78,7 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
         );
 
       const context = await browser.newContext({
+        ...projectDeviceOptions(workerInfo.project.use),
         baseURL: BASE_URL,
         ignoreHTTPSErrors: BASE_URL.includes("localhost"),
         extraHTTPHeaders: browserExtraHeaders(),

@@ -49,13 +49,13 @@ The local DB starts empty (schema only). Populate it via:
 
 ## PRs and preview deployments
 
-|                | Where                                                                  |
-| -------------- | ---------------------------------------------------------------------- |
-| **Code**       | Vercel auto-deploys a preview for every PR                             |
-| **Database**   | Preview deployments hit **staging** Supabase project (not prod)        |
-| **Migrations** | Applied to production only on merge to `main` (via GitHub integration) |
+|                | Where                                                                                                                                               |
+| -------------- | --------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Code**       | Vercel auto-deploys a preview for every PR                                                                                                          |
+| **Database**   | Preview deployments hit **staging** Supabase project (not prod)                                                                                     |
+| **Migrations** | NOT auto-applied anywhere. No workflow pushes them. Staging: `pnpm db:push:staging`; prod: `pnpm db:push:live` BEFORE merge (see `docs/go-live.md`) |
 
-During a PR, preview app runs against staging data, never prod. Staging = test-only: no real user emails, no real person as staging `SUPER_ADMIN_EMAIL`. Keep Vercel Deployment Protection on. If PR adds new column/table, push migration to staging first (`supabase db push` linked to staging) or preview fails. This is acceptable for solo development — Supabase's paid branching feature provides per-PR database previews if this becomes a problem.
+During a PR, preview app runs against staging data, never prod. Staging = test-only: no real user emails, no real person as staging `SUPER_ADMIN_EMAIL`. Keep Vercel Deployment Protection on. If PR adds new column/table, push migration to staging first (`pnpm db:push:staging`) or preview fails. This is acceptable for solo development — Supabase's paid branching feature provides per-PR database previews if this becomes a problem.
 
 ---
 
@@ -70,7 +70,7 @@ During a PR, preview app runs against staging data, never prod. Staging = test-o
 
 ## E2E backdoors on preview
 
-Preview env (Vercel) needs `E2E_TEST_MODE=1` + `E2E_TEST_SECRET`; same secret in GitHub secret `E2E_TEST_SECRET`. Never in Production env. Keep Deployment Protection on. Details: `docs/testing.md`.
+Preview env (Vercel) needs `E2E_TEST_MODE=1` + `E2E_TEST_SECRET` (both required, `lib/test-backdoor.ts`); same secret in GitHub secret `E2E_TEST_SECRET`. Never in Production env. Keep Deployment Protection on. Details: `docs/testing.md`.
 
 ---
 
@@ -82,15 +82,15 @@ Preview env (Vercel) needs `E2E_TEST_MODE=1` + `E2E_TEST_SECRET`; same secret in
 
 ## Script reference
 
-| Script                     | What it does                                           |
-| -------------------------- | ------------------------------------------------------ |
-| `pnpm db:start`            | Start local Supabase stack                             |
-| `pnpm db:stop`             | Stop local Supabase stack                              |
-| `pnpm db:reset`            | Wipe local DB and replay all migrations + seed         |
-| `pnpm db:diff`             | Show schema drift between local DB and migration files |
-| `pnpm db:push`             | Push pending migrations to the remote (production) DB  |
-| `pnpm db:push:staging`     | Push pending migrations to staging project             |
-| `pnpm db:push:live`        | Push pending migrations to live project                |
-| `pnpm db:migration <name>` | Create a new timestamped migration file                |
+| Script                     | What it does                                                                                         |
+| -------------------------- | ---------------------------------------------------------------------------------------------------- |
+| `pnpm db:start`            | Start local Supabase stack                                                                           |
+| `pnpm db:stop`             | Stop local Supabase stack                                                                            |
+| `pnpm db:reset`            | Wipe local DB and replay all migrations + seed                                                       |
+| `pnpm db:diff`             | Show schema drift between local DB and migration files                                               |
+| `pnpm db:push`             | Push pending migrations to whichever project is linked (`supabase link`) — prefer `:staging`/`:live` |
+| `pnpm db:push:staging`     | Push pending migrations to staging project                                                           |
+| `pnpm db:push:live`        | Push pending migrations to live project                                                              |
+| `pnpm db:migration <name>` | Create a new timestamped migration file                                                              |
 
 `db:push:*` + `db:config:push:*` read project refs from `SUPABASE_PROJECT_REF_LIVE` / `_STAGING` in `supabase/.env.local` (gitignored) via `scripts/supabase-remote.mjs`. `config.toml` `[remotes.*] project_id` stays literal (CLI cannot resolve `env()` there; wrong match pushes base localhost config).

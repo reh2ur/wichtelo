@@ -1,5 +1,8 @@
 "use client";
 
+import { Input } from "@/components/ui/input";
+import { Select } from "@/components/ui/select";
+import { Textarea } from "@/components/ui/textarea";
 import { useActionState, useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
@@ -9,6 +12,7 @@ import {
   addExclusion,
   removeExclusion,
   promoteToAdmin,
+  demoteAdmin,
   removeMember,
   deleteGroup,
   regenerateInviteLink,
@@ -17,6 +21,7 @@ import {
   type ExclusionState,
   type RemoveExclusionState,
   type PromoteState,
+  type DemoteState,
   type RemoveMemberState,
   type DeleteGroupState,
 } from "./actions";
@@ -27,12 +32,6 @@ const { Provider: GroupSettingsProvider, useT: useGroupSettingsT } =
   createIntlContext("groupSettings");
 
 export { GroupSettingsProvider };
-
-const INPUT_CLASS =
-  "flex h-9 w-full rounded-lg border border-input bg-background px-3 py-1 text-sm shadow-xs transition-colors placeholder:text-muted-foreground focus-visible:border-ring focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50 disabled:cursor-not-allowed disabled:opacity-50";
-
-const TEXTAREA_CLASS =
-  "flex min-h-[80px] w-full resize-none rounded-lg border border-input bg-background px-3 py-2 text-sm shadow-xs transition-colors placeholder:text-muted-foreground focus-visible:border-ring focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50 disabled:cursor-not-allowed disabled:opacity-50";
 
 export interface Member {
   id: string;
@@ -52,6 +51,7 @@ export interface Exclusion {
 export interface GroupInfo {
   slug: string;
   name: string;
+  year: number;
   budget_hint: string | null;
   note: string | null;
 }
@@ -80,13 +80,15 @@ export function UpdateGroupInfoForm({ group }: { group: GroupInfo }) {
     state.status === "error"
       ? state.error === "missing_name"
         ? t("errors.missingName")
-        : state.error === "too_long"
-          ? t("errors.tooLong", { max: state.max ?? 0 })
-          : state.error === "not_admin"
-            ? t("errors.notAdmin")
-            : state.error === "group_not_found"
-              ? t("errors.groupNotFound")
-              : t("errors.generic")
+        : state.error === "invalid_year"
+          ? t("errors.invalidYear")
+          : state.error === "too_long"
+            ? t("errors.tooLong", { max: state.max ?? 0 })
+            : state.error === "not_admin"
+              ? t("errors.notAdmin")
+              : state.error === "group_not_found"
+                ? t("errors.groupNotFound")
+                : t("errors.generic")
       : null;
   const v = state.status === "error" ? state.values : undefined;
 
@@ -99,47 +101,59 @@ export function UpdateGroupInfoForm({ group }: { group: GroupInfo }) {
           <label htmlFor="name" className="text-sm font-bold">
             {t("groupInfo.nameLabel")}
           </label>
-          <input
+          <Input
             id="name"
             name="name"
             type="text"
             defaultValue={v?.name ?? group.name}
             maxLength={100}
             required
-            className={INPUT_CLASS}
+          />
+        </div>
+        <div className="space-y-1.5">
+          <label htmlFor="year" className="text-sm font-bold">
+            {t("groupInfo.yearLabel")}
+          </label>
+          <Input
+            id="year"
+            name="year"
+            type="number"
+            inputMode="numeric"
+            min={2000}
+            max={2100}
+            defaultValue={v?.year ?? group.year}
+            required
           />
         </div>
         <div className="space-y-1.5">
           <label htmlFor="budgetHint" className="text-sm font-bold">
             {t("groupInfo.budgetLabel")}{" "}
             <span className="text-muted-foreground font-normal">
-              (optional)
+              {t("optional")}
             </span>
           </label>
-          <input
+          <Input
             id="budgetHint"
             name="budgetHint"
             type="text"
             defaultValue={v?.budgetHint ?? group.budget_hint ?? ""}
             maxLength={200}
             placeholder={t("groupInfo.budgetPlaceholder")}
-            className={INPUT_CLASS}
           />
         </div>
         <div className="space-y-1.5">
           <label htmlFor="note" className="text-sm font-bold">
             {t("groupInfo.noteLabel")}{" "}
             <span className="text-muted-foreground font-normal">
-              (optional)
+              {t("optional")}
             </span>
           </label>
-          <textarea
+          <Textarea
             id="note"
             name="note"
             defaultValue={v?.note ?? group.note ?? ""}
             maxLength={1000}
             placeholder={t("groupInfo.notePlaceholder")}
-            className={TEXTAREA_CLASS}
           />
         </div>
         {errorMsg && (
@@ -245,15 +259,9 @@ function AddExclusionForm({
       <div className="grid grid-cols-2 gap-3">
         <div className="space-y-1.5">
           <label htmlFor="memberA" className="text-sm font-bold">
-            {t("exclusions.selectMember")} A
+            {t("exclusions.personA")}
           </label>
-          <select
-            id="memberA"
-            name="memberA"
-            className={INPUT_CLASS}
-            defaultValue=""
-            required
-          >
+          <Select id="memberA" name="memberA" defaultValue="" required>
             <option value="" disabled>
               —
             </option>
@@ -262,19 +270,13 @@ function AddExclusionForm({
                 {m.name_snapshot}
               </option>
             ))}
-          </select>
+          </Select>
         </div>
         <div className="space-y-1.5">
           <label htmlFor="memberB" className="text-sm font-bold">
-            {t("exclusions.selectMember")} B
+            {t("exclusions.personB")}
           </label>
-          <select
-            id="memberB"
-            name="memberB"
-            className={INPUT_CLASS}
-            defaultValue=""
-            required
-          >
+          <Select id="memberB" name="memberB" defaultValue="" required>
             <option value="" disabled>
               —
             </option>
@@ -283,7 +285,7 @@ function AddExclusionForm({
                 {m.name_snapshot}
               </option>
             ))}
-          </select>
+          </Select>
         </div>
       </div>
       {errorMsg && (
@@ -375,6 +377,78 @@ function PromoteConfirmPanel({
           {pending
             ? t("participants.promoting")
             : t("participants.promoteConfirm")}
+        </Button>
+        <Button
+          type="button"
+          variant="outline"
+          size="xs"
+          onClick={onCancel}
+          disabled={pending}
+        >
+          {t("participants.cancel")}
+        </Button>
+      </form>
+    </div>
+  );
+}
+
+function DemoteConfirmPanel({
+  slug,
+  member,
+  onDone,
+  onCancel,
+}: {
+  slug: string;
+  member: Member;
+  onDone: () => void;
+  onCancel: () => void;
+}) {
+  const t = useGroupSettingsT();
+  const router = useRouter();
+  const { titleRef } = useConfirmFocus(true);
+  const [state, action, pending] = useActionState<DemoteState, FormData>(
+    demoteAdmin,
+    { status: "idle" },
+  );
+
+  useEffect(() => {
+    if (state.status === "success") {
+      router.refresh();
+      onDone();
+    }
+  }, [state.status, router, onDone]);
+
+  const errorMsg =
+    state.status === "error"
+      ? state.error === "last_admin"
+        ? t("errors.lastAdminDemote")
+        : state.error === "not_admin"
+          ? t("errors.notAdmin")
+          : state.error === "group_not_found"
+            ? t("errors.groupNotFound")
+            : t("errors.generic")
+      : null;
+
+  return (
+    <div className="border-border bg-muted/30 mt-2 space-y-2 rounded-lg border p-3">
+      <p ref={titleRef} tabIndex={-1} className={CONFIRM_TITLE_CLASS}>
+        {t("participants.demoteConfirmTitle", { name: member.name_snapshot })}
+      </p>
+      <p className="text-muted-foreground text-sm">
+        {t("participants.demoteConfirmMessage")}
+      </p>
+      {errorMsg && (
+        <p role="alert" className="text-danger-text text-sm">
+          {errorMsg}
+        </p>
+      )}
+      <form action={action} className="flex gap-2">
+        <input type="hidden" name="slug" value={slug} />
+        <input type="hidden" name="membershipId" value={member.id} />
+        <Button type="submit" size="xs" disabled={pending}>
+          {pending
+            ? t("participants.demoting")
+            : t("participants.demoteConfirm")}
         </Button>
         <Button
           type="button"
@@ -600,6 +674,7 @@ export function ParticipantsSection({
   const router = useRouter();
   const [confirmingId, setConfirmingId] = useState<string | null>(null);
   const [promotingId, setPromotingId] = useState<string | null>(null);
+  const [demotingId, setDemotingId] = useState<string | null>(null);
   const [removeState, removeAction, removePending] = useActionState<
     TrackedRemoveState,
     FormData
@@ -654,11 +729,26 @@ export function ParticipantsSection({
       <ul className="border-border bg-card divide-y rounded-lg border">
         {members.map((m) => (
           <li key={m.id} className="px-4 py-3 text-sm">
-            <div className="flex items-center justify-between">
-              <span className="font-medium">{m.name_snapshot}</span>
-              <div className="flex items-center gap-2">
+            <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2">
+              <span className="min-w-0 font-medium break-words">
+                {m.name_snapshot}
+              </span>
+              <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
                 {m.role === "admin" ? (
-                  <span className="text-muted-foreground text-xs">Admin</span>
+                  <>
+                    <span className="text-muted-foreground text-xs">
+                      {t("adminLabel")}
+                    </span>
+                    <Button
+                      id={`demote-${m.id}`}
+                      type="button"
+                      variant="outline"
+                      size="xs"
+                      onClick={() => setDemotingId(m.id)}
+                    >
+                      {t("participants.demote")}
+                    </Button>
+                  </>
                 ) : m.profile_id ? (
                   <Button
                     id={`promote-${m.id}`}
@@ -698,6 +788,17 @@ export function ParticipantsSection({
                 onCancel={() => {
                   setConfirmingId(null);
                   focusById(`remove-${m.id}`);
+                }}
+              />
+            )}
+            {demotingId === m.id && (
+              <DemoteConfirmPanel
+                slug={slug}
+                member={m}
+                onDone={() => setDemotingId(null)}
+                onCancel={() => {
+                  setDemotingId(null);
+                  focusById(`demote-${m.id}`);
                 }}
               />
             )}

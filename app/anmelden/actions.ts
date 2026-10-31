@@ -17,7 +17,7 @@ import { getClientIp } from "@/lib/request-ip";
 import { isSuperAdminEmail } from "@/lib/admin/super-admin-email";
 import { ensureAuthUser } from "@/lib/supabase/ensure-auth-user";
 import {
-  checkRateLimit,
+  checkRateLimits,
   anmeldenOtpRequestLimiter,
   anmeldenOtpRequestIpLimiter,
   anmeldenOtpVerifyLimiter,
@@ -82,8 +82,10 @@ export async function requestOtp(
   // rate_limited response either way: no account-existence signal.
   const ip = await getClientIp();
   if (
-    !(await checkRateLimit(anmeldenOtpRequestIpLimiter, ip)) ||
-    !(await checkRateLimit(anmeldenOtpRequestLimiter, rateLimitKey(email)))
+    !(await checkRateLimits([
+      [anmeldenOtpRequestIpLimiter, ip],
+      [anmeldenOtpRequestLimiter, rateLimitKey(email)],
+    ]))
   ) {
     return { status: "error", error: "rate_limited", email };
   }
@@ -134,12 +136,13 @@ export async function requestOtp(
         email,
       });
     if (linkError) {
-      console.error(
-        "[requestOtp] generateLink failed:",
-        linkError.message,
-        linkError.status,
-        linkError.code,
-      );
+      logger
+        .withMetadata({
+          reason: linkError.message,
+          status: linkError.status,
+          code: linkError.code,
+        })
+        .error("auth.generate_link_failed");
       return { status: "error", error: "generic", email };
     }
     const devOtp = linkData?.properties?.email_otp ?? undefined;
@@ -224,8 +227,10 @@ export async function verifyOtp(
   // per-IP backstop is looser so a shared Wi-Fi/CGNAT doesn't lock users out.
   const ip = await getClientIp();
   if (
-    !(await checkRateLimit(anmeldenOtpVerifyIpLimiter, ip)) ||
-    !(await checkRateLimit(anmeldenOtpVerifyLimiter, rateLimitKey(email)))
+    !(await checkRateLimits([
+      [anmeldenOtpVerifyIpLimiter, ip],
+      [anmeldenOtpVerifyLimiter, rateLimitKey(email)],
+    ]))
   ) {
     return { status: "error", error: "rate_limited", email };
   }

@@ -197,6 +197,13 @@ test.describe("draw trigger", () => {
       await expect(pageB.locator("text=Du beschenkst")).toBeVisible({
         timeout: 10_000,
       });
+      // Tap-to-reveal (#155): name is not in the DOM until revealed
+      await expect(pageB.getByTestId("assignment-name")).toHaveCount(0);
+      await expect(pageB.getByTestId("assignment-redrawn")).toHaveCount(0);
+      await pageB.getByTestId("assignment-toggle").click();
+      await expect(pageB.getByTestId("assignment-name")).toBeVisible();
+      await pageB.getByTestId("assignment-toggle").click();
+      await expect(pageB.getByTestId("assignment-name")).toHaveCount(0);
       await expect(
         pageB.locator("text=Der Admin dieser Gruppe kann bei Bedarf"),
       ).toBeVisible();
@@ -265,12 +272,19 @@ test.describe("draw trigger", () => {
     await expect(
       authedPage.locator("text=Auslosung wirklich wiederholen?"),
     ).toBeVisible();
+    await expect(
+      authedPage.getByText("auch bereits gekaufte Geschenke"),
+    ).toBeVisible();
     await authedPage.locator('button:has-text("Wiederholen")').click();
 
     // Oracle section still visible after re-draw succeeds
     await expect(authedPage.locator("text=Zuweisung nachschlagen")).toBeVisible(
       { timeout: 15_000 },
     );
+
+    // Re-drawn group shows the "neu ausgelost" note (#155)
+    await authedPage.reload();
+    await expect(authedPage.getByTestId("assignment-redrawn")).toBeVisible();
   });
 
   test("admin can resend draw emails after a reported partial failure", async ({
@@ -320,7 +334,7 @@ test.describe("draw trigger", () => {
     try {
       await freshTab.goto(`/gruppen/${slug}`);
       await expect(
-        freshTab.locator("text=1 von 3 E-Mails konnten nicht zugestellt"),
+        freshTab.locator("text=1 von 3 E-Mails konnte nicht zugestellt"),
       ).toBeVisible({ timeout: 15_000 });
       await freshTab
         .locator('button:has-text("Fehlgeschlagene E-Mails erneut senden")')
@@ -330,7 +344,7 @@ test.describe("draw trigger", () => {
         freshTab.locator("text=Alle E-Mails wurden zugestellt."),
       ).toBeVisible({ timeout: 15_000 });
       await expect(
-        freshTab.locator("text=1 von 3 E-Mails konnten nicht zugestellt"),
+        freshTab.locator("text=1 von 3 E-Mails konnte nicht zugestellt"),
       ).toHaveCount(0);
 
       // Cleared server-side after the successful resend: stays gone on reload.
@@ -339,7 +353,7 @@ test.describe("draw trigger", () => {
         { timeout: 15_000 },
       );
       await expect(
-        freshTab.locator("text=1 von 3 E-Mails konnten nicht zugestellt"),
+        freshTab.locator("text=1 von 3 E-Mails konnte nicht zugestellt"),
       ).toHaveCount(0);
 
       // Mail step skipped entirely (crash/timeout after perform_draw commit,
@@ -394,7 +408,7 @@ test.describe("draw trigger", () => {
     );
 
     const warning = authedPage.locator(
-      "text=1 von 3 E-Mails konnten nicht zugestellt",
+      "text=1 von 3 E-Mails konnte nicht zugestellt",
     );
 
     // Dismiss clears the stored failure.

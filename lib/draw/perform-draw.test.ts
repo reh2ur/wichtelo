@@ -8,6 +8,7 @@
 
 import { describe, it, expect, beforeAll, afterAll } from "vitest";
 import { createAdminClient } from "@/lib/supabase/admin";
+import type { Json } from "@/lib/supabase/database.types";
 
 const hasSupabase = !!process.env.NEXT_PUBLIC_SUPABASE_URL;
 
@@ -25,7 +26,7 @@ describe.skipIf(!hasSupabase)("perform_draw", () => {
       receiver_id: memberIds[(i + shift) % memberIds.length],
     }));
 
-  const draw = (pairs: unknown, state = "open", version = 0) =>
+  const draw = (pairs: Json, state: "open" | "drawn" = "open", version = 0) =>
     admin.rpc("perform_draw", {
       p_group_id: groupId,
       p_pairs: pairs,
@@ -222,7 +223,7 @@ describe.skipIf(!hasSupabase)(
     let groupId: string;
     let memberIds: string[] = []; // [live1, live2, live3, ghost-to-be]
 
-    const draw = (ids: string[], state: string, version: number) =>
+    const draw = (ids: string[], state: "open" | "drawn", version: number) =>
       admin.rpc("perform_draw", {
         p_group_id: groupId,
         p_pairs: ids.map((giver, i) => ({

@@ -135,14 +135,7 @@ export async function resolveToken(
     return null;
   }
 
-  // Supabase returns joined table as object, handle type cast
-  const group = data.groups as unknown as {
-    id: string;
-    slug: string;
-    name: string;
-    state: "open" | "drawn";
-    created_by: string | null;
-  };
+  const group = data.groups;
 
   // Dead-end contact (drawn groups only): oldest live admin. Not group.created_by
   // — creator may have deleted their account (NULL) or left/lost admin.

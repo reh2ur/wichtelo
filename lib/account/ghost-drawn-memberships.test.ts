@@ -11,19 +11,44 @@
 import { describe, it, expect, beforeAll, afterAll } from "vitest";
 import { Client } from "pg";
 import { createAdminClient } from "@/lib/supabase/admin";
+import type { Json } from "@/lib/supabase/database.types";
 
 const hasSupabase = !!process.env.NEXT_PUBLIC_SUPABASE_URL;
 const dbUrl =
   process.env.SUPABASE_DB_URL ??
   "postgresql://postgres:postgres@127.0.0.1:54322/postgres";
 
-const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+/**
+ * Polls pg_stat_activity until a backend running a statement that mentions
+ * `fn` is blocked on a lock (wait_event_type = 'Lock', i.e. a pg_locks row
+ * with granted = false). Deterministic replacement for fixed sleeps: proves
+ * the call is really queued behind our open transaction.
+ */
+async function waitUntilBlocked(pg: Client, fn: string, timeoutMs = 10_000) {
+  const deadline = Date.now() + timeoutMs;
+  while (Date.now() < deadline) {
+    const { rows } = await pg.query(
+      `select 1 from pg_stat_activity a
+        where a.pid <> pg_backend_pid()
+          and a.wait_event_type = 'Lock'
+          and a.query ilike $1
+          and exists (select 1 from pg_locks l
+                       where l.pid = a.pid and not l.granted)`,
+      [`%${fn}%`],
+    );
+    if (rows.length > 0) return;
+    await new Promise((r) => setTimeout(r, 25));
+  }
+  throw new Error(`no backend blocked on a lock while running ${fn}`);
+}
 
-/** Resolves "pending" if `p` has not settled within `ms`. */
-async function settledWithin<T>(p: Promise<T>, ms: number) {
-  const marker = Symbol("pending");
-  const r = await Promise.race([p, sleep(ms).then(() => marker)]);
-  return r === marker ? ("pending" as const) : { value: r as T };
+/** Tracks whether `p` has settled, without awaiting it. */
+function track<T>(p: PromiseLike<T>) {
+  const state = { settled: false };
+  const promise = Promise.resolve(p).finally(() => {
+    state.settled = true;
+  });
+  return { state, promise };
 }
 
 describe.skipIf(!hasSupabase)("ghost_drawn_memberships vs perform_draw", () => {
@@ -41,7 +66,7 @@ describe.skipIf(!hasSupabase)("ghost_drawn_memberships vs perform_draw", () => {
       receiver_id: ids[(i + shift) % ids.length],
     }));
 
-  const redraw = (pairs: unknown) =>
+  const redraw = (pairs: Json) =>
     admin.rpc("perform_draw", {
       p_group_id: groupId,
       p_pairs: pairs,
@@ -135,9 +160,10 @@ describe.skipIf(!hasSupabase)("ghost_drawn_memberships vs perform_draw", () => {
       );
       expect(rows[0].n).toBe(1);
 
-      const drawPromise = Promise.resolve(redraw(staleSnapshot));
+      const { state, promise: drawPromise } = track(redraw(staleSnapshot));
       // Blocked on the group row lock held by the deletion transaction.
-      expect(await settledWithin(drawPromise, 700)).toBe("pending");
+      await waitUntilBlocked(pg, "perform_draw");
+      expect(state.settled).toBe(false);
 
       await pg.query("commit");
       const { data } = await drawPromise;
@@ -167,11 +193,12 @@ describe.skipIf(!hasSupabase)("ghost_drawn_memberships vs perform_draw", () => {
       );
       expect(rows[0].r).toBe("ok");
 
-      const ghostPromise = Promise.resolve(
+      const { state, promise: ghostPromise } = track(
         admin.rpc("ghost_drawn_memberships", { p_profile_id: userIds[2] }),
       );
       // The deletion cannot null the member while the draw holds the lock.
-      expect(await settledWithin(ghostPromise, 700)).toBe("pending");
+      await waitUntilBlocked(pg, "ghost_drawn_memberships");
+      expect(state.settled).toBe(false);
       expect(await memberProfile(victim)).toBe(userIds[2]);
 
       await pg.query("commit");

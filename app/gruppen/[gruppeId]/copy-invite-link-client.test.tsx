@@ -23,14 +23,14 @@ describe("CopyInviteLinkClient", () => {
       </GroupDetailProvider>,
     );
 
-    fireEvent.click(screen.getByRole("button"));
+    fireEvent.click(screen.getByRole("button", { name: /kopieren/i }));
 
     await waitFor(() =>
       expect(screen.getByRole("alert")).toHaveTextContent(
         "Kopieren fehlgeschlagen",
       ),
     );
-    expect(screen.getByRole("alert")).toHaveTextContent(
+    expect(screen.getByRole("textbox")).toHaveValue(
       "https://example.com/invite",
     );
   });

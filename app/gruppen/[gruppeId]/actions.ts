@@ -17,9 +17,11 @@ import {
   type ExclusionPair,
 } from "@/lib/draw";
 import { findCallerMembership, findGroupBySlug } from "@/lib/group-access";
+import { requireGroupAdmin } from "@/lib/group-admin";
 import { getGroupAdminEmails, resolveGroupContact } from "@/lib/group-admins";
 import { notify, type NotifyResult } from "@/lib/notification";
 import { logger } from "@/lib/logger";
+import { deferNotice } from "@/lib/notification/defer";
 import { removeMembership } from "@/lib/membership";
 import {
   buildDrawAssignmentRecipients,
@@ -126,13 +128,16 @@ export async function leaveGroup(
     .info("membership.left");
 
   if (user.email) {
-    const adminEmails = await getGroupAdminEmails(admin, groupId, user.id);
-    await notify({
-      type: "participant.left",
-      groupName: group.name,
-      participantName: membership.name_snapshot,
-      participantEmail: user.email,
-      adminEmails,
+    const participantEmail = user.email;
+    deferNotice(async () => {
+      const adminEmails = await getGroupAdminEmails(admin, groupId, user.id);
+      await notify({
+        type: "participant.left",
+        groupName: group.name,
+        participantName: membership.name_snapshot,
+        participantEmail,
+        adminEmails,
+      });
     });
   }
 
@@ -166,32 +171,16 @@ export async function triggerDraw(
   const slug = (formData.get("slug") as string | null)?.trim() ?? "";
   if (!slug) return { status: "error", error: "generic" };
 
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) return { status: "error", error: "not_authenticated" };
-
-  const admin = createAdminClient();
-
-  const groupLookup = await findGroupBySlug(admin, slug);
-  if (groupLookup.failed) return { status: "error", error: "generic" };
-  const group = groupLookup.row;
-
-  // Same error as "not an admin" so slug existence isn't revealed (#181).
-  if (!group) {
-    return { status: "error", error: "not_admin" };
+  const guard = await requireGroupAdmin(slug);
+  if (!guard.ok) {
+    // Unknown slug = same code as non-admin: no slug-existence oracle (#181).
+    return {
+      status: "error",
+      error: guard.error === "group_not_found" ? "not_admin" : guard.error,
+    };
   }
-
+  const { user, admin, group } = guard;
   const groupId = group.id;
-
-  const membershipLookup = await findCallerMembership(admin, groupId, user.id);
-  if (membershipLookup.failed) return { status: "error", error: "generic" };
-  const callerMembership = membershipLookup.row;
-
-  if (!callerMembership || callerMembership.role !== "admin") {
-    return { status: "error", error: "not_admin" };
-  }
 
   // Limiter after admin check, keyed per user: outsiders can't burn the
   // real admin's budget (#181).
@@ -384,32 +373,16 @@ export async function retriggerDraw(
   const slug = (formData.get("slug") as string | null)?.trim() ?? "";
   if (!slug) return { status: "error", error: "generic" };
 
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) return { status: "error", error: "not_authenticated" };
-
-  const admin = createAdminClient();
-
-  const groupLookup = await findGroupBySlug(admin, slug);
-  if (groupLookup.failed) return { status: "error", error: "generic" };
-  const group = groupLookup.row;
-
-  // Same error as "not an admin" so slug existence isn't revealed (#181).
-  if (!group) {
-    return { status: "error", error: "not_admin" };
+  const guard = await requireGroupAdmin(slug);
+  if (!guard.ok) {
+    // Unknown slug = same code as non-admin: no slug-existence oracle (#181).
+    return {
+      status: "error",
+      error: guard.error === "group_not_found" ? "not_admin" : guard.error,
+    };
   }
-
+  const { user, admin, group } = guard;
   const groupId = group.id;
-
-  const membershipLookup = await findCallerMembership(admin, groupId, user.id);
-  if (membershipLookup.failed) return { status: "error", error: "generic" };
-  const callerMembership = membershipLookup.row;
-
-  if (!callerMembership || callerMembership.role !== "admin") {
-    return { status: "error", error: "not_admin" };
-  }
 
   // Limiter after admin check, keyed per user: outsiders can't burn the
   // real admin's budget (#181).
@@ -588,30 +561,16 @@ export async function lookupAssignment(
     (formData.get("membershipId") as string | null)?.trim() ?? "";
   if (!slug || !membershipId) return { status: "error", error: "generic" };
 
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) return { status: "error", error: "not_authenticated" };
-
-  const admin = createAdminClient();
-
-  const groupLookup = await findGroupBySlug(admin, slug);
-  if (groupLookup.failed) return { status: "error", error: "generic" };
-  const group = groupLookup.row;
-
-  // Same code for unknown slug and non-admin: no slug-existence oracle.
-  if (!group) return { status: "error", error: "not_admin" };
-
-  const groupId = group.id;
-
-  const membershipLookup = await findCallerMembership(admin, groupId, user.id);
-  if (membershipLookup.failed) return { status: "error", error: "generic" };
-  const callerMembership = membershipLookup.row;
-
-  if (!callerMembership || callerMembership.role !== "admin") {
-    return { status: "error", error: "not_admin" };
+  const guard = await requireGroupAdmin(slug);
+  if (!guard.ok) {
+    // Unknown slug = same code as non-admin: no slug-existence oracle (#181).
+    return {
+      status: "error",
+      error: guard.error === "group_not_found" ? "not_admin" : guard.error,
+    };
   }
+  const { user, admin, group } = guard;
+  const groupId = group.id;
 
   // Limiter after the admin check, keyed per admin and group: outsiders can't
   // burn an admin's budget and one admin can't enumerate the whole draw (#135).
@@ -713,28 +672,16 @@ export async function resendDrawEmails(
   const slug = (formData.get("slug") as string | null)?.trim() ?? "";
   if (!slug) return { status: "error", error: "generic" };
 
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) return { status: "error", error: "not_authenticated" };
-
-  const admin = createAdminClient();
-
-  const groupLookup = await findGroupBySlug(admin, slug);
-  if (groupLookup.failed) return { status: "error", error: "generic" };
-  const group = groupLookup.row;
-  // Same error as "not an admin" so slug existence isn't revealed (#181).
-  if (!group) return { status: "error", error: "not_admin" };
-
-  const groupId = group.id;
-
-  const membershipLookup = await findCallerMembership(admin, groupId, user.id);
-  if (membershipLookup.failed) return { status: "error", error: "generic" };
-  const callerMembership = membershipLookup.row;
-  if (!callerMembership || callerMembership.role !== "admin") {
-    return { status: "error", error: "not_admin" };
+  const guard = await requireGroupAdmin(slug);
+  if (!guard.ok) {
+    // Unknown slug = same code as non-admin: no slug-existence oracle (#181).
+    return {
+      status: "error",
+      error: guard.error === "group_not_found" ? "not_admin" : guard.error,
+    };
   }
+  const { user, admin, group } = guard;
+  const groupId = group.id;
 
   if (!(await checkRateLimit(drawTriggerLimiter, `${slug}:${user.id}`))) {
     return { status: "error", error: "rate_limited" };
@@ -847,28 +794,16 @@ export async function dismissDrawMailWarning(
   const slug = (formData.get("slug") as string | null)?.trim() ?? "";
   if (!slug) return { status: "error", error: "generic" };
 
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) return { status: "error", error: "not_authenticated" };
-
-  const admin = createAdminClient();
-
-  const groupLookup = await findGroupBySlug(admin, slug);
-  if (groupLookup.failed) return { status: "error", error: "generic" };
-  const group = groupLookup.row;
-  // Same error as "not an admin" so slug existence isn't revealed (#181).
-  if (!group) return { status: "error", error: "not_admin" };
-
-  const groupId = group.id;
-
-  const membershipLookup = await findCallerMembership(admin, groupId, user.id);
-  if (membershipLookup.failed) return { status: "error", error: "generic" };
-  const callerMembership = membershipLookup.row;
-  if (!callerMembership || callerMembership.role !== "admin") {
-    return { status: "error", error: "not_admin" };
+  const guard = await requireGroupAdmin(slug);
+  if (!guard.ok) {
+    // Unknown slug = same code as non-admin: no slug-existence oracle (#181).
+    return {
+      status: "error",
+      error: guard.error === "group_not_found" ? "not_admin" : guard.error,
+    };
   }
+  const { admin, group } = guard;
+  const groupId = group.id;
 
   const { error } = await admin
     .from("draw_mail_failures")
