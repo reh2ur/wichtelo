@@ -41,7 +41,7 @@ test.describe("long group names", () => {
     await expect(authedPage).toHaveURL(/\/gruppen\/(?!neu$)[^/]+$/, {
       timeout: 15_000,
     });
-    const h1 = authedPage.locator("h1");
+    const h1 = authedPage.getByRole("heading", { level: 1, name: /^W+$/ });
     await expect(h1).toBeVisible();
     for (const path of [authedPage.url(), "/gruppen"]) {
       await authedPage.goto(path);

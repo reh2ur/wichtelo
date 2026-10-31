@@ -277,6 +277,11 @@ test.describe("draw trigger", () => {
     ).toBeVisible();
     await authedPage.locator('button:has-text("Wiederholen")').click();
 
+    // Confirmation closes only once the re-draw action finished
+    await expect(
+      authedPage.locator("text=Auslosung wirklich wiederholen?"),
+    ).toBeHidden({ timeout: 15_000 });
+
     // Oracle section still visible after re-draw succeeds
     await expect(authedPage.locator("text=Zuweisung nachschlagen")).toBeVisible(
       { timeout: 15_000 },
@@ -529,7 +534,9 @@ test.describe("draw trigger", () => {
     ).toBeVisible();
 
     // Confirm
-    await authedPage.locator('button:has-text("Anzeigen")').click();
+    await authedPage
+      .locator('button[type="submit"]:has-text("Anzeigen")')
+      .click();
 
     // Result shows assignment, announced as status and focused (the focused
     // Confirm button unmounted; issue #149).
