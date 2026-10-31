@@ -29,6 +29,7 @@ import {
   isAuthRateLimitError,
 } from "@/lib/supabase/auth-errors";
 import { logger } from "@/lib/logger";
+import { reportError } from "@/lib/report-error";
 
 type AdminClient = ReturnType<typeof createAdminClient>;
 
@@ -193,6 +194,12 @@ export async function requestOtp(
     if (isAuthRateLimitError(error)) {
       return { status: "error", error: "rate_limited", email };
     }
+    // Genuine send failure (SMTP down, Resend quota exhausted): ops must
+    // learn about it without reading logs (docs/go-live.md, mail quotas).
+    reportError("auth.otp_send_failed", error, {
+      status: error.status ?? 0,
+      code: error.code ?? "",
+    });
     return { status: "error", error: "generic", email };
   }
   return { status: "otp_sent", email };

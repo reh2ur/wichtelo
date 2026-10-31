@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import type { ReactElement } from "react";
 import { resend, FROM_EMAIL } from "@/lib/email";
 import { logger } from "@/lib/logger";
@@ -11,6 +12,7 @@ import { ParticipantLeftAdminNoticeEmail } from "@/emails/participant-left-admin
 import { AccountDeletionEmail } from "@/emails/account-deletion";
 import { AccountDeletionConfirmedEmail } from "@/emails/account-deletion-confirmed";
 import { AccountDeletionAdminNoticeEmail } from "@/emails/account-deletion-admin-notice";
+import { AccountInactivityWarningEmail } from "@/emails/account-inactivity-warning";
 
 export interface DrawAssignmentRecipient {
   to: string;
@@ -79,6 +81,13 @@ export type DomainEvent =
       type: "account.deletion_confirmed";
       to: string;
       name: string;
+    }
+  | {
+      type: "account.inactivity_warning";
+      to: string;
+      name: string;
+      /** German date the account will be deleted, e.g. "30. November 2026". */
+      deletionDate: string;
     }
   | {
       type: "account.deletion_admin_notice";
@@ -216,6 +225,20 @@ function buildPayloads(event: DomainEvent): EmailPayload[] {
         },
       ];
 
+    case "account.inactivity_warning":
+      return [
+        {
+          to: event.to,
+          subject: "Wichtelo: Dein Konto wird bald gelöscht",
+          react: (
+            <AccountInactivityWarningEmail
+              name={event.name}
+              deletionDate={event.deletionDate}
+            />
+          ),
+        },
+      ];
+
     case "account.deletion_admin_notice":
       return event.adminEmails.map((to) => ({
         to,
@@ -240,6 +263,7 @@ class ResendSendError extends Error {
   constructor(
     message: string,
     readonly statusCode: number | null,
+    readonly code: string | null = null,
   ) {
     super(message);
   }
@@ -247,9 +271,34 @@ class ResendSendError extends Error {
 
 function isRetryable(err: unknown): boolean {
   if (!(err instanceof ResendSendError)) return false;
+  // 409 concurrent_idempotent_requests: same key still in flight, safe to retry.
+  if (err.statusCode === 409 && err.code === "concurrent_idempotent_requests") {
+    return true;
+  }
   return (
     err.statusCode === 429 || (err.statusCode !== null && err.statusCode >= 500)
   );
+}
+
+/**
+ * Resend answers 409 `invalid_idempotent_request` when a key is reused with a
+ * different payload (e.g. resend after failed recipient lookups recovered, so
+ * chunk contents shifted). Retrying the same key can never succeed.
+ */
+function isIdempotencyPayloadMismatch(err: unknown): boolean {
+  return (
+    err instanceof ResendSendError &&
+    err.statusCode === 409 &&
+    err.code !== "concurrent_idempotent_requests"
+  );
+}
+
+/** Stable short fingerprint of a chunk's recipients + subjects. */
+function chunkFingerprint(chunk: EmailPayload[]): string {
+  return createHash("sha256")
+    .update(chunk.map((p) => `${String(p.to)}|${p.subject}`).join("\n"))
+    .digest("hex")
+    .slice(0, 12);
 }
 
 async function sendChunk(
@@ -263,7 +312,13 @@ async function sendChunk(
           chunk.map((payload) => ({ from: FROM_EMAIL, ...payload })),
           options,
         );
-  if (error) throw new ResendSendError(error.message, error.statusCode ?? null);
+  if (error) {
+    throw new ResendSendError(
+      error.message,
+      error.statusCode ?? null,
+      (error as { name?: string }).name ?? null,
+    );
+  }
 }
 
 /** Bounded retry with exponential backoff on 429/5xx only. */
@@ -271,11 +326,22 @@ async function sendChunkWithRetry(
   chunk: EmailPayload[],
   options: { idempotencyKey: string } | undefined,
 ): Promise<void> {
+  let rekeyed = false;
   for (let attempt = 1; ; attempt++) {
     try {
       await sendChunk(chunk, options);
       return;
     } catch (err) {
+      if (options && !rekeyed && isIdempotencyPayloadMismatch(err)) {
+        rekeyed = true;
+        // Payload changed since the original send: the old key is poisoned
+        // for 24h. Fall back to a payload-scoped key (may re-mail a chunk
+        // whose first send was delivered, but beats a permanently stuck resend).
+        options = {
+          idempotencyKey: `${options.idempotencyKey}:p${chunkFingerprint(chunk)}`,
+        };
+        continue;
+      }
       if (attempt >= MAX_ATTEMPTS || !isRetryable(err)) throw err;
       await new Promise((r) =>
         setTimeout(r, RETRY_BASE_DELAY_MS * 2 ** (attempt - 1)),

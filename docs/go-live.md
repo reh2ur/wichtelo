@@ -12,6 +12,12 @@ Tick each before public launch / before draw season. Env var names in `.env.exam
 - [ ] Region Frankfurt (EU).
 - [ ] Self-signup off (#130): `config.toml` `[auth] enable_signup = false` + `[auth.email] enable_signup = false` (remotes inherit) → pushed w/ `db:config:push:live` AND `:staging`. Verify per project: dashboard Auth → Sign In / Providers → "Allow new users to sign up" OFF, email provider signups off. Check: `curl -X POST $URL/auth/v1/otp -H "apikey: $PUBLISHABLE" -d '{"email":"x@example.com","create_user":true}'` → 422 `otp_disabled` / `signup_disabled`, no user created. Push config BEFORE/with code merge: old code relied on signup for new invitees → new code creates users server-side (`ensureAuthUser`), so deploy code first or together; config alone breaks invite join on old code.
 
+## Config drift (#103)
+
+- `supabase config push` is manual. CI cannot read hosted state (needs access token + project ref, deliberately not in CI). Lightweight guard: `supabase/config.test.ts` (runs in `pnpm test`) pins signup off, confirmations on, `max_frequency`, OTP shape, SMTP on, `email_sent >= 100`, IP caps, redirect entries for base + `remotes.*`. `scripts/supabase-remote.mjs` validates redirect env vars before push.
+- Discipline: after ANY `config.toml` change → `pnpm db:config:push:staging` + `:live`, then eyeball dashboard Auth settings. Hosted edits in dashboard get overwritten by next push — edit file, not dashboard.
+- Optional manual drift check: `supabase config push --project-ref <ref> --dry-run` if CLI version supports it (shows diff, needs login).
+
 ## Mail (Resend)
 
 - [ ] Domain verified: SPF, DKIM, DMARC (start `p=none`, tighten later).
@@ -22,9 +28,17 @@ Tick each before public launch / before draw season. Env var names in `.env.exam
 ## Vercel
 
 - [x] Function region `fra1` — set in `vercel.json` `"regions": ["fra1"]`. Default `iad1` = transatlantic hop per Supabase query. Verify after first deploy: project settings → Functions shows Frankfurt.
-- [ ] Env (production): `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`, `SUPABASE_SERVICE_ROLE_KEY`, `RESEND_API_KEY`, `RESEND_FROM_EMAIL`, `NEXT_PUBLIC_SITE_URL`, `OPERATOR_NAME`, `OPERATOR_ADDRESS_LINE1`, `OPERATOR_ADDRESS_LINE2`, `OPERATOR_CONTACT_EMAIL`, `ACCOUNT_DELETION_SECRET` (>= 32 chars, not service-role key), `SUPER_ADMIN_EMAIL`, `SUPABASE_PROJECT_REF_LIVE` (E2E backdoors refuse live project).
+- [ ] Env (production): `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`, `SUPABASE_SERVICE_ROLE_KEY`, `RESEND_API_KEY`, `RESEND_FROM_EMAIL`, `NEXT_PUBLIC_SITE_URL`, `OPERATOR_NAME`, `OPERATOR_ADDRESS_LINE1`, `OPERATOR_ADDRESS_LINE2`, `OPERATOR_CONTACT_EMAIL`, `ACCOUNT_DELETION_SECRET` (>= 32 chars, not service-role key), `CRON_SECRET` (>= 16 chars; Vercel sends as bearer to cron, see Retention), `SUPER_ADMIN_EMAIL`, `SUPABASE_PROJECT_REF_LIVE` (E2E backdoors refuse live project).
 - [ ] Deployment Protection on for previews; `VERCEL_AUTOMATION_BYPASS_SECRET` + `E2E_TEST_SECRET` in GitHub secrets.
 - [ ] Impressum + Datenschutz render real operator data (`/impressum`).
+
+## Retention cron (#102)
+
+- [ ] `CRON_SECRET` set in Vercel prod env (>= 16 chars, `openssl rand -base64 32`). Missing = build fails.
+- [ ] `vercel.json` `crons` live after deploy: project → Settings → Cron Jobs shows `/api/cron/retention` daily 03:17 UTC. Cron runs on production deploy only.
+- [ ] Trigger once manually: `curl -H "Authorization: Bearer $CRON_SECRET" https://<domain>/api/cron/retention` → 200 JSON counts. No header → 401.
+- [ ] Failed run = HTTP 500 + Sentry `retention.step_failed` / `retention.account_failed`. Add both to Sentry alert tag list.
+- [ ] Datenschutz retention text matches `lib/retention/policy.ts` periods.
 
 ## Upstash (required)
 
@@ -32,10 +46,10 @@ Tick each before public launch / before draw season. Env var names in `.env.exam
 
 ## Sentry (EU)
 
-- [ ] EU-region project. `NEXT_PUBLIC_SENTRY_DSN`, `SENTRY_ORG`, `SENTRY_PROJECT` (+ auth token for source maps).
+- [ ] EU-region project. `NEXT_PUBLIC_SENTRY_DSN` (required + URL-validated in prod env check), `SENTRY_ORG`, `SENTRY_PROJECT` (+ auth token for source maps).
 - [ ] Alert rules (Sentry → Alerts, email to owner), both on prod env:
-  - Issue alert: "new issue" OR `event` tag in (`notification.failed`, `draw.failed`, `draw.retrigger_failed`, `draw.load_failed`, `draw.resend_load_failed`, `draw.mail_status_record_failed`, `account.deletion_failed`, `health.db_unreachable`, `rate-limit.unconfigured_in_production`, `admin.audit_log_failed`) — action: notify immediately. Fingerprint = event name → one issue per event, regressions re-alert.
-  - Resend outage / quota exhaustion (Dec risk) shows up as `notification.failed`; check Resend dashboard quota too.
+  - Issue alert: "new issue" OR `event` tag in (`notification.failed`, `draw.failed`, `draw.retrigger_failed`, `draw.load_failed`, `draw.resend_load_failed`, `draw.mail_status_record_failed`, `account.deletion_failed`, `health.db_unreachable`, `rate-limit.unconfigured_in_production`, `admin.audit_log_failed`, `auth.otp_send_failed`, `retention.step_failed`, `retention.account_failed`) — action: notify immediately. Fingerprint = event name → one issue per event, regressions re-alert.
+  - Resend outage / quota exhaustion (Dec risk) shows up as `notification.failed` (app mail) and `auth.otp_send_failed` (Supabase Auth mail via Resend SMTP) — both in alert list above. No usage-% alert exists: check Resend dashboard quota weekly Nov-Dec + before each draw wave (discipline only). Resend: enable usage email alerts if plan offers. Supabase `email_sent = 100/h` hit → users see `rate_limited`, not a Sentry event.
 - [ ] Datenschutz already lists Sentry (see `docs/security.md`); re-check wording matches final org/region before DSN set in prod.
 
 ## Super-admin
@@ -52,6 +66,7 @@ Tick each before public launch / before draw season. Env var names in `.env.exam
 ## CI / supply chain
 
 - [ ] CI green incl. `db-lint` job (migrations + integration tests).
+- [ ] Branch protection on `main` (#108): Settings → Branches (or ruleset) → require PR + status checks to pass, branch up to date. Required checks (exact job names): `Lint, typecheck & test`, `No hardcoded identifiers`, `Database lint & integration tests`, `Playwright E2E (Vercel preview)`, `Playwright E2E (admin, local Supabase)`. E2E checks only run on PRs → fine for PR merge gate. Block force-push + deletion. Optional: require 1 review (solo repo → skip, or allow admin bypass). Verify: red CI on test PR blocks merge button. Check via `gh api repos/<owner>/wichtelo/branches/main/protection`.
 - [ ] `pnpm audit --prod` clean (recheck before launch). Full `pnpm audit`: dev-tooling advisories patched via `pnpm-workspace.yaml` overrides. Left: `zod@3` under `shadcn` CLI (no v3 patch, cross-major override risky, dev-only). `vite` = direct devDep so vitest peer resolves patched release (override on peer-only dep does not re-resolve lock).
 - [ ] Node 22 on Vercel (`engines`).
 

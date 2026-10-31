@@ -8,8 +8,10 @@ const INVITE_TOKEN_RE = /^\/einladung\/([^/]+)$/;
 
 export async function proxy(request: NextRequest) {
   // robots.txt must stay reachable so compliant crawlers see the disallow rule;
-  // /api/health must answer uptime monitors (which identify as bots).
-  const botAllowed = ["/robots.txt", "/api/health"];
+  // /api/health must answer uptime monitors (which identify as bots);
+  // /api/cron/retention is called by Vercel Cron (bearer-secret auth in the
+  // route itself, no session needed).
+  const botAllowed = ["/robots.txt", "/api/health", "/api/cron/retention"];
   if (
     !botAllowed.includes(request.nextUrl.pathname) &&
     userAgent(request).isBot

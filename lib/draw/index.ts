@@ -96,7 +96,7 @@ export async function loadAssignment(
 }
 
 const MAX_ATTEMPTS = 200;
-const MIN_PARTICIPANTS = 3;
+export const MIN_PARTICIPANTS = 3;
 /** Max DFS nodes in backtracking before giving up with `TOO_COMPLEX`. */
 const MAX_BACKTRACK_NODES = 100_000;
 

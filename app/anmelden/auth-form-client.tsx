@@ -112,6 +112,12 @@ export function AuthFormClient({ next }: { next: string }) {
   return (
     <div className="space-y-4">
       <p className="text-muted-foreground text-sm">{t("description")}</p>
+      <p
+        className="text-muted-foreground text-sm"
+        data-testid="signin-invite-hint"
+      >
+        {t("inviteOnlyHint")}
+      </p>
 
       <form action={requestAction} className="space-y-4">
         <input type="hidden" name="next" value={next} />

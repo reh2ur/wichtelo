@@ -31,11 +31,20 @@ const productionSchema = baseSchema.extend({
   // deletion limits all disabled), so a prod deploy must not boot without it.
   UPSTASH_REDIS_REST_URL: required("UPSTASH_REDIS_REST_URL"),
   UPSTASH_REDIS_REST_TOKEN: required("UPSTASH_REDIS_REST_TOKEN"),
+  // Missing DSN = Sentry silently disabled, prod errors invisible.
+  NEXT_PUBLIC_SENTRY_DSN: z.url({
+    error: "NEXT_PUBLIC_SENTRY_DSN must be a URL",
+  }),
   // Impressum (§ 5 DDG) — legally required on the live site, so no fallback.
   OPERATOR_NAME: required("OPERATOR_NAME"),
   OPERATOR_ADDRESS_LINE1: required("OPERATOR_ADDRESS_LINE1"),
   OPERATOR_ADDRESS_LINE2: required("OPERATOR_ADDRESS_LINE2"),
   OPERATOR_CONTACT_EMAIL: required("OPERATOR_CONTACT_EMAIL"),
+  // Vercel Cron bearer for /api/cron/retention (GDPR cleanup, #102). Unset =
+  // route answers 401 forever = retention silently never runs.
+  CRON_SECRET: z
+    .string({ error: "CRON_SECRET is required" })
+    .min(16, "CRON_SECRET must be at least 16 characters"),
   ACCOUNT_DELETION_SECRET: z
     .string({ error: "ACCOUNT_DELETION_SECRET is required" })
     .min(32, "ACCOUNT_DELETION_SECRET must be at least 32 characters"),

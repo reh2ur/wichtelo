@@ -536,11 +536,13 @@ function RemoveMemberConfirmPanel({
     state.status === "error" && state.membershipId === member.id
       ? state.error === "last_admin"
         ? t("errors.lastAdmin")
-        : state.error === "not_admin"
-          ? t("errors.notAdmin")
-          : state.error === "group_not_found"
-            ? t("errors.groupNotFound")
-            : t("errors.generic")
+        : state.error === "too_few_members"
+          ? t("errors.tooFewMembers")
+          : state.error === "not_admin"
+            ? t("errors.notAdmin")
+            : state.error === "group_not_found"
+              ? t("errors.groupNotFound")
+              : t("errors.generic")
       : null;
 
   return (

@@ -214,7 +214,7 @@ describe("removeMember (#18)", () => {
   beforeEach(() => vi.clearAllMocks());
 
   it("lets an admin remove a member of a drawn group", async () => {
-    setup({ state: "drawn", memberIds: ["a", "b", "c"] });
+    setup({ state: "drawn", memberIds: ["a", "b", "c", "m-target"] });
     vi.mocked(removeMembership).mockResolvedValue({ result: "ok" });
     const res = await removeMember(
       { status: "idle" },
@@ -227,6 +227,40 @@ describe("removeMember (#18)", () => {
       "m-target",
       { allowDrawn: true },
     );
+  });
+
+  it("blocks removing a live member of a drawn group below 3 live members", async () => {
+    setup({ state: "drawn", memberIds: ["a", "b", "m-target"] });
+    const res = await removeMember(
+      { status: "idle" },
+      fd({ slug: "s", membershipId: "m-target" }),
+    );
+    expect(res).toEqual({ status: "error", error: "too_few_members" });
+    expect(removeMembership).not.toHaveBeenCalled();
+  });
+
+  it("still lets an admin remove a ghost from a drawn group of 3", async () => {
+    setup({
+      state: "drawn",
+      memberIds: ["a", "b", "c", "m-target"],
+      ghostIds: ["m-target"],
+    });
+    vi.mocked(removeMembership).mockResolvedValue({ result: "ok" });
+    const res = await removeMember(
+      { status: "idle" },
+      fd({ slug: "s", membershipId: "m-target" }),
+    );
+    expect(res).toEqual({ status: "success" });
+  });
+
+  it("does not apply the minimum to open groups", async () => {
+    setup({ state: "open", memberIds: ["a", "m-target"] });
+    vi.mocked(removeMembership).mockResolvedValue({ result: "ok" });
+    const res = await removeMember(
+      { status: "idle" },
+      fd({ slug: "s", membershipId: "m-target" }),
+    );
+    expect(res).toEqual({ status: "success" });
   });
 
   it("maps last_admin from the locked removal", async () => {

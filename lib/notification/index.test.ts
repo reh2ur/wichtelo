@@ -32,6 +32,7 @@ import { ParticipantLeftAdminNoticeEmail } from "@/emails/participant-left-admin
 import { AccountDeletionEmail } from "@/emails/account-deletion";
 import { AccountDeletionConfirmedEmail } from "@/emails/account-deletion-confirmed";
 import { AccountDeletionAdminNoticeEmail } from "@/emails/account-deletion-admin-notice";
+import { AccountInactivityWarningEmail } from "@/emails/account-inactivity-warning";
 
 beforeEach(() => {
   sendMock
@@ -397,6 +398,20 @@ describe("notify", () => {
     expect(payload.react.props.name).toBe("Max Mustermann");
   });
 
+  it("account.inactivity_warning: mails the inactive account owner", async () => {
+    await notify({
+      type: "account.inactivity_warning",
+      to: "max@example.com",
+      name: "Max Mustermann",
+      deletionDate: "30. November 2026",
+    });
+
+    const payload = sendMock.mock.calls[0][0];
+    expect(payload.to).toBe("max@example.com");
+    expect(payload.react.type).toBe(AccountInactivityWarningEmail);
+    expect(payload.react.props.deletionDate).toBe("30. November 2026");
+  });
+
   it("account.deletion_admin_notice: notifies affected group admins", async () => {
     await notify({
       type: "account.deletion_admin_notice",
@@ -530,6 +545,71 @@ describe("notify retry", () => {
     });
     await vi.advanceTimersByTimeAsync(RETRY_BASE_DELAY_MS);
     await promise;
+    expect(sendMock.mock.calls.map((c) => c[1])).toEqual([
+      { idempotencyKey: "draw.completed:g1:2:0" },
+      { idempotencyKey: "draw.completed:g1:2:0" },
+    ]);
+  });
+  const drawOne = {
+    type: "draw.completed" as const,
+    groupId: "g1",
+    drawKey: "2",
+    groupName: "X",
+    groupSlug: "x",
+    year: 2026,
+    adminName: null,
+    adminEmail: null,
+    assignments: [
+      { to: "a@example.com", giverName: "A", receiverDisplayName: "B" },
+    ],
+  };
+
+  it("409 invalid_idempotent_request: retries once with payload-scoped key", async () => {
+    sendMock
+      .mockResolvedValueOnce({
+        data: null,
+        error: {
+          name: "invalid_idempotent_request",
+          message: "payload differs",
+          statusCode: 409,
+        },
+      })
+      .mockResolvedValueOnce({ data: { id: "e" }, error: null });
+    await expect(notify(drawOne)).resolves.toEqual({ sent: 1, failed: 0 });
+    const keys = sendMock.mock.calls.map(
+      (c) => (c[1] as { idempotencyKey: string }).idempotencyKey,
+    );
+    expect(keys[0]).toBe("draw.completed:g1:2:0");
+    expect(keys[1]).toMatch(/^draw\.completed:g1:2:0:p[0-9a-f]{12}$/);
+  });
+
+  it("409 invalid_idempotent_request twice: gives up (no loop)", async () => {
+    sendMock.mockResolvedValue({
+      data: null,
+      error: {
+        name: "invalid_idempotent_request",
+        message: "payload differs",
+        statusCode: 409,
+      },
+    });
+    await expect(notify(drawOne)).resolves.toEqual({ sent: 0, failed: 1 });
+    expect(sendMock).toHaveBeenCalledTimes(2);
+  });
+
+  it("409 concurrent_idempotent_requests is retried with the same key", async () => {
+    sendMock
+      .mockResolvedValueOnce({
+        data: null,
+        error: {
+          name: "concurrent_idempotent_requests",
+          message: "in flight",
+          statusCode: 409,
+        },
+      })
+      .mockResolvedValueOnce({ data: { id: "e" }, error: null });
+    const promise = notify(drawOne);
+    await vi.advanceTimersByTimeAsync(RETRY_BASE_DELAY_MS);
+    await expect(promise).resolves.toEqual({ sent: 1, failed: 0 });
     expect(sendMock.mock.calls.map((c) => c[1])).toEqual([
       { idempotencyKey: "draw.completed:g1:2:0" },
       { idempotencyKey: "draw.completed:g1:2:0" },

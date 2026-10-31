@@ -13,7 +13,12 @@ import {
 import { resolveGroupContact } from "@/lib/group-admins";
 import { notify } from "@/lib/notification";
 import { logger } from "@/lib/logger";
-import { computeDraw, liveMembers, TOO_COMPLEX } from "@/lib/draw";
+import {
+  computeDraw,
+  liveMembers,
+  MIN_PARTICIPANTS,
+  TOO_COMPLEX,
+} from "@/lib/draw";
 import { rotateToken } from "@/lib/invite";
 import { removeMembership } from "@/lib/membership";
 import { checkRateLimit, exclusionAddLimiter } from "@/lib/rate-limit";
@@ -76,7 +81,12 @@ export type RemoveMemberState =
   | { status: "success" }
   | {
       status: "error";
-      error: "not_admin" | "group_not_found" | "last_admin" | "generic";
+      error:
+        | "not_admin"
+        | "group_not_found"
+        | "last_admin"
+        | "too_few_members"
+        | "generic";
     };
 
 export type RotateInviteState =
@@ -392,6 +402,32 @@ export async function removeMember(
     profile_id: string | null;
     name_snapshot: string;
   };
+
+  // After the draw, removing a live member must leave enough live members for
+  // a re-draw, else the group is stuck (re-draw needs MIN_PARTICIPANTS).
+  // Ghosts (deleted accounts) are dropped by the re-draw anyway: always ok.
+  // Check-then-remove is not atomic; admin-only, worst case = a stuck group
+  // the admin can still fix by re-adding nobody (documented, #166).
+  if (group.state === "drawn") {
+    const { data: rows, error: listError } = await admin
+      .from("memberships")
+      .select("id, profile_id")
+      .eq("group_id", group.id);
+    if (listError || !rows) {
+      logger
+        .withMetadata({ groupId: group.id, reason: listError?.message })
+        .error("membership.remove_count_failed");
+      return { status: "error", error: "generic" };
+    }
+    const members = rows as { id: string; profile_id: string | null }[];
+    const targetRow = members.find((m) => m.id === membershipId);
+    if (
+      targetRow?.profile_id &&
+      liveMembers(members).length - 1 < MIN_PARTICIPANTS
+    ) {
+      return { status: "error", error: "too_few_members" };
+    }
+  }
 
   // Allowed after the draw too (ghost or live member). The RPC locks the
   // group; the removed member's assignments cascade, so the admin re-draws.

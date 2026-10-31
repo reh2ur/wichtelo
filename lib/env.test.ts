@@ -14,6 +14,8 @@ const prod = {
   RESEND_FROM_EMAIL: "a@b.de",
   NEXT_PUBLIC_SITE_URL: "https://wichtelo.example",
   ACCOUNT_DELETION_SECRET: "x".repeat(32),
+  CRON_SECRET: "c".repeat(16),
+  NEXT_PUBLIC_SENTRY_DSN: "https://k@o1.ingest.de.sentry.io/1",
   UPSTASH_REDIS_REST_URL: "https://x.upstash.io",
   UPSTASH_REDIS_REST_TOKEN: "t",
   OPERATOR_NAME: "Erika Mustermann",
@@ -41,6 +43,20 @@ describe("env validation", () => {
   it("accepts complete production env", () => {
     expect(isProductionDeploy(prod)).toBe(true);
     expect(envProblems(prod)).toEqual([]);
+  });
+
+  it("requires a valid Sentry DSN in production only", () => {
+    const noDsn: Record<string, string | undefined> = {
+      ...prod,
+      NEXT_PUBLIC_SENTRY_DSN: undefined,
+    };
+    expect(envProblems(noDsn)).toContain(
+      "NEXT_PUBLIC_SENTRY_DSN must be a URL",
+    );
+    expect(envProblems({ ...prod, NEXT_PUBLIC_SENTRY_DSN: "nope" })).toContain(
+      "NEXT_PUBLIC_SENTRY_DSN must be a URL",
+    );
+    expect(envProblems({ ...noDsn, VERCEL_ENV: "preview" })).toEqual([]);
   });
 
   it("requires mail vars and a strong deletion secret in production", () => {
