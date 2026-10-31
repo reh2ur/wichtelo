@@ -9,7 +9,7 @@ import type { SupabaseClient, User } from "@supabase/supabase-js";
 const GROUP_DETAIL_RE = /^\/gruppen\/([^/]+)$/;
 const GROUP_SETTINGS_RE = /^\/gruppen\/([^/]+)\/einstellungen$/;
 
-export function isBanned(user: Pick<User, "banned_until">): boolean {
+function isBanned(user: Pick<User, "banned_until">): boolean {
   if (!user.banned_until) return false;
   const until = Date.parse(user.banned_until);
   return Number.isFinite(until) && until > Date.now();
