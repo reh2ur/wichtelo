@@ -31,6 +31,7 @@ test.describe("long group names", () => {
   }) => {
     await authedPage.setViewportSize({ width: 360, height: 800 });
     await authedPage.goto("/gruppen/neu");
+    await expect(authedPage.locator("#name")).toBeVisible();
     if (await authedPage.locator("#firstName").isVisible()) {
       await authedPage.locator("#firstName").fill("Test");
       await authedPage.locator("#lastName").fill("Admin");
