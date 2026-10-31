@@ -611,7 +611,7 @@
     },
     "retentionBackups": {
       "heading": "Sicherungskopien",
-      "body": "Zur Wiederherstellung nach einem Ausfall erstellen wir täglich verschlüsselte Sicherungskopien der Datenbank (EU-Region). Es werden die letzten 14 Tagessicherungen und die letzten 8 Wochensicherungen aufbewahrt und danach automatisch überschrieben. Gelöschte Konten und Gruppen können daher noch bis zu rund acht Wochen in Sicherungskopien enthalten sein; sie werden nicht gezielt aus Sicherungen entfernt. Die Sicherungen werden ansonsten nicht ausgewertet."
+      "body": "Unser Datenbank-Anbieter (Supabase, EU-Region) erstellt je nach Tarif automatische Sicherungskopien, die wir nicht selbst auswerten. Gelöschte Konten und Gruppen können dort noch für die vom Anbieter vorgesehene Aufbewahrungsdauer enthalten sein; sie werden nicht gezielt aus Sicherungen entfernt."
     },
     "retentionAfterDeletion": {
       "heading": "Speicherung nach Kontolöschung",

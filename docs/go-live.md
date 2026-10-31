@@ -38,7 +38,7 @@ Tick each before public launch / before draw season. Env var names in `.env.exam
 - [ ] `vercel.json` `crons` live after deploy: project → Settings → Cron Jobs shows `/api/cron/retention` daily 03:17 UTC. Cron runs on production deploy only.
 - [ ] Trigger once manually: `curl -H "Authorization: Bearer $CRON_SECRET" https://<domain>/api/cron/retention` → 200 JSON counts. No header → 401.
 - [ ] Failed run = HTTP 500 + Sentry `retention.step_failed` / `retention.account_failed`. Add both to Sentry alert tag list.
-- [ ] Datenschutz retention text matches `lib/retention/policy.ts` periods + `docs/backups.md` backup window.
+- [ ] Datenschutz retention text matches `lib/retention/policy.ts` periods.
 
 ## Upstash (required)
 
@@ -61,8 +61,6 @@ Tick each before public launch / before draw season. Env var names in `.env.exam
 
 - [ ] External uptime monitor on `GET /api/health` (real DB ping), alert to owner.
 - [ ] Backup route chosen + restore tested (`docs/backups.md`). Pro plan preferred before Nov.
-- [ ] Scheduled backup (#88): create age keypair (`age-keygen`), private key to password manager + offline copy only. Create EU private S3 bucket + key scoped to it (versioning on if possible). Repo secrets: `SUPABASE_DB_URL_PROD` (session pooler URL), `BACKUP_AGE_PUBLIC_KEY`, `BACKUP_S3_ENDPOINT`, `BACKUP_S3_BUCKET`, `BACKUP_S3_ACCESS_KEY_ID`, `BACKUP_S3_SECRET_ACCESS_KEY`, optional `BACKUP_S3_REGION`. Run `db-backup` via `workflow_dispatch`, confirm green + object in bucket. Run `db-restore-test` once, confirm green. Do manual decrypt+restore drill into staging. GitHub failed-workflow email on.
-- [ ] Prod service-role key rotation check (#88): key never in GitHub secrets/logs (`SUPABASE_SERVICE_ROLE_KEY_*` repo secret must not exist). Only in Vercel prod env + local `.env`. Rotate once before launch if ever pasted in chat/logs/screenshots; update Vercel, redeploy, smoke test draw.
 - [ ] Keep-alive: run `supabase-keep-alive` via `workflow_dispatch` once, confirm green both envs. Repo secrets `SUPABASE_URL_*`, `SUPABASE_PUBLISHABLE_KEY_*` set. GitHub disables schedules after 60 days repo inactivity; free project pauses after 7 days idle. Keep-alive reads `groups` table, not `/rest/v1/` root (401 w/ publishable key).
 
 ## CI / supply chain
