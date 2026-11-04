@@ -39,7 +39,7 @@
     "db:config:push:live": "node --env-file-if-exists=supabase/.env.local scripts/supabase-remote.mjs live config push"
   },
   "dependencies": {
-    "@base-ui/react": "^1.8.0",
+    "@base-ui/react": "^1.9.0",
     "@loglayer/transport-pino": "^3.0.2",
     "@loglayer/transport-simple-pretty-terminal": "^3.3.0",
     "@phosphor-icons/react": "^2.1.10",
