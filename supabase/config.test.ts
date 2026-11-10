@@ -41,10 +41,21 @@ function section(name: string): Record<string, string> {
 const REMOTES = ["live", "staging"] as const;
 
 describe("supabase/config.toml drift guard", () => {
-  it("keeps self-signup off in base [auth] and [auth.email] (#130)", () => {
+  it("keeps self-signup off in [auth], email provider on in [auth.email] (#130)", () => {
     expect(section("auth").enable_signup).toBe("false");
-    expect(section("auth.email").enable_signup).toBe("false");
+    // On hosted projects the CLI maps [auth.email] enable_signup to the email
+    // provider switch: false disables every email login (422
+    // email_provider_disabled). Signup stays blocked by [auth] above.
+    expect(section("auth.email").enable_signup).toBe("true");
   });
+
+  it.each(REMOTES)(
+    "%s: remote does not override either enable_signup switch",
+    (r) => {
+      expect(section(`remotes.${r}.auth`).enable_signup).toBeUndefined();
+      expect(section(`remotes.${r}.auth.email`).enable_signup).toBeUndefined();
+    },
+  );
 
   it("requires email confirmation, 60s throttle, OTP shape in base + every remote", () => {
     const blocks = [
