@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import { Suspense } from "react";
 import { connection } from "next/server";
 import { getTranslations } from "next-intl/server";
@@ -81,6 +82,11 @@ async function fetchGroups(): Promise<GroupRow[]> {
       createdAt: g.created_at,
     };
   });
+}
+
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await getTranslations("adminGroups");
+  return { title: t("title") };
 }
 
 export default async function AdminGroupsPage() {

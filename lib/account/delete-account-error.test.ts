@@ -425,7 +425,7 @@ describe("DB read errors fail closed (#138)", () => {
         eq: () => ({ eq: () => Promise.resolve(own) }),
       })
       .mockReturnValueOnce({
-        eq: () => ({
+        in: () => ({
           eq: () => ({
             not: () => ({
               neq: () =>

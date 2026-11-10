@@ -1,5 +1,6 @@
 "use client";
 
+import { Input } from "@/components/ui/input";
 import { startTransition, useActionState, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { OtpStep } from "@/components/otp-step";
@@ -67,7 +68,7 @@ export function AuthFormClient({ next }: { next: string }) {
       <OtpStep
         key={sentEmail}
         sentEmail={sentEmail}
-        description={`${t("otp.sentPrefix")} ${sentEmail} ${t("otp.sentSuffix")}`}
+        description={t("otp.sent", { email: sentEmail })}
         tokenFieldName="token"
         hiddenFields={{ next }}
         devOtp={otpSent.devOtp}
@@ -125,7 +126,7 @@ export function AuthFormClient({ next }: { next: string }) {
           <label htmlFor="email" className="text-sm font-bold">
             {t("email.label")}
           </label>
-          <input
+          <Input
             id="email"
             name="email"
             type="email"
@@ -134,7 +135,6 @@ export function AuthFormClient({ next }: { next: string }) {
             defaultValue={formError ? formError.email : ""}
             required
             {...errorFieldProps("email-error", !!formError)}
-            className="border-input bg-background placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-ring/50 flex h-9 w-full rounded-lg border px-3 py-1 text-sm shadow-xs transition-colors focus-visible:ring-3 focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-50"
           />
         </div>
 

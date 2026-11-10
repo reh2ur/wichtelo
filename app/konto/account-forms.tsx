@@ -1,5 +1,6 @@
 "use client";
 
+import { Input } from "@/components/ui/input";
 import { useActionState } from "react";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
@@ -18,9 +19,6 @@ const { Provider: AccountProvider, useT: useAccountT } =
   createIntlContext("account");
 
 export { AccountProvider };
-
-const INPUT_CLASS =
-  "flex h-9 w-full rounded-lg border border-input bg-background px-3 py-1 text-sm shadow-xs transition-colors placeholder:text-muted-foreground focus-visible:border-ring focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50 disabled:cursor-not-allowed disabled:opacity-50";
 
 export function UpdateProfileForm({
   firstName,
@@ -57,7 +55,7 @@ export function UpdateProfileForm({
           <label htmlFor="firstName" className="text-sm font-bold">
             {t("profile.firstNameLabel")}
           </label>
-          <input
+          <Input
             id="firstName"
             name="firstName"
             type="text"
@@ -65,14 +63,13 @@ export function UpdateProfileForm({
             maxLength={50}
             required
             {...errorFieldProps("profile-error", errorMsg !== null)}
-            className={INPUT_CLASS}
           />
         </div>
         <div className="space-y-1.5">
           <label htmlFor="lastName" className="text-sm font-bold">
             {t("profile.lastNameLabel")}
           </label>
-          <input
+          <Input
             id="lastName"
             name="lastName"
             type="text"
@@ -80,19 +77,17 @@ export function UpdateProfileForm({
             maxLength={50}
             required
             {...errorFieldProps("profile-error", errorMsg !== null)}
-            className={INPUT_CLASS}
           />
         </div>
         <div className="space-y-1.5">
           <label htmlFor="email-display" className="text-sm font-bold">
             {t("profile.emailLabel")}
           </label>
-          <input
+          <Input
             id="email-display"
-            type="text"
+            type="email"
             value={email}
-            disabled
-            className={INPUT_CLASS}
+            readOnly
             aria-describedby="email-note"
           />
           <p id="email-note" className="text-muted-foreground text-xs">

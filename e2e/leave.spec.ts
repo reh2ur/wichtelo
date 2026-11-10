@@ -150,7 +150,7 @@ test.describe("participant leave", () => {
 
     await expect(
       authedPage.locator(
-        "text=Du bist der einzige Admin. Befördere zuerst eine andere Person zum Admin.",
+        "text=Du bist der einzige Admin. Befördere zuerst eine andere Person zum Admin oder lösche die Gruppe in den Einstellungen.",
       ),
     ).toBeVisible({ timeout: 10_000 });
     await expect(authedPage).toHaveURL(new RegExp(`/gruppen/${slug}$`));

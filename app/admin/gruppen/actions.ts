@@ -7,10 +7,13 @@ import { isSuperAdmin } from "@/lib/admin/require-super-admin";
 import { logAdminAction } from "@/lib/admin/audit";
 import { logger } from "@/lib/logger";
 import { groupTag } from "@/lib/cache-tags";
+import { notify } from "@/lib/notification";
+import { getOperator } from "@/lib/operator";
 
 interface GroupIdentity {
   name: string;
   slug: string;
+  year: number;
   [key: string]: unknown;
 }
 
@@ -20,7 +23,7 @@ async function fetchGroupIdentity(
 ): Promise<GroupIdentity | null> {
   const { data, error } = await admin
     .from("groups")
-    .select("name, slug")
+    .select("name, slug, year")
     .eq("id", groupId)
     .maybeSingle();
   if (error || !data) return null;
@@ -88,6 +91,18 @@ export async function deleteGroup(
   const identity = await fetchGroupIdentity(admin, groupId);
   if (!identity) return { status: "error", error: "group_not_found" };
 
+  // Abort before deleting: without the member list nobody could be mailed.
+  const { data: membersRaw, error: membersError } = await admin
+    .from("memberships")
+    .select("profile_id, name_snapshot")
+    .eq("group_id", groupId);
+  if (membersError) {
+    logger
+      .withMetadata({ groupId, reason: membersError.message })
+      .error("admin.delete_group_members_load_failed");
+    return { status: "error", error: "generic" };
+  }
+
   const { error } = await admin.from("groups").delete().eq("id", groupId);
   if (error) {
     logger
@@ -99,6 +114,38 @@ export async function deleteGroup(
   await logAdminAction("delete_group", "group", groupId, identity);
   logger.withMetadata({ groupId }).info("admin.group_deleted");
   updateTag(groupTag(identity.slug));
+
+  // Members would otherwise see the group vanish unexplained (#158). The
+  // operator is the contact: no group admin took this decision. Reopen sends
+  // no notice (state flips back to open, nothing disappears).
+  const operator = getOperator();
+  const recipients = (
+    await Promise.all(
+      (
+        (membersRaw ?? []) as {
+          profile_id: string | null;
+          name_snapshot: string;
+        }[]
+      ).map(async (m) => {
+        if (!m.profile_id) return null;
+        const { data: userData } = await admin.auth.admin.getUserById(
+          m.profile_id,
+        );
+        const to = userData?.user?.email;
+        return to ? { to, name: m.name_snapshot } : null;
+      }),
+    )
+  ).filter((r): r is { to: string; name: string } => r !== null);
+  if (recipients.length > 0) {
+    await notify({
+      type: "group.deleted",
+      groupName: identity.name,
+      year: identity.year,
+      adminName: operator.name,
+      adminEmail: operator.contactEmail,
+      recipients,
+    });
+  }
 
   redirect("/admin/gruppen");
 }

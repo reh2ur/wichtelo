@@ -19,11 +19,31 @@ const isNonProd =
   process.env.NODE_ENV !== "production" || process.env.VERCEL_ENV === "preview";
 
 interface DryRunPayload {
-  to: string | string[];
-  subject: string;
+  to?: unknown;
+  subject?: unknown;
 }
 
-function createDryRunClient(): Resend {
+/** The slice of the Resend client the app uses (real client and dry-run both fit). */
+export interface MailClient {
+  emails: {
+    send(
+      payload: Parameters<Resend["emails"]["send"]>[0],
+      options?: { idempotencyKey?: string },
+    ): Promise<MailResult>;
+  };
+  batch: {
+    send(
+      payloads: Parameters<Resend["batch"]["send"]>[0],
+      options?: { idempotencyKey?: string },
+    ): Promise<MailResult>;
+  };
+}
+
+interface MailResult {
+  error: { message: string; statusCode: number | null } | null;
+}
+
+function createDryRunClient(): MailClient {
   const dryRunSend = async (payload: DryRunPayload) => {
     logger
       .withMetadata({ to: payload.to, subject: payload.subject })
@@ -39,9 +59,9 @@ function createDryRunClient(): Resend {
         return { data: { data: [] }, error: null };
       },
     },
-  } as unknown as Resend;
+  };
 }
 
-export const resend = isNonProd
+export const resend: MailClient = isNonProd
   ? createDryRunClient()
   : new Resend(process.env.RESEND_API_KEY);

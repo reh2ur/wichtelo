@@ -5,6 +5,7 @@ import { updateTag } from "next/cache";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { isSuperAdmin } from "@/lib/admin/require-super-admin";
 import { logAdminAction } from "@/lib/admin/audit";
+import { isSelf } from "@/lib/admin/session-user";
 import { deleteAccount, findSoleAdminGroups } from "@/lib/account";
 import { notifyAccountDeleted } from "@/lib/account/notify";
 import { logger } from "@/lib/logger";
@@ -14,7 +15,10 @@ import { groupTag } from "@/lib/cache-tags";
 export type BanUserState =
   | { status: "idle" }
   | { status: "success" }
-  | { status: "error"; error: "not_admin" | "user_not_found" | "generic" };
+  | {
+      status: "error";
+      error: "not_admin" | "user_not_found" | "self" | "generic";
+    };
 
 export async function banUser(
   _prev: BanUserState,
@@ -23,6 +27,7 @@ export async function banUser(
   const userId = (formData.get("userId") as string | null)?.trim() ?? "";
   if (!userId) return { status: "error", error: "generic" };
   if (!(await isSuperAdmin())) return { status: "error", error: "not_admin" };
+  if (await isSelf(userId)) return { status: "error", error: "self" };
 
   const admin = createAdminClient();
   const { data: userData, error: getError } =
@@ -52,7 +57,10 @@ export async function banUser(
 export type UnbanUserState =
   | { status: "idle" }
   | { status: "success" }
-  | { status: "error"; error: "not_admin" | "user_not_found" | "generic" };
+  | {
+      status: "error";
+      error: "not_admin" | "user_not_found" | "self" | "generic";
+    };
 
 export async function unbanUser(
   _prev: UnbanUserState,
@@ -91,7 +99,7 @@ export type DeleteUserState =
   | { status: "idle" }
   | {
       status: "error";
-      error: "not_admin" | "user_not_found" | "sole_admin" | "generic";
+      error: "not_admin" | "user_not_found" | "sole_admin" | "self" | "generic";
       /** Groups the user is the only live admin of (only with `sole_admin`). */
       groups?: string[];
     };
@@ -103,6 +111,7 @@ export async function deleteUser(
   const userId = (formData.get("userId") as string | null)?.trim() ?? "";
   if (!userId) return { status: "error", error: "generic" };
   if (!(await isSuperAdmin())) return { status: "error", error: "not_admin" };
+  if (await isSelf(userId)) return { status: "error", error: "self" };
 
   const admin = createAdminClient();
   const { data: userData, error: getError } =

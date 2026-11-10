@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import { Suspense } from "react";
 import { getTranslations } from "next-intl/server";
 import { notFound } from "next/navigation";
@@ -173,6 +174,11 @@ function formatDate(iso: string): string {
     month: "2-digit",
     day: "2-digit",
   });
+}
+
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await getTranslations("adminGroups");
+  return { title: t("title") };
 }
 
 export default async function AdminGroupDetailPage(

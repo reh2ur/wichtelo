@@ -3,16 +3,13 @@
 import { updateTag } from "next/cache";
 import { z } from "zod";
 import { groupTag } from "@/lib/cache-tags";
-import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
-import {
-  findCallerMembership,
-  findGroupBySlug,
-  type GroupRow,
-} from "@/lib/group-access";
+import { type GroupRow } from "@/lib/group-access";
+import { requireGroupAdmin } from "@/lib/group-admin";
 import { resolveGroupContact } from "@/lib/group-admins";
 import { notify } from "@/lib/notification";
 import { logger } from "@/lib/logger";
+import { deferNotice } from "@/lib/notification/defer";
 import {
   computeDraw,
   liveMembers,
@@ -26,6 +23,8 @@ import { checkRateLimit, exclusionAddLimiter } from "@/lib/rate-limit";
 const nameSchema = z.string().min(1).max(100);
 const budgetHintSchema = z.string().max(200);
 const noteSchema = z.string().max(1000);
+// Mirrors groups_year_range CHECK (2000–2100) and create_group validation.
+const yearSchema = z.coerce.number().int().min(2000).max(2100);
 
 export type UpdateGroupState =
   | { status: "idle" }
@@ -37,11 +36,17 @@ export type UpdateGroupState =
         | "group_not_found"
         | "missing_name"
         | "too_long"
+        | "invalid_year"
         | "generic";
       /** Limit that was exceeded (only with `too_long`). */
       max?: number;
       /** Submitted input, echoed so the form survives validation errors. */
-      values?: { name: string; budgetHint: string; note: string };
+      values?: {
+        name: string;
+        budgetHint: string;
+        note: string;
+        year?: string;
+      };
     };
 
 export type ExclusionState =
@@ -74,6 +79,14 @@ export type PromoteState =
   | {
       status: "error";
       error: "not_admin" | "group_not_found" | "no_account" | "generic";
+    };
+
+export type DemoteState =
+  | { status: "idle" }
+  | { status: "success" }
+  | {
+      status: "error";
+      error: "not_admin" | "group_not_found" | "last_admin" | "generic";
     };
 
 export type RemoveMemberState =
@@ -111,28 +124,14 @@ type AssertAdminResult =
     };
 
 async function assertAdmin(slug: string): Promise<AssertAdminResult> {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) return { error: "not_admin" as const };
-
-  const admin = createAdminClient();
-
-  // A DB error is `generic`, never `not_admin`/`group_not_found`: a blip must
-  // not tell a real admin they lack rights.
-  const groupLookup = await findGroupBySlug(admin, slug);
-  if (groupLookup.failed) return { error: "generic" as const };
-  const group = groupLookup.row;
-  if (!group) return { error: "group_not_found" as const };
-
-  const membershipLookup = await findCallerMembership(admin, group.id, user.id);
-  if (membershipLookup.failed) return { error: "generic" as const };
-  const membership = membershipLookup.row;
-  if (!membership || membership.role !== "admin")
-    return { error: "not_admin" as const };
-
-  return { group, admin, userId: user.id };
+  const guard = await requireGroupAdmin(slug);
+  if (!guard.ok) {
+    // No session reads as "not admin" for settings actions.
+    return {
+      error: guard.error === "not_authenticated" ? "not_admin" : guard.error,
+    };
+  }
+  return { group: guard.group, admin: guard.admin, userId: guard.user.id };
 }
 
 export async function updateGroupInfo(
@@ -145,8 +144,17 @@ export async function updateGroupInfo(
     (formData.get("budgetHint") as string | null)?.trim() || null;
   const note = (formData.get("note") as string | null)?.trim() || null;
 
-  const values = { name, budgetHint: budgetHint ?? "", note: note ?? "" };
+  const yearRaw = (formData.get("year") as string | null)?.trim() ?? "";
+  const values = {
+    name,
+    budgetHint: budgetHint ?? "",
+    note: note ?? "",
+    year: yearRaw,
+  };
   if (!name) return { status: "error", error: "missing_name", values };
+  const yearParsed = yearRaw ? yearSchema.safeParse(yearRaw) : null;
+  if (yearParsed && !yearParsed.success)
+    return { status: "error", error: "invalid_year", values };
   if (!nameSchema.safeParse(name).success)
     return { status: "error", error: "too_long", max: 100, values };
   if (budgetHint && !budgetHintSchema.safeParse(budgetHint).success)
@@ -166,7 +174,12 @@ export async function updateGroupInfo(
 
   const { error } = await admin
     .from("groups")
-    .update({ name, budget_hint: budgetHint, note })
+    .update({
+      name,
+      budget_hint: budgetHint,
+      note,
+      ...(yearParsed?.success ? { year: yearParsed.data } : {}),
+    })
     .eq("id", group.id);
 
   if (error) {
@@ -370,6 +383,49 @@ export async function promoteToAdmin(
   return { status: "success" };
 }
 
+export async function demoteAdmin(
+  _prev: DemoteState,
+  formData: FormData,
+): Promise<DemoteState> {
+  const slug = (formData.get("slug") as string | null)?.trim() ?? "";
+  const membershipId =
+    (formData.get("membershipId") as string | null)?.trim() ?? "";
+
+  const result = await assertAdmin(slug);
+  if ("error" in result) {
+    return { status: "error", error: result.error };
+  }
+  const { group, admin } = result;
+
+  // RPC locks the group and refuses when no other live admin would remain.
+  const { data, error } = await admin.rpc("demote_admin", {
+    p_group_id: group.id,
+    p_membership_id: membershipId,
+  });
+  if (error) {
+    logger
+      .withMetadata({ groupId: group.id, membershipId, reason: error.message })
+      .error("membership.demote_failed");
+    return { status: "error", error: "generic" };
+  }
+  if (data === "last_admin") return { status: "error", error: "last_admin" };
+  if (data !== "ok") {
+    // not_admin = target already a participant (double click): nothing to do.
+    if (data !== "not_admin") {
+      logger
+        .withMetadata({ groupId: group.id, membershipId, result: data })
+        .error("membership.demote_unexpected_result");
+    }
+    return { status: "error", error: "generic" };
+  }
+
+  logger
+    .withMetadata({ groupId: group.id, membershipId })
+    .info("membership.demoted_to_participant");
+  updateTag(groupTag(slug));
+  return { status: "success" };
+}
+
 export async function removeMember(
   _prev: RemoveMemberState,
   formData: FormData,
@@ -454,20 +510,22 @@ export async function removeMember(
     .withMetadata({ groupId: group.id, membershipId })
     .info("membership.left");
 
-  if (target.profile_id) {
-    const { data: userData } = await admin.auth.admin.getUserById(
-      target.profile_id,
-    );
-    if (userData?.user?.email) {
-      const contact = await resolveGroupContact(admin, group.id, userId);
-      await notify({
-        type: "participant.removed",
-        groupName: group.name,
-        participantEmail: userData.user.email,
-        adminName: contact?.name ?? null,
-        adminEmail: contact?.email ?? null,
-      });
-    }
+  const removedProfileId = target.profile_id;
+  if (removedProfileId) {
+    deferNotice(async () => {
+      const { data: userData } =
+        await admin.auth.admin.getUserById(removedProfileId);
+      if (userData?.user?.email) {
+        const contact = await resolveGroupContact(admin, group.id, userId);
+        await notify({
+          type: "participant.removed",
+          groupName: group.name,
+          participantEmail: userData.user.email,
+          adminName: contact?.name ?? null,
+          adminEmail: contact?.email ?? null,
+        });
+      }
+    });
   }
 
   updateTag(groupTag(slug));
@@ -571,14 +629,16 @@ export async function deleteGroup(
     )
   ).filter((r): r is { to: string; name: string } => r !== null);
   if (recipients.length > 0) {
-    await notify({
-      type: "group.deleted",
-      groupName: group.name,
-      year: group.year,
-      adminName: contact?.name ?? null,
-      adminEmail: contact?.email ?? null,
-      recipients,
-    });
+    deferNotice(() =>
+      notify({
+        type: "group.deleted",
+        groupName: group.name,
+        year: group.year,
+        adminName: contact?.name ?? null,
+        adminEmail: contact?.email ?? null,
+        recipients,
+      }),
+    );
   }
 
   // Navigate client-side instead of calling next/navigation's redirect()

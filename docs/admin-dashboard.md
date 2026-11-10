@@ -55,6 +55,10 @@ Back-office dashboard at `/admin` for platform operator (super-admin = account c
 - [x] #55 — Overview dashboard + audit log pages
 - [ ] #56 — Datenschutz: operator data access disclosure (GDPR Art. 13)
 
+## Member notices (#158)
+
+Super-admin group delete → `group.deleted` mail to live members, contact = operator (`getOperator()` name + email), not group admin. Reopen → no mail (group returns to open, nothing vanishes; decision deliberate).
+
 ## Out of scope
 
 Multi-admin support, per-action permission granularity, impersonation, data export/download, email from dashboard, audit log retention/auto-purge.

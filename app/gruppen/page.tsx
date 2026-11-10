@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import { Suspense } from "react";
 import { getTranslations } from "next-intl/server";
 import { StateBadge } from "@/components/state-badge";
@@ -10,9 +11,14 @@ import {
   loadReceiverNamesByGroup,
   type MembershipWithGroup,
 } from "@/lib/group-reads";
-import { getUser } from "@/lib/auth/get-user";
+import { requireUser } from "@/lib/auth/require-auth";
 import { buttonVariants } from "@/components/ui/button";
 import { GroupListSkeleton } from "./group-list-skeleton";
+
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await getTranslations("groups");
+  return { title: t("title") };
+}
 
 export default async function GruppenPage() {
   const t = await getTranslations("groups");
@@ -36,7 +42,7 @@ export default async function GruppenPage() {
 
 async function GruppenPageContent() {
   const t = await getTranslations("groups");
-  const user = (await getUser())!;
+  const user = await requireUser();
   const supabase = await createClient();
   const currentYear = new Date().getFullYear();
 
@@ -91,8 +97,10 @@ async function GruppenPageContent() {
                       href={`/gruppen/${m.groups.slug}`}
                       className="border-border bg-card hover:bg-muted/50 flex items-center justify-between rounded-lg border px-4 py-3 transition-colors"
                     >
-                      <div className="flex items-center gap-3">
-                        <span className="font-medium">{m.groups.name}</span>
+                      <div className="flex min-w-0 items-center gap-3">
+                        <span className="min-w-0 font-medium break-words">
+                          {m.groups.name}
+                        </span>
                         {m.role === "admin" && (
                           <span className="text-muted-foreground text-xs">
                             {t("adminBadge")}
@@ -126,9 +134,11 @@ async function GruppenPageContent() {
                       href={`/gruppen/${m.groups.slug}`}
                       className="border-border bg-card hover:bg-muted/50 flex items-center justify-between rounded-lg border px-4 py-3 transition-colors"
                     >
-                      <div className="space-y-0.5">
+                      <div className="min-w-0 space-y-0.5">
                         <div className="flex items-center gap-2">
-                          <span className="font-medium">{m.groups.name}</span>
+                          <span className="min-w-0 font-medium break-words">
+                            {m.groups.name}
+                          </span>
                           <span className="text-muted-foreground text-xs">
                             {m.groups.year}
                           </span>

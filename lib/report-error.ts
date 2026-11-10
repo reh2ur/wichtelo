@@ -18,7 +18,7 @@ const EMAIL_RE =
 // Meta keys never forwarded to Sentry (PII, credentials, user identifiers).
 const DENIED_META_KEY_RE = /mail|token|secret|password|userid|name/i;
 
-export function redact(value: string): string {
+function redact(value: string): string {
   return scrubString(value).replace(EMAIL_RE, "[email]");
 }
 

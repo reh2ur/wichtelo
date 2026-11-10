@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import { Suspense } from "react";
 import { notFound, redirect } from "next/navigation";
 import { getTranslations, getMessages } from "next-intl/server";
@@ -16,6 +17,11 @@ import { InviteSkeleton } from "./invite-skeleton";
 // rewrites invalid tokens to /__not_found__ before any rendering
 // starts — this check is defense in depth for direct hits that bypass that.
 export const instant = false;
+
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await getTranslations("invite");
+  return { title: t("accept.title") };
+}
 
 export default async function EinladungPage(
   props: PageProps<"/einladung/[token]">,
@@ -95,7 +101,7 @@ async function EinladungContent({
         <p className="text-muted-foreground text-sm font-medium tracking-wide uppercase">
           {t("groupLabel")}
         </p>
-        <h1 className="text-3xl font-bold">{group.name}</h1>
+        <h1 className="text-3xl font-bold break-words">{group.name}</h1>
         <p className="text-muted-foreground">{t("tagline")}</p>
         <p className="text-muted-foreground text-sm">{t("explanation")}</p>
       </div>

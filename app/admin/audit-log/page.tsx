@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import { Suspense } from "react";
 import { connection } from "next/server";
 import { getTranslations } from "next-intl/server";
@@ -6,6 +7,11 @@ import { ArrowLeftIcon } from "@phosphor-icons/react/ssr";
 import { fetchAuditLog } from "@/lib/admin/audit-log";
 import { AuditTable } from "./audit-table";
 import { AdminListSkeleton } from "../admin-skeletons";
+
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await getTranslations("adminAuditLog");
+  return { title: t("title") };
+}
 
 export default async function AdminAuditLogPage() {
   const t = await getTranslations("adminAuditLog");

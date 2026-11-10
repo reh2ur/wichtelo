@@ -1,8 +1,9 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { CopyIcon, CheckIcon } from "@phosphor-icons/react/ssr";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { createIntlContext } from "@/lib/create-intl-context";
 
 const { Provider: GroupDetailProvider, useT: useGroupDetailT } =
@@ -10,67 +11,94 @@ const { Provider: GroupDetailProvider, useT: useGroupDetailT } =
 
 export { GroupDetailProvider };
 
+type CopyStatus = "idle" | "copied" | "failed";
+
+function legacyCopy(text: string): boolean {
+  const input = document.createElement("input");
+  input.value = text;
+  document.body.appendChild(input);
+  input.select();
+  try {
+    return document.execCommand("copy");
+  } catch {
+    return false;
+  } finally {
+    document.body.removeChild(input);
+  }
+}
+
 export function CopyInviteLinkClient({ inviteUrl }: { inviteUrl: string }) {
   const t = useGroupDetailT();
-  const [copied, setCopied] = useState(false);
-  const [copyFailed, setCopyFailed] = useState(false);
+  const [status, setStatus] = useState<CopyStatus>("idle");
+  const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(
+    () => () => {
+      if (timer.current) clearTimeout(timer.current);
+    },
+    [],
+  );
+
+  function report(next: CopyStatus) {
+    if (timer.current) clearTimeout(timer.current);
+    setStatus(next);
+    if (next === "copied") {
+      timer.current = setTimeout(() => setStatus("idle"), 2000);
+    }
+  }
 
   async function handleCopy() {
-    setCopied(false);
-    setCopyFailed(false);
     try {
       await navigator.clipboard.writeText(inviteUrl);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
+      report("copied");
     } catch {
-      try {
-        const input = document.createElement("input");
-        input.value = inviteUrl;
-        document.body.appendChild(input);
-        input.select();
-        const didCopy = document.execCommand("copy");
-        document.body.removeChild(input);
-        if (!didCopy) throw new Error("Copy command failed");
-        setCopied(true);
-        setTimeout(() => setCopied(false), 2000);
-      } catch {
-        setCopyFailed(true);
-      }
+      report(legacyCopy(inviteUrl) ? "copied" : "failed");
     }
   }
 
   return (
-    <>
-      <Button
-        variant="outline"
-        size="sm"
-        onClick={handleCopy}
-        aria-label={copied ? t("inviteLink.copied") : t("inviteLink.copy")}
-        data-invite-url={inviteUrl}
+    <div className="space-y-2">
+      <div className="flex flex-wrap items-center gap-2">
+        <Input
+          readOnly
+          value={inviteUrl}
+          aria-label={t("inviteLink.urlLabel")}
+          onFocus={(e) => e.currentTarget.select()}
+          className="min-w-0 flex-1 basis-48"
+        />
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={handleCopy}
+          data-invite-url={inviteUrl}
+        >
+          {status === "copied" ? (
+            <>
+              <CheckIcon size={14} />
+              {t("inviteLink.copied")}
+            </>
+          ) : (
+            <>
+              <CopyIcon size={14} />
+              {t("inviteLink.copy")}
+            </>
+          )}
+        </Button>
+      </div>
+      <p
+        role={status === "failed" ? "alert" : "status"}
+        className={
+          status === "failed"
+            ? "text-danger-text text-sm"
+            : "text-success-text sr-only"
+        }
       >
-        {copied ? (
-          <>
-            <CheckIcon size={14} />
-            {t("inviteLink.copied")}
-          </>
-        ) : (
-          <>
-            <CopyIcon size={14} />
-            {t("inviteLink.copy")}
-          </>
-        )}
-      </Button>
-      {copied && (
-        <span role="status" className="sr-only">
-          {t("inviteLink.copied")}
-        </span>
-      )}
-      {copyFailed && (
-        <div role="alert">
-          <p>{t("inviteLink.copyFailed")}</p>
-          <p className="break-all">{inviteUrl}</p>
-        </div>
-      )}
-    </>
+        {status === "copied"
+          ? t("inviteLink.copied")
+          : status === "failed"
+            ? t("inviteLink.failed")
+            : ""}
+      </p>
+    </div>
   );
 }

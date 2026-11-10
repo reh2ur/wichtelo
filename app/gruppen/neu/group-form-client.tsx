@@ -1,16 +1,13 @@
 "use client";
 
+import { Input } from "@/components/ui/input";
+import { Select } from "@/components/ui/select";
+import { Textarea } from "@/components/ui/textarea";
 import { useActionState } from "react";
 import { Button } from "@/components/ui/button";
 import { FormError, errorFieldProps } from "@/components/form-error";
 import { createGroup, type CreateGroupState } from "./actions";
 import { createIntlContext } from "@/lib/create-intl-context";
-
-const INPUT_CLASS =
-  "flex h-9 w-full rounded-lg border border-input bg-background px-3 py-1 text-sm shadow-xs transition-colors placeholder:text-muted-foreground focus-visible:border-ring focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50 disabled:cursor-not-allowed disabled:opacity-50";
-
-const TEXTAREA_CLASS =
-  "flex min-h-[80px] w-full resize-none rounded-lg border border-input bg-background px-3 py-2 text-sm shadow-xs transition-colors placeholder:text-muted-foreground focus-visible:border-ring focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50 disabled:cursor-not-allowed disabled:opacity-50";
 
 const { Provider: CreateGroupProvider, useT: useCreateGroupT } =
   createIntlContext("createGroup");
@@ -68,7 +65,7 @@ export function GroupFormClient({
               <label htmlFor="firstName" className="text-sm font-bold">
                 {t("profile.firstNameLabel")}
               </label>
-              <input
+              <Input
                 id="firstName"
                 name="firstName"
                 type="text"
@@ -77,14 +74,13 @@ export function GroupFormClient({
                 defaultValue={v?.firstName}
                 maxLength={50}
                 required
-                className={INPUT_CLASS}
               />
             </div>
             <div className="space-y-1.5">
               <label htmlFor="lastName" className="text-sm font-bold">
                 {t("profile.lastNameLabel")}
               </label>
-              <input
+              <Input
                 id="lastName"
                 name="lastName"
                 type="text"
@@ -93,7 +89,6 @@ export function GroupFormClient({
                 defaultValue={v?.lastName}
                 maxLength={50}
                 required
-                className={INPUT_CLASS}
               />
             </div>
           </div>
@@ -104,7 +99,7 @@ export function GroupFormClient({
         <label htmlFor="name" className="text-sm font-bold">
           {t("nameLabel")}
         </label>
-        <input
+        <Input
           id="name"
           name="name"
           type="text"
@@ -118,7 +113,6 @@ export function GroupFormClient({
               (state.error === "missing_name" ||
                 (state.error === "too_long" && state.max === 100)),
           )}
-          className={INPUT_CLASS}
         />
       </div>
 
@@ -126,48 +120,45 @@ export function GroupFormClient({
         <label htmlFor="year" className="text-sm font-bold">
           {t("yearLabel")}
         </label>
-        <select
-          id="year"
-          name="year"
-          defaultValue={v?.year ?? currentYear}
-          className={INPUT_CLASS}
-        >
+        <Select id="year" name="year" defaultValue={v?.year ?? currentYear}>
           {yearOptions.map((y) => (
             <option key={y} value={y}>
               {y}
             </option>
           ))}
-        </select>
+        </Select>
       </div>
 
       <div className="space-y-1.5">
         <label htmlFor="budgetHint" className="text-sm font-bold">
           {t("budgetLabel")}{" "}
-          <span className="text-muted-foreground font-normal">(optional)</span>
+          <span className="text-muted-foreground font-normal">
+            {t("optional")}
+          </span>
         </label>
-        <input
+        <Input
           id="budgetHint"
           name="budgetHint"
           type="text"
           placeholder={t("budgetPlaceholder")}
           defaultValue={v?.budgetHint}
           maxLength={200}
-          className={INPUT_CLASS}
         />
       </div>
 
       <div className="space-y-1.5">
         <label htmlFor="note" className="text-sm font-bold">
           {t("noteLabel")}{" "}
-          <span className="text-muted-foreground font-normal">(optional)</span>
+          <span className="text-muted-foreground font-normal">
+            {t("optional")}
+          </span>
         </label>
-        <textarea
+        <Textarea
           id="note"
           name="note"
           placeholder={t("notePlaceholder")}
           defaultValue={v?.note}
           maxLength={1000}
-          className={TEXTAREA_CLASS}
         />
       </div>
 

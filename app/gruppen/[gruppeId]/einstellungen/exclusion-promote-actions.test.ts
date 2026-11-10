@@ -15,7 +15,7 @@ vi.mock("@/lib/logger", () => {
   return { logger: { ...chain, withMetadata: vi.fn().mockReturnValue(chain) } };
 });
 
-import { promoteToAdmin, removeExclusion } from "./actions";
+import { demoteAdmin, promoteToAdmin, removeExclusion } from "./actions";
 import { updateTag } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
@@ -223,5 +223,44 @@ describe("promoteToAdmin", () => {
     const res = await promoteToAdmin({ status: "idle" }, fd(input));
     expect(res).toEqual({ status: "error", error: "generic" });
     expect(updateTag).not.toHaveBeenCalled();
+  });
+});
+
+describe("demoteAdmin (#156)", () => {
+  beforeEach(() => vi.clearAllMocks());
+  const input = { slug: "familie", membershipId: "m-target" };
+
+  function withRpc(data: unknown, error: { message: string } | null = null) {
+    setup({ groups: [GROUP], memberships: [ADMIN] });
+    const rpc = vi.fn().mockResolvedValue({ data, error });
+    const admin = vi.mocked(createAdminClient).getMockImplementation;
+    void admin;
+    const base = vi.mocked(createAdminClient)() as unknown as object;
+    vi.mocked(createAdminClient).mockReturnValue({ ...base, rpc } as never);
+    return rpc;
+  }
+
+  it("demotes via the RPC and invalidates the group tag", async () => {
+    const rpc = withRpc("ok");
+    const res = await demoteAdmin({ status: "idle" }, fd(input));
+    expect(res).toEqual({ status: "success" });
+    expect(rpc).toHaveBeenCalledWith("demote_admin", {
+      p_group_id: "g1",
+      p_membership_id: "m-target",
+    });
+    expect(updateTag).toHaveBeenCalledWith(groupTag("familie"));
+  });
+
+  it("blocks the last live admin", async () => {
+    withRpc("last_admin");
+    const res = await demoteAdmin({ status: "idle" }, fd(input));
+    expect(res).toEqual({ status: "error", error: "last_admin" });
+    expect(updateTag).not.toHaveBeenCalled();
+  });
+
+  it("maps RPC errors to generic", async () => {
+    withRpc(null, { message: "boom" });
+    const res = await demoteAdmin({ status: "idle" }, fd(input));
+    expect(res).toEqual({ status: "error", error: "generic" });
   });
 });

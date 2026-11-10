@@ -46,6 +46,15 @@ describe("isTestBackdoorEnabled", () => {
     expect(isTestBackdoorEnabled(req("s3cret"))).toBe(false);
   });
 
+  it("denies on a production deploy (NODE_ENV=production, no preview)", () => {
+    const env = process.env as Record<string, string | undefined>;
+    env.NODE_ENV = "production";
+    delete env.VERCEL_ENV;
+    expect(isTestBackdoorEnabled(req("s3cret"))).toBe(false);
+    env.VERCEL_ENV = "preview";
+    expect(isTestBackdoorEnabled(req("s3cret"))).toBe(true);
+  });
+
   it("denies for the prod project even with correct secret", () => {
     process.env.NEXT_PUBLIC_SUPABASE_URL = PROD_URL;
     expect(isTestBackdoorEnabled(req("s3cret"))).toBe(false);

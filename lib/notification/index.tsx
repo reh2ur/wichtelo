@@ -20,7 +20,7 @@ export interface DrawAssignmentRecipient {
   receiverDisplayName: string;
 }
 
-export interface GroupDeletedRecipient {
+interface GroupDeletedRecipient {
   to: string;
   name: string;
 }
@@ -100,7 +100,7 @@ export type DomainEvent =
     };
 
 /** Resend batch endpoint accepts at most 100 emails per call. */
-export const BATCH_LIMIT = 100;
+const BATCH_LIMIT = 100;
 
 export interface NotifyResult {
   /** Emails accepted by Resend. */
@@ -211,7 +211,7 @@ function buildPayloads(event: DomainEvent): EmailPayload[] {
       return [
         {
           to: event.to,
-          subject: "Konto löschen – Bestätigung erforderlich",
+          subject: "Wichtelo: Konto löschen – Bestätigung erforderlich",
           react: <AccountDeletionEmail confirmUrl={event.confirmUrl} />,
         },
       ];
@@ -220,7 +220,7 @@ function buildPayloads(event: DomainEvent): EmailPayload[] {
       return [
         {
           to: event.to,
-          subject: "Konto gelöscht – Bestätigung",
+          subject: "Wichtelo: Konto gelöscht – Bestätigung",
           react: <AccountDeletionConfirmedEmail name={event.name} />,
         },
       ];

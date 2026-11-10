@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import { Suspense } from "react";
 import { getTranslations } from "next-intl/server";
 import { notFound } from "next/navigation";
@@ -11,18 +12,6 @@ import { Skeleton } from "@/components/ui/skeleton";
 interface ProfileRow {
   first_name: string;
   last_name: string;
-}
-
-interface GroupRow {
-  name: string;
-  slug: string;
-}
-
-interface MembershipRow {
-  id: string;
-  role: "participant" | "admin";
-  joined_at: string;
-  groups: GroupRow | null;
 }
 
 async function fetchUserDetail(userId: string) {
@@ -55,7 +44,7 @@ async function fetchUserDetail(userId: string) {
     createdAt: userData.user.created_at,
     lastSignInAt: userData.user.last_sign_in_at ?? null,
     banned,
-    memberships: (membershipsRaw ?? []) as unknown as MembershipRow[],
+    memberships: membershipsRaw ?? [],
   };
 }
 
@@ -66,6 +55,11 @@ function formatDate(iso: string | null): string {
     month: "2-digit",
     day: "2-digit",
   });
+}
+
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await getTranslations("adminUsers");
+  return { title: t("title") };
 }
 
 export default async function AdminUserDetailPage(

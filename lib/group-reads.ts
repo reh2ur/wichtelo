@@ -1,9 +1,9 @@
 import type { createClient } from "@/lib/supabase/server";
 import type { createAdminClient } from "@/lib/supabase/admin";
 import {
-  abbreviateNames,
-  membersFromMemberships,
-} from "@/lib/name-abbreviator";
+  buildDisplayNameMap,
+  loadProfilesById,
+} from "@/lib/member-display-names";
 
 /**
  * Page-level reads. Every helper throws on a DB error (never returns
@@ -15,7 +15,7 @@ import {
 type UserClient = Awaited<ReturnType<typeof createClient>>;
 type AdminClient = ReturnType<typeof createAdminClient>;
 
-export interface ListedGroup {
+interface ListedGroup {
   id: string;
   slug: string;
   name: string;
@@ -52,34 +52,11 @@ export async function loadMembershipsWithGroups(
     throw new Error(`[loadMembershipsWithGroups] failed: ${error.message}`);
   }
   // Stable list order: newest year first, then name.
-  return ((data ?? []) as unknown as MembershipWithGroup[]).sort(
+  return (data ?? []).sort(
     (a, b) =>
       b.groups.year - a.groups.year ||
       a.groups.name.localeCompare(b.groups.name, "de"),
   );
-}
-
-async function loadProfilesById(
-  admin: AdminClient,
-  members: { profile_id: string | null }[],
-) {
-  const profileIds = members
-    .map((m) => m.profile_id)
-    .filter((id): id is string => !!id);
-  const profilesById = new Map<
-    string,
-    { id: string; first_name: string; last_name: string }
-  >();
-  if (profileIds.length === 0) return profilesById;
-  const { data, error } = await admin
-    .from("profiles")
-    .select("id, first_name, last_name")
-    .in("id", profileIds);
-  if (error) {
-    throw new Error(`[loadProfilesById] failed: ${error.message}`);
-  }
-  for (const p of data ?? []) profilesById.set(p.id, p);
-  return profilesById;
 }
 
 /**
@@ -130,10 +107,10 @@ export async function loadReceiverNamesByGroup(
 
   for (const a of rows) {
     const groupMembers = members.filter((m) => m.group_id === a.group_id);
-    const display = abbreviateNames(
-      membersFromMemberships(groupMembers, profilesById),
-    ).find((d) => d.id === a.receiver_id);
-    if (display) receiversByGroup[a.group_id] = display.displayName;
+    const display = buildDisplayNameMap(groupMembers, profilesById).get(
+      a.receiver_id,
+    );
+    if (display) receiversByGroup[a.group_id] = display;
   }
   return receiversByGroup;
 }

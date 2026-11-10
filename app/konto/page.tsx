@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import { Suspense } from "react";
 import { redirect } from "next/navigation";
 import { getTranslations, getMessages } from "next-intl/server";
@@ -31,6 +32,11 @@ function AccountFormsSkeleton() {
       </div>
     </LoadingRegion>
   );
+}
+
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await getTranslations("account");
+  return { title: t("title") };
 }
 
 export default async function KontoPage() {

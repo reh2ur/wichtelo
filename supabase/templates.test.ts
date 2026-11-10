@@ -36,13 +36,13 @@ const ALLOWED_PLACEHOLDERS = [
 
 // Hexes allowed in the mail besides theme.ts colors: layout header text and
 // button label colour (both inline literals in the React Email sources).
-const EXTRA_HEXES = ["#ffffff", "#fffaf9"];
+const EXTRA_HEXES = ["#ffffff"];
 
 // Theme colours the shared layout (plus the crimson CTA button) renders with.
 const requiredColors = [
   ...new Set([
     ...[...layoutSource.matchAll(/colors\.(\w+)/g)].map((m) => m[1]),
-    "crimson",
+    "ctaBackground",
   ]),
 ] as Array<keyof typeof colors>;
 

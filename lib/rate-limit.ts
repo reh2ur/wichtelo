@@ -32,6 +32,8 @@ function makeLimiter(
     redis,
     limiter: Ratelimit.fixedWindow(limit, window),
     prefix: `ratelimit:${prefix}`,
+    // Upstash fails open after this; keeps a stuck Redis from stalling actions.
+    timeout: 1000,
   });
 }
 
@@ -114,13 +116,45 @@ export const accountDeletionLimiter = makeLimiter(
   "24 h",
 );
 
+export interface RateLimitOptions {
+  /**
+   * Policy when the limiter itself errors (Redis down). Default: fail open
+   * (allow + report) so login/join/draw keep working. Set for flows where an
+   * unthrottled call is worse than a refusal (account deletion).
+   */
+  failClosed?: boolean;
+}
+
 export async function checkRateLimit(
   limiter: Ratelimit | null,
   identifier: string,
+  options: RateLimitOptions = {},
 ): Promise<boolean> {
   if (!limiter) return true;
-  const { success } = await limiter.limit(identifier);
-  return success;
+  try {
+    const { success } = await limiter.limit(identifier);
+    return success;
+  } catch (err) {
+    reportError("rate-limit.check_failed", err, {
+      failClosed: options.failClosed === true,
+    });
+    return !options.failClosed;
+  }
+}
+
+/**
+ * Runs several checks (e.g. per-IP + per-email) in parallel; true only when
+ * all pass. Unlike a short-circuiting `||` chain, every limiter consumes a
+ * slot, which is fine: both are backstops for the same request.
+ */
+export async function checkRateLimits(
+  checks: [Ratelimit | null, string][],
+  options: RateLimitOptions = {},
+): Promise<boolean> {
+  const results = await Promise.all(
+    checks.map(([limiter, id]) => checkRateLimit(limiter, id, options)),
+  );
+  return results.every(Boolean);
 }
 
 /**

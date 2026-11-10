@@ -7,6 +7,9 @@ vi.mock("@/lib/admin/require-super-admin", () => ({
   isSuperAdmin: vi.fn().mockResolvedValue(true),
 }));
 vi.mock("@/lib/admin/audit", () => ({ logAdminAction: vi.fn() }));
+vi.mock("@/lib/admin/session-user", () => ({
+  isSelf: vi.fn().mockResolvedValue(false),
+}));
 vi.mock("@/lib/account", () => ({
   deleteAccount: vi.fn(),
   findSoleAdminGroups: vi.fn(),
@@ -17,7 +20,8 @@ vi.mock("@/lib/logger", () => {
   return { logger: { ...chain, withMetadata: vi.fn().mockReturnValue(chain) } };
 });
 
-import { deleteUser } from "./actions";
+import { banUser, deleteUser } from "./actions";
+import { isSelf } from "@/lib/admin/session-user";
 import { redirect } from "next/navigation";
 import { updateTag } from "next/cache";
 import { createAdminClient } from "@/lib/supabase/admin";
@@ -105,5 +109,22 @@ describe("deleteUser (super-admin, #18)", () => {
     const res = await deleteUser({ status: "idle" }, fd("u1"));
     expect(res).toEqual({ status: "error", error: "generic" });
     expect(notifyAccountDeleted).not.toHaveBeenCalled();
+  });
+});
+
+describe("self-targeting guard (#164)", () => {
+  it("refuses to ban or delete the calling super-admin", async () => {
+    vi.mocked(isSelf).mockResolvedValue(true);
+    expect(await banUser({ status: "idle" }, fd("me"))).toEqual({
+      status: "error",
+      error: "self",
+    });
+    expect(await deleteUser({ status: "idle" }, fd("me"))).toEqual({
+      status: "error",
+      error: "self",
+    });
+    expect(deleteAccount).not.toHaveBeenCalled();
+    expect(logAdminAction).not.toHaveBeenCalled();
+    vi.mocked(isSelf).mockResolvedValue(false);
   });
 });

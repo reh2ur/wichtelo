@@ -84,7 +84,45 @@ async function createFreshAuthedContext(
   return { ctx, email };
 }
 
+// Device emulation of the running Playwright project (viewport, UA, touch).
+// Contexts made via browser.newContext() ignore project `use`, so mobile
+// projects must forward it explicitly.
+function projectDeviceOptions(use: {
+  viewport?: unknown;
+  userAgent?: string;
+  deviceScaleFactor?: number;
+  isMobile?: boolean;
+  hasTouch?: boolean;
+}) {
+  return {
+    ...(use.viewport ? { viewport: use.viewport as never } : {}),
+    ...(use.userAgent ? { userAgent: use.userAgent } : {}),
+    ...(use.deviceScaleFactor
+      ? { deviceScaleFactor: use.deviceScaleFactor }
+      : {}),
+    ...(use.isMobile !== undefined ? { isMobile: use.isMobile } : {}),
+    ...(use.hasTouch !== undefined ? { hasTouch: use.hasTouch } : {}),
+  };
+}
+
+// Fails when the page scrolls horizontally (content wider than the viewport).
+async function expectNoHorizontalOverflow(
+  page: import("@playwright/test").Page,
+) {
+  const { scrollWidth, clientWidth } = await page.evaluate(() => ({
+    scrollWidth: document.documentElement.scrollWidth,
+    clientWidth: document.documentElement.clientWidth,
+  }));
+  if (scrollWidth > clientWidth) {
+    throw new Error(
+      `Horizontal overflow: scrollWidth ${scrollWidth} > clientWidth ${clientWidth}`,
+    );
+  }
+}
+
 export {
+  projectDeviceOptions,
+  expectNoHorizontalOverflow,
   BASE_URL,
   RUN_ID,
   testApiHeaders,
