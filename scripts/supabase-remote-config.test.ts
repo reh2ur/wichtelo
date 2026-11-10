@@ -1,17 +1,21 @@
+import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
-import { resolveRemoteConfig } from "./supabase-remote-config.mjs";
+import {
+  PLACEHOLDER_REFS,
+  resolveRemoteConfig,
+} from "./supabase-remote-config.mjs";
 
 const toml = `project_id = "wichtelo"
 
 [remotes.live]
-project_id = "env(SUPABASE_PROJECT_REF_LIVE)"
+project_id = "livelivelivelivelive"
 
 [remotes.live.auth]
 site_url = "env(LIVE_SITE_URL)" # prod
 # additional = "env(COMMENTED_OUT)"
 
 [remotes.staging]
-project_id = "env(SUPABASE_PROJECT_REF_STAGING)"
+project_id = "stagestagestagestage"
 
 [remotes.staging.auth]
 site_url = "env(STAGING_ONLY)"
@@ -33,9 +37,7 @@ describe("resolveRemoteConfig", () => {
     expect(out.toml).toContain(
       '[remotes.live]\nproject_id = "abcdefghijklmnopqrst"',
     );
-    expect(out.toml).toContain(
-      'project_id = "env(SUPABASE_PROJECT_REF_STAGING)"',
-    );
+    expect(out.toml).toContain('project_id = "stagestagestagestage"');
     expect(out.toml).toContain('project_id = "wichtelo"');
     expect(out.missing).toEqual([]);
   });
@@ -76,4 +78,25 @@ describe("resolveRemoteConfig", () => {
       ),
     ).toThrow(/must be/);
   });
+});
+
+describe("committed supabase/config.toml", () => {
+  const committed = readFileSync("supabase/config.toml", "utf8");
+
+  // The CLI rejects a non-ref project_id on every command (`supabase start` in CI
+  // included), so the committed value must be ref-shaped, and the script must be
+  // able to resolve it.
+  it.each(["live", "staging"] as const)(
+    "[remotes.%s] holds the ref-shaped placeholder",
+    (target) => {
+      expect(PLACEHOLDER_REFS[target]).toMatch(/^[a-z]{20}$/);
+      const out = resolveRemoteConfig(committed, target, "REF", {
+        REF: "abcdefghijklmnopqrst",
+      });
+      expect(committed).toContain(
+        `[remotes.${target}]\nproject_id = "${PLACEHOLDER_REFS[target]}"`,
+      );
+      expect(out.ref).toBe("abcdefghijklmnopqrst");
+    },
+  );
 });

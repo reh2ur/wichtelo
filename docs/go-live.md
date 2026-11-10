@@ -4,7 +4,7 @@ Tick each before public launch / before draw season. Env var names in `.env.exam
 
 ## Supabase (live project)
 
-- [ ] `supabase link` → live. Refs in `supabase/.env.local` (`SUPABASE_PROJECT_REF_*`); `config.toml [remotes.*] project_id` keeps `env(...)` placeholder, script injects ref.
+- [ ] `supabase link` → live. Refs in `supabase/.env.local` (`SUPABASE_PROJECT_REF_*`); `config.toml [remotes.*] project_id` keeps dummy ref, script injects real one.
 - [ ] `pnpm db:push:live` — all migrations. Run BEFORE merging code that needs them (Vercel deploys `main` at once → new code on old schema breaks RPCs like `perform_draw`/`create_group`). Keep migrations backward-compatible w/ previous deploy.
 - [ ] `pnpm db:config:push:live` — templates, redirect allow-list, SMTP, `email_sent = 100`. Needs `LIVE_SITE_URL`, `LIVE_REDIRECT_URL` (`https://<domain>/**`), `AUTH_SMTP_ADMIN_EMAIL`, `RESEND_API_KEY`.
 - [ ] Staging: same with `:staging` scripts + `STAGING_PREVIEW_REDIRECT_URL` wildcard (`https://<project>-*-<team>-projects.vercel.app/**`).

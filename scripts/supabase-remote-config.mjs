@@ -1,13 +1,21 @@
 // Turns the committed supabase/config.toml into one the CLI can push to a
 // hosted project. The CLI matches [remotes.<name>] only by a literal
 // project_id and does not resolve env() there, so the committed file keeps
-// `project_id = "env(SUPABASE_PROJECT_REF_<TARGET>)"` and this fills in the real
-// ref at push time. The real ref never lands in git.
+// a dummy `project_id` (PLACEHOLDER_REFS) and this fills in the real ref at push
+// time. The real ref never lands in git. Placeholders must look like a ref (20
+// lowercase letters): the CLI validates the format on every command, `supabase
+// start` included, and rejects anything else (e.g. an unresolved `env(...)`).
 
 const SECTION = /^\s*\[([^\]]+)\]\s*(?:#.*)?$/;
 const PROJECT_ID = /^(\s*project_id\s*=\s*)"([^"]*)"/;
 const ENV_REF = /env\(([A-Za-z0-9_]+)\)/g;
 const REF = /^[a-z0-9]+$/;
+
+/** Committed dummy `project_id` per remote block. Not real refs. */
+export const PLACEHOLDER_REFS = {
+  live: "livelivelivelivelive",
+  staging: "stagestagestagestage",
+};
 
 /** True for `remotes.<target>` and `remotes.<target>.*` section names. */
 function inTargetSection(section, target) {
@@ -43,9 +51,9 @@ export function resolveRemoteConfig(toml, target, refVar, env) {
 
     const projectId = PROJECT_ID.exec(line);
     if (section === `remotes.${target}` && projectId) {
-      if (projectId[2] !== `env(${refVar})` && projectId[2] !== ref) {
+      if (projectId[2] !== PLACEHOLDER_REFS[target] && projectId[2] !== ref) {
         throw new Error(
-          `[remotes.${target}] project_id must be "env(${refVar})", found a different value.`,
+          `[remotes.${target}] project_id must be the placeholder "${PLACEHOLDER_REFS[target]}", found a different value.`,
         );
       }
       matched = true;
