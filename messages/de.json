@@ -27,8 +27,8 @@
       "sending": "Wird gesendet…"
     },
     "otp": {
-      "sentPrefix": "Wir haben dir einen Code an",
-      "sentSuffix": "gesendet. Gib ihn hier ein oder klicke auf den Link in der E-Mail.",
+      "sentPrefix": "Falls für",
+      "sentSuffix": "ein Konto existiert, haben wir dir einen Code gesendet. Gib ihn hier ein oder klicke auf den Link in der E-Mail.",
       "label": "Einmal-Code",
       "submit": "Anmelden",
       "back": "Andere E-Mail-Adresse verwenden",
