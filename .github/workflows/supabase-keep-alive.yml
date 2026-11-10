@@ -17,16 +17,18 @@ jobs:
         env: [staging, production]
       fail-fast: false
     steps:
-      - name: Query a table via PostgREST to reset Supabase inactivity timer
+      - name: Call keep_alive() RPC to reset Supabase inactivity timer
         env:
           SUPABASE_URL: ${{ matrix.env == 'staging' && secrets.SUPABASE_URL_STAGING || secrets.SUPABASE_URL_PROD }}
           SUPABASE_KEY: ${{ matrix.env == 'staging' && secrets.SUPABASE_PUBLISHABLE_KEY_STAGING || secrets.SUPABASE_PUBLISHABLE_KEY_PROD }}
         run: |
-          # Root /rest/v1/ (OpenAPI schema) answers 401 for publishable keys; a
-          # real table read with RLS applied (anon sees 0 rows) does not.
-          status=$(curl -s -o /tmp/body -w "%{http_code}" \
+          # Root /rest/v1/ (OpenAPI schema) answers 401 for publishable keys.
+          # A table read (RLS -> 0 rows) returned 200 but did not stop the
+          # inactivity mail; RPC runs a real SQL statement (`select 1`).
+          status=$(curl -s -o /tmp/body -w "%{http_code}" -X POST \
             -H "apikey: $SUPABASE_KEY" \
-            "$SUPABASE_URL/rest/v1/groups?select=id&limit=1")
+            -H "Content-Type: application/json" -d '{}' \
+            "$SUPABASE_URL/rest/v1/rpc/keep_alive")
           echo "Response status: $status"
           if [ "$status" -lt 200 ] || [ "$status" -ge 300 ]; then
             echo "Keep-alive ping failed for ${{ matrix.env }} (HTTP $status)"

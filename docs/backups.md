@@ -2,7 +2,7 @@
 
 ## Keep-alive
 
-`.github/workflows/supabase-keep-alive.yml` reads `groups` table (`/rest/v1/groups?select=id&limit=1`, RLS → 0 rows) daily w/ **publishable** key (`sb_publishable_…`, sent as `apikey` header only). Not PostgREST root `/rest/v1/`: 401 w/ publishable key. Repo **secrets**, never vars (vars print unmasked in job logs): `SUPABASE_URL_{STAGING,PROD}`, `SUPABASE_PUBLISHABLE_KEY_{STAGING,PROD}`. No service-role key in CI: do not create `SUPABASE_SERVICE_ROLE_KEY_*` repo secrets. Rotate prod service-role key if ever shown in logs.
+`.github/workflows/supabase-keep-alive.yml` calls RPC `keep_alive()` (`POST /rest/v1/rpc/keep_alive`, `select 1`, migration `20261110120000`) daily w/ **publishable** key. Old ping = `groups` table read (RLS → 0 rows): HTTP 200 but staging still got pause-warning mail, so not counted as activity. Migration must be pushed to staging + prod (`supabase db push`) else RPC 404 → workflow red (`sb_publishable_…`, sent as `apikey` header only). Not PostgREST root `/rest/v1/`: 401 w/ publishable key. Repo **secrets**, never vars (vars print unmasked in job logs): `SUPABASE_URL_{STAGING,PROD}`, `SUPABASE_PUBLISHABLE_KEY_{STAGING,PROD}`. No service-role key in CI: do not create `SUPABASE_SERVICE_ROLE_KEY_*` repo secrets. Rotate prod service-role key if ever shown in logs.
 
 ## Backup strategy (prod)
 
