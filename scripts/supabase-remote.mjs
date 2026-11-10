@@ -1,8 +1,22 @@
 // Runs a supabase CLI command against the live or staging project.
 // Usage: node --env-file-if-exists=supabase/.env.local scripts/supabase-remote.mjs <live|staging> <supabase args...>
 // Project refs come from SUPABASE_PROJECT_REF_LIVE / SUPABASE_PROJECT_REF_STAGING
-// so no project identifier is committed.
+// so no project identifier is committed. For `config` commands the ref is also
+// filled into [remotes.<target>] project_id (see supabase-remote-config.mjs) via a
+// temp workdir copy; the committed config.toml is never modified.
 import { spawnSync } from "node:child_process";
+import {
+  cpSync,
+  mkdirSync,
+  mkdtempSync,
+  readdirSync,
+  readFileSync,
+  rmSync,
+  writeFileSync,
+} from "node:fs";
+import { tmpdir } from "node:os";
+import { join, resolve } from "node:path";
+import { resolveRemoteConfig } from "./supabase-remote-config.mjs";
 
 const [target, ...args] = process.argv.slice(2);
 const envName = {
@@ -46,7 +60,59 @@ if (args.includes("config")) {
   }
 }
 
-const result = spawnSync("supabase", [...args, "--project-ref", ref], {
-  stdio: "inherit",
-});
-process.exit(result.status ?? 1);
+const supabaseDir = resolve("supabase");
+const extra = [];
+let workdir;
+
+if (args[0] === "config") {
+  let resolved;
+  try {
+    resolved = resolveRemoteConfig(
+      readFileSync(join(supabaseDir, "config.toml"), "utf8"),
+      target,
+      envName,
+      process.env,
+    );
+  } catch (err) {
+    console.error(err.message);
+    process.exit(1);
+  }
+  if (resolved.missing.length > 0) {
+    console.warn(
+      `Warning: unset in env, CLI will not push these: ${resolved.missing.join(", ")}`,
+    );
+  }
+
+  workdir = mkdtempSync(join(tmpdir(), "supabase-remote-"));
+  const tmpSupabase = join(workdir, "supabase");
+  mkdirSync(tmpSupabase);
+  writeFileSync(join(tmpSupabase, "config.toml"), resolved.toml);
+  // Copied, not symlinked: the CLI rejects paths whose real location is outside the
+  // workdir. Templates etc. are what relative paths in config.toml point at. Env files
+  // stay out of the temp dir (secrets; the CLI gets them via process env).
+  for (const name of readdirSync(supabaseDir)) {
+    if (name === "config.toml" || name === ".temp" || name.startsWith(".env")) {
+      continue;
+    }
+    cpSync(join(supabaseDir, name), join(tmpSupabase, name), {
+      recursive: true,
+    });
+  }
+  extra.push("--workdir", workdir);
+}
+
+let status;
+try {
+  const result = spawnSync(
+    "supabase",
+    [...args, "--project-ref", ref, ...extra],
+    {
+      stdio: "inherit",
+    },
+  );
+  if (result.error) console.error(result.error.message);
+  status = result.status ?? 1;
+} finally {
+  if (workdir) rmSync(workdir, { recursive: true, force: true });
+}
+process.exit(status);

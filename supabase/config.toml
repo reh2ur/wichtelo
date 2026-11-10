@@ -222,8 +222,12 @@ web3 = 30
 # secret = ""
 
 [auth.email]
-# Allow/disallow new user signups via email to your project. MUST stay false (#130).
-enable_signup = false
+# Email provider switch (not just "signups"): the CLI maps this key to GoTrue's
+# external email provider on hosted projects. MUST stay true, else every
+# signInWithOtp/verifyOtp fails with 422 `email_provider_disabled` ("Email logins
+# are disabled") and nobody can log in. Self-signup is blocked by [auth]
+# enable_signup = false above (#130), not here.
+enable_signup = true
 # If enabled, a user will be required to confirm any email change on both the old, and new email
 # addresses. If disabled, only the new email is required to confirm.
 double_confirm_changes = true
@@ -461,10 +465,14 @@ s3_secret_key = "env(S3_SECRET_KEY)"
 # committed). Set LIVE_SITE_URL (https://<domain>), LIVE_REDIRECT_URL
 # (https://<domain>/**), STAGING_PREVIEW_REDIRECT_URL
 # (https://<project>-*-<vercel-team>-projects.vercel.app/**), AUTH_SMTP_ADMIN_EMAIL.
-# project_id must stay a literal: the CLI does not resolve env() there, so the
-# remote block is not matched and base [auth] values would be pushed instead.
+# project_id: the CLI matches remotes only by literal project_id and does NOT resolve
+# env() there. `pnpm db:config:push:*` (scripts/supabase-remote.mjs) fills the real ref
+# from SUPABASE_PROJECT_REF_* into a temp copy of this file, so keep the
+# `env(SUPABASE_PROJECT_REF_<TARGET>)` placeholders and never commit a real ref.
+# Raw `supabase config push` (no match) pushes the base config instead (localhost
+# site_url, base email settings) — always push via the pnpm scripts.
 [remotes.live]
-project_id = "aaaaaaaaaaaaaaaaaaaa"
+project_id = "env(SUPABASE_PROJECT_REF_LIVE)"
 
 [remotes.live.auth]
 site_url = "env(LIVE_SITE_URL)"
@@ -499,7 +507,7 @@ sender_name = "Wichtelo"
 # Staging serves Vercel preview deployments (no fixed domain), so site_url is a
 # fallback only; previews rely on the wildcard redirect.
 [remotes.staging]
-project_id = "bbbbbbbbbbbbbbbbbbbb"
+project_id = "env(SUPABASE_PROJECT_REF_STAGING)"
 
 [remotes.staging.auth]
 site_url = "http://localhost:3000"
