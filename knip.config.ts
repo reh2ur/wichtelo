@@ -13,6 +13,7 @@ const config: KnipConfig = {
   },
   ignoreDependencies: [
     "shadcn", // CLI tool, not imported in code
+    "react-email", // CLI for the email template preview, not imported in code
   ],
 };
 
