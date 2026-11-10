@@ -48,13 +48,13 @@ if (args.includes("config")) {
     host &&
     (target === "live"
       ? !host.includes("*")
-      : host.endsWith("-projects.vercel.app") && !host.startsWith("*"));
+      : /^[a-z0-9][a-z0-9-]*-\*-[a-z0-9-]+\.vercel\.app$/.test(host));
   if (!hostOk) {
     console.error(
       `${varName} must look like https://<host>/** ` +
         (target === "live"
           ? "with an exact host (no wildcard)."
-          : "with host <project>-*-<team>-projects.vercel.app."),
+          : "with host <project>-*-<team>.vercel.app (optionally -projects)."),
     );
     process.exit(1);
   }

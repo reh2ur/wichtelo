@@ -464,7 +464,7 @@ s3_secret_key = "env(S3_SECRET_KEY)"
 # Remote values below come from env at `supabase config push` time (never
 # committed). Set LIVE_SITE_URL (https://<domain>), LIVE_REDIRECT_URL
 # (https://<domain>/**), STAGING_PREVIEW_REDIRECT_URL
-# (https://<project>-*-<vercel-team>-projects.vercel.app/**), AUTH_SMTP_ADMIN_EMAIL.
+# (https://<project>-*-<vercel-team>.vercel.app/**), AUTH_SMTP_ADMIN_EMAIL.
 # project_id: the CLI matches remotes only by literal project_id and does NOT resolve
 # env() there; it also rejects any value that is not ref-shaped (20 lowercase letters),
 # on `supabase start` too. So these are dummy refs. `pnpm db:config:push:*`
