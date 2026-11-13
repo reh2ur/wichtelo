@@ -197,13 +197,16 @@ test.describe("draw trigger", () => {
       await expect(pageB.locator("text=Du beschenkst")).toBeVisible({
         timeout: 10_000,
       });
-      // Tap-to-reveal (#155): name is not in the DOM until revealed
+      // Tap-to-reveal (#155, #211): masked by default, name not in the DOM until revealed
+      await expect(pageB.getByTestId("assignment-masked")).toBeVisible();
       await expect(pageB.getByTestId("assignment-name")).toHaveCount(0);
       await expect(pageB.getByTestId("assignment-redrawn")).toHaveCount(0);
       await pageB.getByTestId("assignment-toggle").click();
       await expect(pageB.getByTestId("assignment-name")).toBeVisible();
+      await expect(pageB.getByTestId("assignment-masked")).toHaveCount(0);
       await pageB.getByTestId("assignment-toggle").click();
       await expect(pageB.getByTestId("assignment-name")).toHaveCount(0);
+      await expect(pageB.getByTestId("assignment-masked")).toBeVisible();
       await expect(
         pageB.locator("text=Der Admin dieser Gruppe kann bei Bedarf"),
       ).toBeVisible();
