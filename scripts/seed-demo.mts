@@ -32,7 +32,7 @@ function resolveTarget(target: string | undefined) {
     key = env.SUPABASE_SERVICE_ROLE_KEY_STAGING;
     if (!key) {
       fail(
-        "SUPABASE_SERVICE_ROLE_KEY_STAGING not set (supabase/.env.local; Supabase dashboard → staging project → API keys).",
+        "SUPABASE_SERVICE_ROLE_KEY_STAGING not set (supabase/.env.local; Supabase dashboard → staging project → API Keys → Secret key `sb_secret_…`, not the publishable key).",
       );
     }
   } else if (target === "local") {
