@@ -176,9 +176,7 @@ test.describe("wishes: groups", () => {
   test("assign own group, filter by group / unassigned; group select only lists own groups", async ({
     browser,
   }) => {
-    const { ctx } = await createFreshAuthedContext(browser, {
-      withProfile: true,
-    });
+    const { ctx } = await createFreshAuthedContext(browser);
     const page = await ctx.newPage();
     try {
       // Fresh user: profile is created with the first group.
@@ -250,12 +248,14 @@ test.describe("wishes: validation + isolation", () => {
         "true",
       );
 
-      await form.getByLabel("Link").fill("");
+      // The form resets to submitted values once the action settles; reload
+      // so a late reset cannot overwrite the next fill().
+      await page.reload();
       await form.getByLabel("Ungefährer Preis in €").fill("viel");
       await saveDetails(page);
       await expect(form.getByRole("alert")).toContainText("Preis als Zahl");
 
-      await form.getByLabel("Ungefährer Preis in €").fill("");
+      await page.reload();
       await form.getByLabel("Titel").fill("x".repeat(201));
       await saveDetails(page);
       // fill() bypasses maxLength, so the server-side cap is what answers.
