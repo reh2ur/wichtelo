@@ -810,6 +810,32 @@ describe.skipIf(!hasSupabase)(
         expect(gone).toHaveLength(0);
       });
 
+      it("demote_admin rejects self-demote, even as the only admin (#206)", async () => {
+        const demote = (target: string, caller: string) =>
+          admin.rpc("demote_admin", {
+            p_group_id: guardGroupId,
+            p_membership_id: target,
+            p_caller_membership_id: caller,
+          });
+        // Solo admin
+        const { data: solo } = await demote(adminMemberId, adminMemberId);
+        expect(solo).toBe("self_demote");
+
+        // Multi-admin: self still rejected, other admin demotable
+        await admin
+          .from("memberships")
+          .update({ role: "admin" })
+          .eq("id", memberAId);
+        const { data: self } = await demote(adminMemberId, adminMemberId);
+        expect(self).toBe("self_demote");
+        const { data: other } = await demote(memberAId, adminMemberId);
+        expect(other).toBe("ok");
+
+        // Last-admin guard still holds when caller is someone else
+        const { data: last } = await demote(adminMemberId, memberAId);
+        expect(last).toBe("last_admin");
+      });
+
       it("open group: wrong group id is not found", async () => {
         const { data } = await admin.rpc("remove_membership", {
           p_group_id: crypto.randomUUID(),

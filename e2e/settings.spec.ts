@@ -383,19 +383,14 @@ test.describe("promote to admin", () => {
       bertaRow.getByRole("button", { name: "Zum Admin machen" }),
     ).toBeVisible({ timeout: 10_000 });
 
-    // The only remaining admin cannot be demoted
+    // Own row never offers "Admin entziehen" (#206), solo admin included
     const ownRow = authedPage
       .locator("li")
       .filter({ hasText: /Admin/ })
       .first();
-    await ownRow.getByRole("button", { name: "Admin entziehen" }).click();
-    await ownRow
-      .getByRole("button", { name: "Admin entziehen" })
-      .last()
-      .click();
     await expect(
-      authedPage.getByText("Das ist der letzte Admin mit Konto."),
-    ).toBeVisible({ timeout: 10_000 });
+      ownRow.getByRole("button", { name: "Admin entziehen" }),
+    ).toHaveCount(0);
   });
 });
 

@@ -234,6 +234,7 @@
       "lastAdmin": "Dieser Teilnehmer ist der letzte Admin. Befördere zuerst eine andere Person.",
       "tooFewMembers": "Nach der Auslosung muss die Gruppe mindestens 3 Teilnehmer behalten, sonst ist keine neue Auslosung mehr möglich. Entferne diese Person nicht.",
       "lastAdminDemote": "Das ist der letzte Admin mit Konto. Befördere zuerst eine andere Person.",
+      "selfDemote": "Du kannst dir die Admin-Rechte nicht selbst entziehen. Das muss ein anderer Admin tun.",
       "invalidYear": "Bitte gib ein Jahr zwischen 2000 und 2100 ein.",
       "notAdmin": "Nur Admins können die Einstellungen ändern.",
       "groupNotFound": "Diese Gruppe wurde nicht gefunden.",

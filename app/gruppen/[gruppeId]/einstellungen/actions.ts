@@ -86,7 +86,12 @@ export type DemoteState =
   | { status: "success" }
   | {
       status: "error";
-      error: "not_admin" | "group_not_found" | "last_admin" | "generic";
+      error:
+        | "not_admin"
+        | "group_not_found"
+        | "last_admin"
+        | "self_demote"
+        | "generic";
     };
 
 export type RemoveMemberState =
@@ -121,6 +126,7 @@ type AssertAdminResult =
       group: GroupRow;
       admin: ReturnType<typeof createAdminClient>;
       userId: string;
+      callerMembershipId: string;
     };
 
 async function assertAdmin(slug: string): Promise<AssertAdminResult> {
@@ -131,7 +137,12 @@ async function assertAdmin(slug: string): Promise<AssertAdminResult> {
       error: guard.error === "not_authenticated" ? "not_admin" : guard.error,
     };
   }
-  return { group: guard.group, admin: guard.admin, userId: guard.user.id };
+  return {
+    group: guard.group,
+    admin: guard.admin,
+    userId: guard.user.id,
+    callerMembershipId: guard.membership.id,
+  };
 }
 
 export async function updateGroupInfo(
@@ -395,12 +406,19 @@ export async function demoteAdmin(
   if ("error" in result) {
     return { status: "error", error: result.error };
   }
-  const { group, admin } = result;
+  const { group, admin, callerMembershipId } = result;
 
-  // RPC locks the group and refuses when no other live admin would remain.
+  // Rule: an admin never demotes themselves (#206). Checked here and in RPC.
+  if (membershipId === callerMembershipId) {
+    return { status: "error", error: "self_demote" };
+  }
+
+  // RPC locks the group, rejects self-demote, refuses when no other live admin
+  // would remain.
   const { data, error } = await admin.rpc("demote_admin", {
     p_group_id: group.id,
     p_membership_id: membershipId,
+    p_caller_membership_id: callerMembershipId,
   });
   if (error) {
     logger
@@ -409,6 +427,7 @@ export async function demoteAdmin(
     return { status: "error", error: "generic" };
   }
   if (data === "last_admin") return { status: "error", error: "last_admin" };
+  if (data === "self_demote") return { status: "error", error: "self_demote" };
   if (data !== "ok") {
     // not_admin = target already a participant (double click): nothing to do.
     if (data !== "not_admin") {
