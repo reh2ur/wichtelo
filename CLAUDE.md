@@ -73,6 +73,8 @@ Full design spec (palette, tokens, components, icon rules) in **`docs/design.md`
 
 **Invite page exposure.** `/einladung/[token]` shows group name only (+ admin first name/initial on drawn dead end). `budget_hint`/`note` NOT selected by `resolveToken`, never shown to link holder — members only (matches `datenschutz.memberVisibility`). Rate-limit keys for email = `rateLimitKey(email)` (`lib/rate-limit-key.ts`, HMAC w/ `ACCOUNT_DELETION_SECRET`) — raw email never goes to Upstash.
 
+**Invite link preview (#202).** Root layout sets `metadataBase` (`getSiteUrl`), OG defaults, twitter `summary_large_image`; `app/opengraph-image.tsx` = generic brand image (no group data). Invite `generateMetadata` → `inviteMetadata` (`lib/invite/metadata.ts`): open = group name + join copy, drawn = neutral no CTA, bad token/lookup error = generic. `proxy.ts` bot 403 exempts `/einladung/<token>` + `/opengraph-image*` so WhatsApp/FB crawlers read tags; magiclink + rest stay bot-blocked. Group name only — never budget/note/members.
+
 **Invite rotation.** `rotateToken(groupId)` (`lib/invite`) overwrites token in place (one row per group) → old link hits invalid-token page. Admin action `regenerateInviteLink` in settings, open groups only, calls `updateTag(groupTag(slug))`. No migration needed.
 
 **Cache invalidation after mutations — always call `updateTag`, never `revalidatePath`.** With no tagged cache, these calls expire nothing; kept deliberately as action-response refresh trigger (Next ships refreshed tree for current route → UI updates right after mutation) and so re-adding `cacheTag` later is already wired. Keep them when touching these sites:

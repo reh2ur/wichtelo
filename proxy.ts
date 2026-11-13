@@ -5,6 +5,9 @@ import { inviteTokenExists } from "@/lib/invite";
 import { isSuperAdminEmail } from "@/lib/admin/super-admin-email";
 
 const INVITE_TOKEN_RE = /^\/einladung\/([^/]+)$/;
+// Link-preview crawlers (WhatsApp, facebookexternalhit, Slack, ...) identify as
+// bots but must read the invite page's Open Graph tags + the generated image.
+const OG_IMAGE_RE = /^\/opengraph-image(?:-[a-z0-9]+)?$/;
 
 export async function proxy(request: NextRequest) {
   // robots.txt must stay reachable so compliant crawlers see the disallow rule;
@@ -12,8 +15,11 @@ export async function proxy(request: NextRequest) {
   // /api/cron/retention is called by Vercel Cron (bearer-secret auth in the
   // route itself, no session needed).
   const botAllowed = ["/robots.txt", "/api/health", "/api/cron/retention"];
+  const { pathname } = request.nextUrl;
   if (
-    !botAllowed.includes(request.nextUrl.pathname) &&
+    !botAllowed.includes(pathname) &&
+    !INVITE_TOKEN_RE.test(pathname) &&
+    !OG_IMAGE_RE.test(pathname) &&
     userAgent(request).isBot
   ) {
     return new NextResponse(null, { status: 403 });
