@@ -64,8 +64,15 @@ describe.skipIf(!hasSupabase)("deleteAccount: wishes", () => {
     }
 
     const { error: we } = await admin.from("wishes").insert([
-      { profile_id: leaverId, title: "leaver open", group_id: groupId },
-      { profile_id: leaverId, title: "leaver unassigned" },
+      // Bulk insert sends explicit null for keys missing in a row (no column
+      // default) → set status on every row.
+      {
+        profile_id: leaverId,
+        title: "leaver open",
+        group_id: groupId,
+        status: "open",
+      },
+      { profile_id: leaverId, title: "leaver unassigned", status: "open" },
       {
         profile_id: leaverId,
         title: "leaver archived",
