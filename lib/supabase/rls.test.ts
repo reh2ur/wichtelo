@@ -12,6 +12,7 @@ import { describe, it, expect, beforeAll, afterAll } from "vitest";
 import { createClient as createSupabaseClient } from "@supabase/supabase-js";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { signInAs } from "@/lib/supabase/test-sign-in";
+import type { Database } from "@/lib/supabase/database.types";
 
 const hasSupabase = !!process.env.NEXT_PUBLIC_SUPABASE_URL;
 
@@ -1077,3 +1078,275 @@ describe.skipIf(!hasSupabase)(
     });
   },
 );
+
+/**
+ * Wishes (#208): owner-only access through the user JWT, column grants that
+ * keep `profile_id` immutable, DB-level group-membership integrity, CHECK
+ * constraints and the per-account cap.
+ */
+describe.skipIf(!hasSupabase)("RLS: wishes", () => {
+  const admin = hasSupabase ? createAdminClient() : (null as never);
+  const stamp = Date.now();
+  const ownerEmail = `rls-wish-owner-${stamp}@example.com`;
+  const otherEmail = `rls-wish-other-${stamp}@example.com`;
+  let ownerId: string;
+  let otherId: string;
+  let ownGroupId: string;
+  let foreignGroupId: string;
+  let ownWishId: string;
+  let owner: ReturnType<typeof anonClient>;
+  let other: ReturnType<typeof anonClient>;
+
+  function anonClient() {
+    return createSupabaseClient<Database>(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY!,
+    );
+  }
+
+  async function mkUser(email: string, first: string) {
+    const { data, error } = await admin.auth.admin.createUser({
+      email,
+      email_confirm: true,
+    });
+    if (error) throw error;
+    const { error: pe } = await admin
+      .from("profiles")
+      .insert({ id: data.user.id, first_name: first, last_name: "Wish" });
+    if (pe) throw pe;
+    return data.user.id;
+  }
+
+  async function mkGroup(createdBy: string, suffix: string, members: string[]) {
+    const { data, error } = await admin
+      .from("groups")
+      .insert({
+        name: `Wish RLS ${suffix}`,
+        slug: `wish-rls-${suffix}-${stamp}`,
+        year: 2099,
+        created_by: createdBy,
+      })
+      .select("id")
+      .single();
+    if (error) throw error;
+    for (const profileId of members) {
+      const { error: me } = await admin.from("memberships").insert({
+        group_id: data.id,
+        profile_id: profileId,
+        name_snapshot: "Wish Member",
+      });
+      if (me) throw me;
+    }
+    return data.id as string;
+  }
+
+  beforeAll(async () => {
+    ownerId = await mkUser(ownerEmail, "Owner");
+    otherId = await mkUser(otherEmail, "Other");
+    ownGroupId = await mkGroup(ownerId, "own", [ownerId]);
+    foreignGroupId = await mkGroup(otherId, "foreign", [otherId]);
+
+    owner = anonClient();
+    other = anonClient();
+    expect((await signInAs(owner, ownerEmail)).error).toBeNull();
+    expect((await signInAs(other, otherEmail)).error).toBeNull();
+
+    const { data, error } = await owner
+      .from("wishes")
+      .insert({ profile_id: ownerId, title: "Owner wish", note: "geheim" })
+      .select("id")
+      .single();
+    if (error) throw error;
+    ownWishId = data.id;
+  });
+
+  afterAll(async () => {
+    await admin.from("groups").delete().in("id", [ownGroupId, foreignGroupId]);
+    // Profile delete cascades the wishes.
+    await admin.auth.admin.deleteUser(ownerId);
+    await admin.auth.admin.deleteUser(otherId);
+  });
+
+  it("anon key cannot read or write wishes", async () => {
+    const anon = anonClient();
+    const read = await anon.from("wishes").select("id");
+    expect(read.error?.code).toBe("42501");
+    const write = await anon
+      .from("wishes")
+      .insert({ profile_id: ownerId, title: "anon" });
+    expect(write.error?.code).toBe("42501");
+  });
+
+  it("owner reads own wishes", async () => {
+    const { data, error } = await owner.from("wishes").select("id, title");
+    expect(error).toBeNull();
+    expect(data).toEqual([{ id: ownWishId, title: "Owner wish" }]);
+  });
+
+  it("other user cannot read someone else's wishes", async () => {
+    const { data, error } = await other
+      .from("wishes")
+      .select("id")
+      .eq("profile_id", ownerId);
+    expect(error).toBeNull();
+    expect(data).toEqual([]);
+    const byId = await other.from("wishes").select("id").eq("id", ownWishId);
+    expect(byId.data).toEqual([]);
+  });
+
+  it("other user cannot update or delete someone else's wish", async () => {
+    const upd = await other
+      .from("wishes")
+      .update({ title: "hijacked" })
+      .eq("id", ownWishId)
+      .select("id");
+    expect(upd.data ?? []).toHaveLength(0);
+
+    const del = await other
+      .from("wishes")
+      .delete()
+      .eq("id", ownWishId)
+      .select("id");
+    expect(del.data ?? []).toHaveLength(0);
+
+    const { data } = await admin
+      .from("wishes")
+      .select("title")
+      .eq("id", ownWishId)
+      .single();
+    expect(data?.title).toBe("Owner wish");
+  });
+
+  it("user cannot insert a wish for another profile", async () => {
+    const { error } = await other
+      .from("wishes")
+      .insert({ profile_id: ownerId, title: "planted" });
+    expect(error).not.toBeNull();
+    const { data } = await admin
+      .from("wishes")
+      .select("id")
+      .eq("title", "planted");
+    expect(data).toHaveLength(0);
+  });
+
+  it("profile_id is immutable through the user JWT (no column grant)", async () => {
+    const { error } = await owner
+      .from("wishes")
+      .update({ profile_id: otherId })
+      .eq("id", ownWishId);
+    expect(error?.code).toBe("42501");
+    const { data } = await admin
+      .from("wishes")
+      .select("profile_id")
+      .eq("id", ownWishId)
+      .single();
+    expect(data?.profile_id).toBe(ownerId);
+  });
+
+  it("owner can link a group they are a member of", async () => {
+    const { error } = await owner
+      .from("wishes")
+      .update({ group_id: ownGroupId })
+      .eq("id", ownWishId);
+    expect(error).toBeNull();
+  });
+
+  it("owner cannot link a group they are not a member of (insert + update)", async () => {
+    const ins = await owner
+      .from("wishes")
+      .insert({ profile_id: ownerId, title: "x", group_id: foreignGroupId });
+    expect(ins.error?.code).toBe("23514");
+
+    const upd = await owner
+      .from("wishes")
+      .update({ group_id: foreignGroupId })
+      .eq("id", ownWishId);
+    expect(upd.error?.code).toBe("23514");
+
+    const { data } = await admin
+      .from("wishes")
+      .select("group_id")
+      .eq("id", ownWishId)
+      .single();
+    expect(data?.group_id).toBe(ownGroupId);
+  });
+
+  it("deleting the group leaves the wish, unassigned", async () => {
+    const gid = await mkGroup(ownerId, "gone", [ownerId]);
+    const { data: wish, error } = await owner
+      .from("wishes")
+      .insert({ profile_id: ownerId, title: "survives", group_id: gid })
+      .select("id")
+      .single();
+    expect(error).toBeNull();
+
+    await admin.from("groups").delete().eq("id", gid);
+
+    const { data } = await admin
+      .from("wishes")
+      .select("group_id, title")
+      .eq("id", wish!.id)
+      .single();
+    expect(data).toEqual({ group_id: null, title: "survives" });
+  });
+
+  it.each([
+    ["javascript: url", { url: "javascript:alert(1)" }],
+    ["ftp url", { url: "ftp://a.de/x" }],
+    ["url with whitespace", { url: "https://a.de/x y" }],
+    ["too long url", { url: `https://a.de/${"p".repeat(2000)}` }],
+    ["too long title", { title: "t".repeat(201) }],
+    ["blank title", { title: "   " }],
+    ["too long note", { note: "n".repeat(1001) }],
+    ["negative price", { price_estimate: -1 }],
+    ["price out of range", { price_estimate: 100000 }],
+    [
+      "received without received_at",
+      { status: "received" as const, received_at: null },
+    ],
+    [
+      "open with received_at",
+      { status: "open" as const, received_at: new Date().toISOString() },
+    ],
+  ])("CHECK constraints reject %s", async (_name, patch) => {
+    const { error } = await owner
+      .from("wishes")
+      .insert({ profile_id: ownerId, title: "valid", ...patch });
+    expect(error).not.toBeNull();
+  });
+
+  it("accepts archive state with received_at and a full valid wish", async () => {
+    const { error } = await owner.from("wishes").insert({
+      profile_id: ownerId,
+      title: "Buch",
+      url: "https://example.com/buch?x=1",
+      note: "Hardcover",
+      price_estimate: 24.9,
+      status: "received",
+      received_at: new Date().toISOString(),
+    });
+    expect(error).toBeNull();
+  });
+
+  it("caps wishes per account at 500", async () => {
+    const capEmail = `rls-wish-cap-${stamp}@example.com`;
+    const capId = await mkUser(capEmail, "Cap");
+    try {
+      const rows = Array.from({ length: 500 }, (_, i) => ({
+        profile_id: capId,
+        title: `w${i}`,
+      }));
+      const { error: seed } = await admin.from("wishes").insert(rows);
+      expect(seed).toBeNull();
+
+      const cap = anonClient();
+      await signInAs(cap, capEmail);
+      const { error } = await cap
+        .from("wishes")
+        .insert({ profile_id: capId, title: "one too many" });
+      expect(error?.code).toBe("54000");
+    } finally {
+      await admin.auth.admin.deleteUser(capId);
+    }
+  });
+});

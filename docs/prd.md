@@ -73,6 +73,15 @@ Secret Santa is a German-language web app that lets a group admin create a Grupp
 44. As a user, I want account deletion to require confirmation via a link in a separate email, so that accidental or malicious deletion is prevented.
 45. As a user, I want my name to remain visible in existing draw assignments after I delete my account, so that other participants and admins are not left with broken or confusing data (disclosed in the privacy policy).
 
+### Wishlist
+
+56. As a user, I want personal wish list on my account (any number of wishes), so that ideas survive across years + groups.
+57. As a user, I want quick-add (title only), then optional second step (link, approx. price, note, group), so that capturing idea is fast.
+58. As a user, I want link to at most one of my own groups per wish, so that wish can be assigned to current Wichtel group. Group deleted → wish stays, unassigned.
+59. As a user, I want mark wish received → archive, reopen later, so that open list stays short.
+60. As a user, I want filter by status + text search (+ group / unassigned), so that I find wish fast.
+61. As a user, I want wishes visible only to me (group visibility = #209, link preview = #210), deleted with my account, not part of group retention.
+
 ### Legal & Compliance
 
 46. As a visitor, I want to access an Impressum page at any time, so that I can identify who operates the service (required by German law, DDG §5).
@@ -114,23 +123,24 @@ Secret Santa is a German-language web app that lets a group admin create a Grupp
 
 All routes use German slugs with no locale prefix:
 
-| Route                               | Purpose                                  |
-| ----------------------------------- | ---------------------------------------- |
-| `/`                                 | Landing page (snow animation, login CTA) |
-| `/anmelden`                         | Magic link request + OTP entry           |
-| `/gruppen`                          | Groups overview                          |
-| `/gruppen/neu`                      | Create group                             |
-| `/gruppen/[gruppeId]`               | Group detail                             |
-| `/gruppen/[gruppeId]/einstellungen` | Admin settings                           |
-| `/einladung/[token]`                | Invite landing                           |
-| `/konto`                            | Account settings + deletion              |
-| `/impressum`                        | Impressum                                |
-| `/datenschutz`                      | Datenschutzerklärung                     |
-| `/einladung/[token]/magiclink`      | Invite magic-link confirm                |
-| `/auth/callback`                    | Login magic-link / OTP confirm           |
-| `/konto/delete/confirm`             | Account-deletion confirm                 |
-| `/admin/**`                         | Super-admin back-office                  |
-| `/api/health`, `/api/test/*`        | Health probe, gated E2E backdoors        |
+| Route                               | Purpose                                                |
+| ----------------------------------- | ------------------------------------------------------ |
+| `/`                                 | Landing page (snow animation, login CTA)               |
+| `/anmelden`                         | Magic link request + OTP entry                         |
+| `/gruppen`                          | Groups overview                                        |
+| `/gruppen/neu`                      | Create group                                           |
+| `/gruppen/[gruppeId]`               | Group detail                                           |
+| `/gruppen/[gruppeId]/einstellungen` | Admin settings                                         |
+| `/einladung/[token]`                | Invite landing                                         |
+| `/konto`                            | Account settings + deletion                            |
+| `/wuensche`                         | Own wish list (`?status=archiv`, `q`, `group`, `edit`) |
+| `/impressum`                        | Impressum                                              |
+| `/datenschutz`                      | Datenschutzerklärung                                   |
+| `/einladung/[token]/magiclink`      | Invite magic-link confirm                              |
+| `/auth/callback`                    | Login magic-link / OTP confirm                         |
+| `/konto/delete/confirm`             | Account-deletion confirm                               |
+| `/admin/**`                         | Super-admin back-office                                |
+| `/api/health`, `/api/test/*`        | Health probe, gated E2E backdoors                      |
 
 ### Group IDs
 
@@ -138,7 +148,7 @@ Gruppe slugs are auto-generated from the group name at creation time. Umlaut tra
 
 ### Data Model
 
-Nine tables in Supabase PostgreSQL. Row Level Security enforced on all tables.
+Ten tables in Supabase PostgreSQL. Row Level Security enforced on all tables.
 
 - **profiles** — extends `auth.users`. Stores `first_name`, `last_name`. No additional personal data.
 - **groups** — `name`, `year` (integer), `slug` (unique), `budget_hint` (nullable text), `note` (nullable text), `state` (enum: `open` | `drawn`), `created_by`, `draw_version` (bumped per draw).
@@ -146,9 +156,10 @@ Nine tables in Supabase PostgreSQL. Row Level Security enforced on all tables.
 - **assignments** — one row per giver/receiver pair per group. Overwritten entirely on re-draw.
 - **exclusions** — bidirectional exclusion pairs per group. Canonical ordering (`member_a < member_b`) enforced via check constraint to prevent duplicates.
 - **invite_tokens** — one active token per group. Invalidated logically once group state becomes `drawn`.
+- **wishes** — account-level wish list. `profile_id` (cascade w/ account), `group_id` (nullable, at most one, `ON DELETE SET NULL`; DB trigger: owner must be member), `title`, `url?` (http/https), `note?`, `price_estimate?`, `status` (`open` | `received`), `received_at?`. CHECK constraints mirror zod. Cap 500 per account (trigger, `54000`). Owner-only RLS, user-JWT writes (update: column grants, `profile_id` immutable).
 - **draw_mail_failures**, **assignment_lookups**, **admin_audit_log** — service-role bookkeeping: latest draw-mail partial failure, admin oracle audit trail, super-admin action log.
 
-RLS rules: participants + admins read only own assignment row (admin lookup = audited action, service role); profiles readable by owner only; user JWT writes only profile names + `create_group` RPC.
+RLS rules: participants + admins read only own assignment row (admin lookup = audited action, service role); profiles readable by owner only; user JWT writes only profile names, own wishes + `create_group` RPC.
 
 ### Deep Modules
 
@@ -225,7 +236,7 @@ On confirmation, the user's `auth.users` record and `profiles` record are delete
 ## Out of Scope
 
 - **Open registration** — the site is invite-only; strangers cannot sign up without a group invite link
-- **Wishlists or gift idea fields per participant** — out of scope to keep the data model simple and personal data minimal
+- **Wish reservation** — Wichtel group has exactly one giver per person; only relevant for e.g. birthday lists (backlog). Group visibility of wishes = #209, link metadata fetch = #210
 - **Draw scheduling** — admins trigger draws manually; no date-based automation
 - **Multi-language support** — German only for the foreseeable future
 - **Analytics or usage tracking** — excluded for privacy/compliance; Vercel Speed Insights (performance monitoring only, no cookies/profiles) not covered by this exclusion, see Legal section
