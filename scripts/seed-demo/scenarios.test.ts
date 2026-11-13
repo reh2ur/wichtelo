@@ -52,6 +52,12 @@ describe("demo scenarios", () => {
       expect(wish.title.length).toBeGreaterThanOrEqual(1);
       expect(wish.title.length).toBeLessThanOrEqual(200);
       expect((wish.note ?? "").length).toBeLessThanOrEqual(1000);
+      // Seed writes straight to the DB: CHECK wishes_url_format applies, no
+      // parseWishInput normalisation (bare hosts would be rejected).
+      if (wish.url !== null) {
+        expect(wish.url).toMatch(/^https?:\/\/\S+$/);
+        expect(wish.url.length).toBeLessThanOrEqual(2000);
+      }
       if (wish.priceEstimate !== null) {
         expect(wish.priceEstimate).toBeGreaterThanOrEqual(0);
         expect(wish.priceEstimate).toBeLessThanOrEqual(99999.99);

@@ -94,7 +94,7 @@ const aliceHandwritten: DemoWish[] = [
   w("alice", "Wollsocken", { priceEstimate: 14.5, group: OPEN }),
   w("alice", "Kochbuch Levante", { priceEstimate: 29, group: DRAWN }),
   w("alice", "Gutschein Kletterhalle", {
-    url: "example.com/klettern",
+    url: "https://example.com/klettern",
     group: DRAWN,
   }),
   w("alice", "Kerzen (Bienenwachs)", { priceEstimate: 9.9 }),
