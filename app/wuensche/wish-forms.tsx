@@ -242,6 +242,7 @@ export function WishEditForm({
         </Button>
         <Link
           href={cancelHref}
+          scroll={false}
           className={buttonVariants({ variant: "outline" })}
         >
           {t("form.cancel")}
@@ -329,6 +330,7 @@ export function WishRowActions({
         </form>
         <Link
           href={editHref}
+          scroll={false}
           className={buttonVariants({ variant: "outline", size: "sm" })}
         >
           {t("item.edit")}
