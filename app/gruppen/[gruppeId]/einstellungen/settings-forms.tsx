@@ -5,6 +5,7 @@ import { Select } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { useActionState, useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { FocusStatus } from "@/components/focus-status";
 import {
@@ -26,6 +27,7 @@ import {
   type DeleteGroupState,
 } from "./actions";
 import { createIntlContext } from "@/lib/create-intl-context";
+import { availablePartnerIds, pairableIds } from "@/lib/exclusion-options";
 import { CONFIRM_TITLE_CLASS, useConfirmFocus } from "@/lib/use-confirm-focus";
 
 const { Provider: GroupSettingsProvider, useT: useGroupSettingsT } =
@@ -221,10 +223,12 @@ function RemoveExclusionButton({
 function AddExclusionForm({
   slug,
   members,
+  exclusions,
   groupState,
 }: {
   slug: string;
   members: Member[];
+  exclusions: Exclusion[];
   groupState: "open" | "drawn";
 }) {
   const t = useGroupSettingsT();
@@ -234,9 +238,22 @@ function AddExclusionForm({
     { status: "idle" },
   );
 
+  const [memberA, setMemberA] = useState("");
+  const [memberB, setMemberB] = useState("");
+
   useEffect(() => {
     if (state.status === "success") router.refresh();
   }, [state.status, router]);
+
+  const memberIds = members.map((m) => m.id);
+  const optionsA = new Set(availablePartnerIds(memberIds, exclusions, memberB));
+  const optionsB = new Set(availablePartnerIds(memberIds, exclusions, memberA));
+  const pairable = new Set(pairableIds(memberIds, exclusions));
+  const noPairs = pairable.size === 0;
+  // Stale pick (other select changed / exclusion list refreshed) → treat as
+  // empty so the select shows the placeholder and nothing invalid submits.
+  const valueA = optionsA.has(memberA) && pairable.has(memberA) ? memberA : "";
+  const valueB = optionsB.has(memberB) && pairable.has(memberB) ? memberB : "";
 
   const errorMsg =
     state.status === "error"
@@ -261,33 +278,56 @@ function AddExclusionForm({
           <label htmlFor="memberA" className="text-sm font-bold">
             {t("exclusions.personA")}
           </label>
-          <Select id="memberA" name="memberA" defaultValue="" required>
+          <Select
+            id="memberA"
+            name="memberA"
+            value={valueA}
+            onChange={(e) => setMemberA(e.target.value)}
+            required
+            disabled={noPairs}
+          >
             <option value="" disabled>
               —
             </option>
-            {members.map((m) => (
-              <option key={m.id} value={m.id}>
-                {m.name_snapshot}
-              </option>
-            ))}
+            {members
+              .filter((m) => optionsA.has(m.id) && pairable.has(m.id))
+              .map((m) => (
+                <option key={m.id} value={m.id}>
+                  {m.name_snapshot}
+                </option>
+              ))}
           </Select>
         </div>
         <div className="space-y-1.5">
           <label htmlFor="memberB" className="text-sm font-bold">
             {t("exclusions.personB")}
           </label>
-          <Select id="memberB" name="memberB" defaultValue="" required>
+          <Select
+            id="memberB"
+            name="memberB"
+            value={valueB}
+            onChange={(e) => setMemberB(e.target.value)}
+            required
+            disabled={noPairs}
+          >
             <option value="" disabled>
               —
             </option>
-            {members.map((m) => (
-              <option key={m.id} value={m.id}>
-                {m.name_snapshot}
-              </option>
-            ))}
+            {members
+              .filter((m) => optionsB.has(m.id) && pairable.has(m.id))
+              .map((m) => (
+                <option key={m.id} value={m.id}>
+                  {m.name_snapshot}
+                </option>
+              ))}
           </Select>
         </div>
       </div>
+      {noPairs && (
+        <p className="text-muted-foreground text-xs">
+          {t("exclusions.allPairsExcluded")}
+        </p>
+      )}
       {errorMsg && (
         <p role="alert" className="text-danger-text text-sm">
           {errorMsg}
@@ -313,7 +353,12 @@ function AddExclusionForm({
           {t("exclusions.effectAfterRedraw")}
         </p>
       )}
-      <Button type="submit" variant="outline" size="sm" disabled={pending}>
+      <Button
+        type="submit"
+        variant="outline"
+        size="sm"
+        disabled={pending || noPairs}
+      >
         {pending ? t("exclusions.adding") : t("exclusions.add")}
       </Button>
     </form>
@@ -568,7 +613,12 @@ export function ExclusionsSection({
           ))}
         </ul>
       )}
-      <AddExclusionForm slug={slug} members={members} groupState={groupState} />
+      <AddExclusionForm
+        slug={slug}
+        members={members}
+        exclusions={exclusions}
+        groupState={groupState}
+      />
     </section>
   );
 }
@@ -729,47 +779,53 @@ export function ParticipantsSection({
       <ul className="border-border bg-card divide-y rounded-lg border">
         {members.map((m) => (
           <li key={m.id} className="px-4 py-3 text-sm">
-            <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2">
-              <span className="min-w-0 font-medium break-words">
-                {m.name_snapshot}
-              </span>
-              <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between sm:gap-3">
+              <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1">
+                <span className="min-w-0 font-medium break-words">
+                  {m.name_snapshot}
+                </span>
+                {m.role === "admin" && (
+                  <Badge variant="outline" data-testid={`admin-badge-${m.id}`}>
+                    {t("adminLabel")}
+                  </Badge>
+                )}
+                {m.role !== "admin" && !m.profile_id && (
+                  <Badge variant="secondary">
+                    {t("participants.deletedAccount")}
+                  </Badge>
+                )}
+              </div>
+              <div className="flex shrink-0 items-center gap-2">
                 {m.role === "admin" ? (
-                  <>
-                    <span className="text-muted-foreground text-xs">
-                      {t("adminLabel")}
-                    </span>
-                    <Button
-                      id={`demote-${m.id}`}
-                      type="button"
-                      variant="outline"
-                      size="xs"
-                      onClick={() => setDemotingId(m.id)}
-                    >
-                      {t("participants.demote")}
-                    </Button>
-                  </>
+                  <Button
+                    id={`demote-${m.id}`}
+                    type="button"
+                    variant="outline"
+                    size="xs"
+                    className="whitespace-nowrap"
+                    onClick={() => setDemotingId(m.id)}
+                  >
+                    {t("participants.demote")}
+                  </Button>
                 ) : m.profile_id ? (
                   <Button
                     id={`promote-${m.id}`}
                     type="button"
                     variant="outline"
                     size="xs"
+                    className="whitespace-nowrap"
                     onClick={() => setPromotingId(m.id)}
                   >
                     {t("participants.promoteToAdmin")}
                   </Button>
-                ) : (
-                  <span className="text-muted-foreground text-xs">
-                    {t("participants.deletedAccount")}
-                  </span>
-                )}
+                ) : null}
                 {m.id !== currentMembershipId && (
                   <Button
                     id={`remove-${m.id}`}
                     type="button"
                     variant="ghost"
                     size="xs"
+                    className="whitespace-nowrap"
                     onClick={() => setConfirmingId(m.id)}
                   >
                     {t("participants.remove")}
