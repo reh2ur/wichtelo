@@ -167,22 +167,7 @@ async function GruppeDetailContent({
         </div>
       </div>
 
-      {g.budget_hint && (
-        <div className="border-border bg-muted/30 mb-4 rounded-lg border px-4 py-3">
-          <p className="text-sm">
-            <span className="font-medium">{t("budget")}:</span> {g.budget_hint}
-          </p>
-        </div>
-      )}
-
-      {g.note && (
-        <div className="border-border bg-muted/30 mb-6 rounded-lg border px-4 py-3">
-          <p className="text-sm whitespace-pre-line">
-            <span className="font-medium">{t("note")}:</span> {g.note}
-          </p>
-        </div>
-      )}
-
+      {/* Right under the header so the draw result and recipient are the first thing seen. */}
       <Suspense
         fallback={
           <LoadingRegion className="mb-6">
@@ -202,6 +187,22 @@ async function GruppeDetailContent({
           displayNames={displayNameById}
         />
       </Suspense>
+
+      {g.budget_hint && (
+        <div className="border-border bg-muted/30 mb-4 rounded-lg border px-4 py-3">
+          <p className="text-sm">
+            <span className="font-medium">{t("budget")}:</span> {g.budget_hint}
+          </p>
+        </div>
+      )}
+
+      {g.note && (
+        <div className="border-border bg-muted/30 mb-6 rounded-lg border px-4 py-3">
+          <p className="text-sm whitespace-pre-line">
+            <span className="font-medium">{t("note")}:</span> {g.note}
+          </p>
+        </div>
+      )}
 
       <div className="mb-6 grid grid-cols-2 gap-3">
         {[
@@ -400,10 +401,12 @@ async function MyAssignment({
 
   return (
     <section className="mb-6 space-y-2">
-      <div className="border-border bg-card rounded-lg border px-4 py-4">
+      <div className="border-crimson/40 bg-card relative overflow-hidden rounded-lg border px-5 pt-5 pb-4">
+        <div className="bg-crimson absolute inset-x-0 top-0 h-[3px]" />
         <RevealAssignment
           label={label}
           name={receiverDisplay}
+          hiddenLabel={t("hiddenAssignment")}
           revealLabel={t("revealAssignment")}
           hideLabel={t("hideAssignment")}
         />
