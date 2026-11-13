@@ -1,6 +1,10 @@
 import { type BrowserContext, type Page } from "@playwright/test";
 import { expect, test } from "./fixtures";
-import { BASE_URL, browserExtraHeaders } from "./helpers";
+import {
+  BASE_URL,
+  browserExtraHeaders,
+  expectNoHorizontalOverflow,
+} from "./helpers";
 
 function guestContextOptions() {
   return {
@@ -273,21 +277,84 @@ test.describe("exclusion management", () => {
     ).toBeVisible();
   });
 
-  test("selecting the same person for both slots shows error", async ({
+  test("partner select hides self and already excluded partners", async ({
     authedPage,
     browser,
   }) => {
     const { slug, inviteUrl } = await setupGroup(
       authedPage,
-      "Same Member Exclusion Test",
+      "Exclusion Filter Test",
     );
 
     const ctxB = await browser.newContext(guestContextOptions());
+    const ctxC = await browser.newContext(guestContextOptions());
     try {
       await joinViaInvite(ctxB, inviteUrl, slug, {
         firstName: "Bernd",
         lastName: "Becker",
-        email: `e2e+same-b-${Date.now()}@example.com`,
+        email: `e2e+filt-b-${Date.now()}@example.com`,
+      });
+      await joinViaInvite(ctxC, inviteUrl, slug, {
+        firstName: "Clara",
+        lastName: "Conrad",
+        email: `e2e+filt-c-${Date.now()}@example.com`,
+      });
+    } finally {
+      await ctxB.close();
+      await ctxC.close();
+    }
+
+    await authedPage.goto(`/gruppen/${slug}/einstellungen`);
+    await expect(authedPage.locator("#name")).toBeVisible();
+
+    const selectA = authedPage.locator("#memberA");
+    const selectB = authedPage.locator("#memberB");
+    const enabled = (sel: typeof selectA) =>
+      sel.locator("option:not([disabled])");
+
+    await expect(enabled(selectB)).toHaveCount(3);
+    const valA = (await enabled(selectA).nth(0).getAttribute("value"))!;
+    const valB = (await enabled(selectA).nth(1).getAttribute("value"))!;
+
+    // Self-pairing impossible: A chosen -> not offered in B.
+    await selectA.selectOption(valA);
+    await expect(enabled(selectB)).toHaveCount(2);
+    await expect(selectB.locator(`option[value="${valA}"]`)).toHaveCount(0);
+
+    await selectB.selectOption(valB);
+    await authedPage
+      .locator('button:has-text("Ausschluss hinzufügen")')
+      .click();
+    await expect(
+      authedPage
+        .getByRole("status")
+        .filter({ hasText: "Ausschluss hinzugefügt." }),
+    ).toBeVisible({ timeout: 10_000 });
+
+    // Existing pair A-B: A no longer offers B (and vice versa); stale pick reset.
+    await selectA.selectOption(valA);
+    await expect(selectB.locator(`option[value="${valB}"]`)).toHaveCount(0);
+    await expect(enabled(selectB)).toHaveCount(1);
+    await selectB.selectOption({ index: 1 });
+    await selectA.selectOption(valB);
+    await expect(selectA).toHaveValue(valB);
+    await expect(selectB.locator(`option[value="${valA}"]`)).toHaveCount(0);
+  });
+});
+
+test.describe("participant rows", () => {
+  test("admin shown as badge; long name keeps actions on one line", async ({
+    authedPage,
+    browser,
+  }) => {
+    const { slug, inviteUrl } = await setupGroup(authedPage, "Row Layout Test");
+
+    const ctxB = await browser.newContext(guestContextOptions());
+    try {
+      await joinViaInvite(ctxB, inviteUrl, slug, {
+        firstName: "Maximilianus".repeat(3),
+        lastName: "Unglaublichlangernachname".repeat(2),
+        email: `e2e+row-b-${Date.now()}@example.com`,
       });
     } finally {
       await ctxB.close();
@@ -296,22 +363,29 @@ test.describe("exclusion management", () => {
     await authedPage.goto(`/gruppen/${slug}/einstellungen`);
     await expect(authedPage.locator("#name")).toBeVisible();
 
-    const selectA = authedPage.locator("#memberA");
-    const firstOption = await selectA
-      .locator("option:not([disabled])")
-      .first()
-      .getAttribute("value");
-    await authedPage.locator("#memberA").selectOption(firstOption!);
-    await authedPage.locator("#memberB").selectOption(firstOption!);
+    const rows = authedPage
+      .locator("section")
+      .filter({ has: authedPage.getByRole("heading", { name: "Teilnehmer" }) })
+      .locator("ul > li");
+    await expect(rows).toHaveCount(2);
 
-    await authedPage
-      .locator('button:has-text("Ausschluss hinzufügen")')
-      .click();
+    // Admin status = badge, not loose text.
+    await expect(
+      rows.first().locator('[data-testid^="admin-badge-"]'),
+    ).toBeVisible();
 
-    await expect(authedPage.locator("p.text-danger-text")).toContainText(
-      "Bitte wähle zwei verschiedene Personen.",
-      { timeout: 10_000 },
-    );
+    // Buttons never wrap internally (single line each) and nothing overflows.
+    const promote = authedPage.getByRole("button", {
+      name: "Zum Admin machen",
+    });
+    const remove = rows.nth(1).getByRole("button", { name: "Entfernen" });
+    await expect(promote).toBeVisible();
+    const [pBox, rBox] = [
+      await promote.boundingBox(),
+      await remove.boundingBox(),
+    ];
+    expect(Math.abs(pBox!.y - rBox!.y)).toBeLessThan(2);
+    await expectNoHorizontalOverflow(authedPage);
   });
 });
 
