@@ -36,14 +36,18 @@ test.describe("wishes: access", () => {
   });
 
   test("nav menu links to /wuensche", async ({ browser }) => {
-    const { ctx } = await createFreshAuthedContext(browser);
+    const { ctx } = await createFreshAuthedContext(browser, {
+      withProfile: true,
+    });
     const page = await ctx.newPage();
     try {
       await page.goto("/gruppen");
       await page.getByRole("button", { name: "Menü öffnen" }).click();
       await page.getByRole("menuitem", { name: "Wünsche" }).click();
       await expect(page).toHaveURL(/\/wuensche$/);
-      await expect(page.locator("h1")).toContainText("Meine Wünsche");
+      await expect(
+        page.getByRole("heading", { level: 1, name: "Meine Wünsche" }),
+      ).toBeVisible();
     } finally {
       await ctx.close();
     }
@@ -54,11 +58,15 @@ test.describe("wishes: flow", () => {
   test("empty state, quick-add + details, archive, reopen, delete", async ({
     browser,
   }) => {
-    const { ctx } = await createFreshAuthedContext(browser);
+    const { ctx } = await createFreshAuthedContext(browser, {
+      withProfile: true,
+    });
     const page = await ctx.newPage();
     try {
       await page.goto("/wuensche");
-      await expect(page.locator("h1")).toContainText("Meine Wünsche");
+      await expect(
+        page.getByRole("heading", { level: 1, name: "Meine Wünsche" }),
+      ).toBeVisible();
       await expect(page.getByTestId("wish-empty")).toContainText(
         "Noch keine offenen Wünsche",
       );
@@ -130,7 +138,9 @@ test.describe("wishes: flow", () => {
   });
 
   test("text search filters the list and can be reset", async ({ browser }) => {
-    const { ctx } = await createFreshAuthedContext(browser);
+    const { ctx } = await createFreshAuthedContext(browser, {
+      withProfile: true,
+    });
     const page = await ctx.newPage();
     try {
       await page.goto("/wuensche");
@@ -166,7 +176,9 @@ test.describe("wishes: groups", () => {
   test("assign own group, filter by group / unassigned; group select only lists own groups", async ({
     browser,
   }) => {
-    const { ctx } = await createFreshAuthedContext(browser);
+    const { ctx } = await createFreshAuthedContext(browser, {
+      withProfile: true,
+    });
     const page = await ctx.newPage();
     try {
       // Fresh user: profile is created with the first group.
@@ -219,7 +231,9 @@ test.describe("wishes: validation + isolation", () => {
   test("invalid link and price show errors, nothing is saved", async ({
     browser,
   }) => {
-    const { ctx } = await createFreshAuthedContext(browser);
+    const { ctx } = await createFreshAuthedContext(browser, {
+      withProfile: true,
+    });
     const page = await ctx.newPage();
     try {
       await page.goto("/wuensche");
@@ -255,8 +269,12 @@ test.describe("wishes: validation + isolation", () => {
   });
 
   test("another user never sees my wishes", async ({ browser }) => {
-    const mine = await createFreshAuthedContext(browser);
-    const theirs = await createFreshAuthedContext(browser);
+    const mine = await createFreshAuthedContext(browser, {
+      withProfile: true,
+    });
+    const theirs = await createFreshAuthedContext(browser, {
+      withProfile: true,
+    });
     const myPage = await mine.ctx.newPage();
     const theirPage = await theirs.ctx.newPage();
     try {
