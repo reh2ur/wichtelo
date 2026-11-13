@@ -256,9 +256,12 @@ test.describe("wishes: validation + isolation", () => {
       await expect(form.getByRole("alert")).toContainText("Preis als Zahl");
 
       await page.reload();
+      // fill() honours maxlength (truncates), so drop it to reach the server cap.
+      await form
+        .getByLabel("Titel")
+        .evaluate((el) => el.removeAttribute("maxlength"));
       await form.getByLabel("Titel").fill("x".repeat(201));
       await saveDetails(page);
-      // fill() bypasses maxLength, so the server-side cap is what answers.
       await expect(form.getByRole("alert")).toContainText(
         "Maximal 200 Zeichen",
       );
