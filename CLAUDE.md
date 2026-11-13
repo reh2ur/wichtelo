@@ -21,6 +21,8 @@ pnpm test -- path/to/file.test.ts          # run a single test file
 pnpm test -- -t "test name"               # run tests matching a name
 pnpm e2e:dev      # Playwright E2E against local dev server
 pnpm e2e:pr <NUM> # Playwright E2E against Vercel preview for PR number
+pnpm seed:demo <local|staging> --site <url>  # demo users/groups/wishes + login links, idempotent (docs/testing.md)
+pnpm seed:login <local|staging> <alias> --site <url>  # fresh login link for demo user
 supabase start    # start local Supabase stack (required for integration tests)
 supabase stop     # stop local Supabase stack
 ```

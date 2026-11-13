@@ -37,3 +37,13 @@ PR E2E runs share one staging Supabase. Job `e2e` has `concurrency: e2e-staging`
 ## Test backdoors
 
 `/api/test/*` routes + `devOtp` returns gated by `isTestBackdoorEnabled(headers)` (`lib/test-backdoor.ts`). All required: `E2E_TEST_MODE=1`, not Vercel Production + Supabase URL not live ref (`SUPABASE_PROJECT_REF_LIVE`), header `x-e2e-secret` == `E2E_TEST_SECRET` (timing-safe). Else 404 / real OTP mail. E2E send header via `testApiHeaders()` (node fetch) + `browserExtraHeaders()` (browser contexts) from `e2e/helpers.ts`. New route under `/api/test` → use helper, never inline env check. Env setup: `.env.e2e.local.example`.
+
+## Demo seed (manual testing on staging preview / local)
+
+Manual click-through of PR preview needs known accounts + data. `pnpm seed:demo <local|staging> [--site <url>]` (`scripts/seed-demo.mts`, data in `scripts/seed-demo/scenarios.mts`, invariants in `scenarios.test.ts`) creates fictional fixtures via service role, prints login links. Live never valid target (arg rejected, live-ref URL refused, local needs localhost URL).
+
+- **Idempotent:** run any number of times. Users upserted (`demo-<alias>@test.local`), demo groups (slug prefix `demo-`) + all wishes of demo accounts deleted + recreated each run → same state after every run. Non-demo data never touched. Reset after clicking around = rerun.
+- **Scenarios:** `alice` admin of both groups, 40 wishes (open/archived, with/without group, long title). `bob`, `carla` members of both, few wishes. `dana` no group, empty wishlist. `erik` no group, wishes unassigned only. Groups: `demo-weihnachtsfeier-offen` (open), `demo-buero-gezogen` (drawn, ring assignment, no resend banner). Extend scenario → edit `scenarios.mts`, keep test green.
+- **Login:** no inbox for `@test.local`. Seed prints magic-link URLs (`/auth/callback?token_hash=…`, same confirm page as mail button); OTP expiry 10 min, single use → fresh one: `pnpm seed:login <target> <alias> --site <url>`. `--site` (or `SEED_SITE_URL`) = preview URL of PR (staging has no fixed one; local default `https://localhost:3000`). Preview behind Vercel protection → open link in browser logged into Vercel.
+- **Setup staging:** `supabase/.env.local` (gitignored) needs `SUPABASE_PROJECT_REF_STAGING` (already there for `db:push:staging`) + `SUPABASE_SERVICE_ROLE_KEY_STAGING` (Supabase dashboard → staging project → API keys). Local: `SUPABASE_SERVICE_ROLE_KEY` in `.env.local`. Secret key never leaves machine, never committed.
+- **Not for CI/E2E:** specs create own fixtures (`e2e+r<runId>…`); seed shares nothing with them. Staging DB shared w/ E2E runs — demo data stays untouched by teardown (only `e2e+` prefix swept).
