@@ -385,6 +385,61 @@ export type Database = {
         };
         Relationships: [];
       };
+      wishes: {
+        Row: {
+          created_at: string;
+          group_id: string | null;
+          id: string;
+          note: string | null;
+          price_estimate: number | null;
+          profile_id: string;
+          received_at: string | null;
+          status: Database["public"]["Enums"]["wish_status"];
+          title: string;
+          url: string | null;
+        };
+        ComputedFields: never;
+        Insert: {
+          created_at?: string;
+          group_id?: string | null;
+          id?: string;
+          note?: string | null;
+          price_estimate?: number | null;
+          profile_id: string;
+          received_at?: string | null;
+          status?: Database["public"]["Enums"]["wish_status"];
+          title: string;
+          url?: string | null;
+        };
+        Update: {
+          created_at?: string;
+          group_id?: string | null;
+          id?: string;
+          note?: string | null;
+          price_estimate?: number | null;
+          profile_id?: string;
+          received_at?: string | null;
+          status?: Database["public"]["Enums"]["wish_status"];
+          title?: string;
+          url?: string | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "wishes_group_id_fkey";
+            columns: ["group_id"];
+            isOneToOne: false;
+            referencedRelation: "groups";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "wishes_profile_id_fkey";
+            columns: ["profile_id"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
     };
     Views: {
       [_ in never]: never;
@@ -446,6 +501,7 @@ export type Database = {
     Enums: {
       group_state: "open" | "drawn";
       member_role: "participant" | "admin";
+      wish_status: "open" | "received";
     };
     CompositeTypes: {
       [_ in never]: never;
@@ -578,6 +634,7 @@ export const Constants = {
     Enums: {
       group_state: ["open", "drawn"],
       member_role: ["participant", "admin"],
+      wish_status: ["open", "received"],
     },
   },
 } as const;

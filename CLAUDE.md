@@ -21,6 +21,8 @@ pnpm test -- path/to/file.test.ts          # run a single test file
 pnpm test -- -t "test name"               # run tests matching a name
 pnpm e2e:dev      # Playwright E2E against local dev server
 pnpm e2e:pr <NUM> # Playwright E2E against Vercel preview for PR number
+pnpm seed:demo <local|staging> --site <url>  # demo users/groups/wishes + login links, idempotent (docs/testing.md)
+pnpm seed:login <local|staging> <alias> --site <url>  # fresh login link for demo user
 supabase start    # start local Supabase stack (required for integration tests)
 supabase stop     # stop local Supabase stack
 ```
@@ -61,7 +63,7 @@ Full design spec (palette, tokens, components, icon rules) in **`docs/design.md`
 
 **Caching.** `'use cache'` only for data safe to serve stale. Default `use cache` handler = per-process in-memory; on Vercel `updateTag` expiry not verified to reach other instances → silent stale reads. So NO `'use cache'` on mutable per-group data (member list, state, draw button). Wrap dynamic data (assignment reveal, live participant count, group data) in `<Suspense>` islands. Dynamic data access outside `<Suspense>` or `use cache` throws build-time error — framework-enforced. Want caching back → use `'use cache: remote'` or verify on real Vercel preview first (#95).
 
-**Cache tag registry.** All cache tags defined in `lib/cache-tags.ts` — `groupTag(slug)` and `inviteTag(token)`. Import from there; never hardcode tag strings inline. `inviteTag` reserved for future use — `resolveToken` uncached (see below), no `cacheTag`/`updateTag` call references it yet. Currently NO `cacheTag` consumer exists at all (see below); `groupTag` only used by `updateTag` calls.
+**Cache tag registry.** All cache tags defined in `lib/cache-tags.ts` — `groupTag(slug)`, `inviteTag(token)`, `wishesTag(profileId)` (refresh trigger only, no `cacheTag` consumer). Import from there; never hardcode tag strings inline. `inviteTag` reserved for future use — `resolveToken` uncached (see below), no `cacheTag`/`updateTag` call references it yet. Currently NO `cacheTag` consumer exists at all (see below); `groupTag` only used by `updateTag` calls.
 
 **`use cache` functions and their tags:** none.
 
@@ -118,6 +120,7 @@ Fix lives in **`proxy.ts` / `lib/supabase/proxy.ts`**, which runs before any Rea
 | `/gruppen/[gruppeId]/einstellungen` | Admin settings (admin-only)                         |
 | `/einladung/[token]`                | Invite landing                                      |
 | `/konto`                            | Account settings + deletion                         |
+| `/wuensche`                         | Own wish list (account-level, owner-only)           |
 | `/impressum`                        | Impressum (static)                                  |
 | `/datenschutz`                      | Datenschutzerklärung (static)                       |
 | `/einladung/[token]/magiclink`      | Invite magic-link confirm page                      |
@@ -129,19 +132,20 @@ Fix lives in **`proxy.ts` / `lib/supabase/proxy.ts`**, which runs before any Rea
 
 ## Data model (Supabase PostgreSQL, RLS on all tables)
 
-| Table                | Key columns                                                                                                                             |
-| -------------------- | --------------------------------------------------------------------------------------------------------------------------------------- |
-| `profiles`           | `id` (→ auth.users), `first_name`, `last_name`                                                                                          |
-| `groups`             | `slug` (unique, auto-generated), `name`, `year`, `state` (`open`\|`drawn`), `budget_hint?`, `note?`, `created_by`, `draw_version`       |
-| `memberships`        | `group_id`, `profile_id` (nullable), `name_snapshot`, `first_name_snapshot`, `last_name_snapshot`, `role` (`participant`\|`admin`)      |
-| `assignments`        | `group_id`, `giver_id`, `receiver_id` — overwritten entirely on re-draw                                                                 |
-| `exclusions`         | `group_id`, `member_a`, `member_b` — bidirectional, canonical ordering enforced via check constraint                                    |
-| `invite_tokens`      | `group_id`, `token` (unique) — logically invalidated when group state becomes `drawn`                                                   |
-| `draw_mail_failures` | `group_id` (pk), `draw_version`, `failed`, `total` — latest draw-mail partial failure, admin-read only                                  |
-| `admin_audit_log`    | super-admin action trail, service-role only (no RLS policies, grants revoked from `anon, authenticated`)                                |
-| `assignment_lookups` | `group_id`, `actor_profile_id`, `target_membership_id`, `looked_up_at` — admin oracle audit trail, service-role only, cascades w/ group |
+| Table                | Key columns                                                                                                                                  |
+| -------------------- | -------------------------------------------------------------------------------------------------------------------------------------------- |
+| `profiles`           | `id` (→ auth.users), `first_name`, `last_name`                                                                                               |
+| `groups`             | `slug` (unique, auto-generated), `name`, `year`, `state` (`open`\|`drawn`), `budget_hint?`, `note?`, `created_by`, `draw_version`            |
+| `memberships`        | `group_id`, `profile_id` (nullable), `name_snapshot`, `first_name_snapshot`, `last_name_snapshot`, `role` (`participant`\|`admin`)           |
+| `assignments`        | `group_id`, `giver_id`, `receiver_id` — overwritten entirely on re-draw                                                                      |
+| `exclusions`         | `group_id`, `member_a`, `member_b` — bidirectional, canonical ordering enforced via check constraint                                         |
+| `invite_tokens`      | `group_id`, `token` (unique) — logically invalidated when group state becomes `drawn`                                                        |
+| `draw_mail_failures` | `group_id` (pk), `draw_version`, `failed`, `total` — latest draw-mail partial failure, admin-read only                                       |
+| `admin_audit_log`    | super-admin action trail, service-role only (no RLS policies, grants revoked from `anon, authenticated`)                                     |
+| `wishes`             | `profile_id` (cascade), `group_id?` (`SET NULL`), `title`, `url?`, `note?`, `price_estimate?`, `status` (`open`\|`received`), `received_at?` |
+| `assignment_lookups` | `group_id`, `actor_profile_id`, `target_membership_id`, `looked_up_at` — admin oracle audit trail, service-role only, cascades w/ group      |
 
-**RLS:** User JWT = read-mostly. Participants + admins read only own assignment row (admin lookup = `lookupAssignment` action, service role: admin-only, drawn groups only, 10/h per admin+group, writes `assignment_lookups` row BEFORE reveal, fails closed). Memberships: own row or group admin reads. Profiles: owner only. `invite_tokens`: NO user-JWT access (policy dropped, SELECT revoked from `anon, authenticated`) — app reads via service role only. User JWT may write only: `profiles` insert/update (names), RPC `create_group`. ALL other writes (groups, memberships, assignments, exclusions, invite_tokens, profile delete) = service role only — INSERT/UPDATE/DELETE revoked from `anon, authenticated`, write policies dropped (migration `20261010120000`). New user-JWT write path → needs explicit grant + policy + RLS integration test in `lib/supabase/rls.test.ts`. `create_group` validates name 1–100, year 2000–2100, slug `^[a-z0-9-]{1,120}$`, skips reserved `neu`; `groups` CHECK constraints mirror it. Also DB-level cap: ≥5 groups by caller in last 24h → errcode `54000` (per-user advisory lock, parallel-safe); `createGroup` maps it to `rate_limited`. Backstop for direct `/rest/v1/rpc` calls bypassing Upstash limiter. Stays `authenticated`-callable (auth.uid() semantics).
+**RLS:** User JWT = read-mostly. Participants + admins read only own assignment row (admin lookup = `lookupAssignment` action, service role: admin-only, drawn groups only, 10/h per admin+group, writes `assignment_lookups` row BEFORE reveal, fails closed). Memberships: own row or group admin reads. Profiles: owner only. `invite_tokens`: NO user-JWT access (policy dropped, SELECT revoked from `anon, authenticated`) — app reads via service role only. User JWT may write only: `profiles` insert/update (names), own `wishes` rows, RPC `create_group`. ALL other writes (groups, memberships, assignments, exclusions, invite_tokens, profile delete) = service role only — INSERT/UPDATE/DELETE revoked from `anon, authenticated`, write policies dropped (migration `20261010120000`). New user-JWT write path → needs explicit grant + policy + RLS integration test in `lib/supabase/rls.test.ts`. `create_group` validates name 1–100, year 2000–2100, slug `^[a-z0-9-]{1,120}$`, skips reserved `neu`; `groups` CHECK constraints mirror it. Also DB-level cap: ≥5 groups by caller in last 24h → errcode `54000` (per-user advisory lock, parallel-safe); `createGroup` maps it to `rate_limited`. Backstop for direct `/rest/v1/rpc` calls bypassing Upstash limiter. Stays `authenticated`-callable (auth.uid() semantics).
 
 **Retention (#102, GDPR Art. 5(1)(e)).** Daily Vercel Cron (`vercel.json` `crons`, 03:17 UTC) → `GET /api/cron/retention` → `runRetention` (`lib/retention`). Periods in `lib/retention/policy.ts` (pure date math, unit-tested; change there + `datenschutz.retention*` in `messages/de.json` together):
 
@@ -174,6 +178,8 @@ Fix lives in **`proxy.ts` / `lib/supabase/proxy.ts`**, which runs before any Rea
 **Membership delete guarded.** `BEFORE DELETE` trigger on `memberships` rejects delete while group `drawn` (delete cascades 2 assignment rows → someone gets no gift). Passes when parent group row gone (group delete cascade) or txn-local flag `app.allow_drawn_membership_delete = on` (set only inside `remove_membership` / `perform_draw`, service-role-only security definer). All app membership deletes go through `removeMembership` (`lib/membership`) → RPC `remove_membership(group_id, membership_id, allow_drawn, enforce_last_admin)`: locks group row (`FOR UPDATE`, serializes vs draw), returns `ok|group_not_found|member_not_found|already_drawn|last_admin`. `leaveGroup` + `deleteAccount` = `allow_drawn false` (participants still cannot leave after draw). Admin `removeMember` = `allow_drawn true`: any member, also after draw; UI shows hint to press "Neu auslosen" (removed member's assignments cascade). Never `.from("memberships").delete()` in app code.
 
 **Demote admin (#156).** Admin action `demoteAdmin` → service-role-only RPC `demote_admin(group_id, membership_id)`: locks group row, `ok|group_not_found|member_not_found|not_admin|last_admin` (same last-live-admin rule as `remove_membership`; also self-demote). Group year editable in settings (2000–2100, zod + `groups_year_range` CHECK).
+
+**Wishes (#208).** Account-level list, route `/wuensche` (protected in `lib/route-access.ts`, nav menu entry). Owner-only: RLS `profile_id = auth.uid()` for select/insert/update/delete, anon no access, `UPDATE` granted per column (`profile_id`/`id`/`created_at` immutable). Only user-JWT write path besides profiles — Server Actions use user client scoped `.eq("profile_id", user.id)`, never service role. Trigger `check_wish_integrity` (security definer): `group_id` must be group where owner is member (insert + `group_id` change only — group delete `SET NULL`, other edits always pass; leaving a group later keeps stale `group_id`, UI hides it as unassigned), cap 500/account (`54000` → `limit_reached`). CHECKs (title 1–200, url http(s) ≤2000 no whitespace, note ≤1000, price 0–99999.99, `received_at` iff `received`) mirror `lib/wishes/schema.ts` (`parseWishInput`: bare host gets `https://`, other schemes rejected, price accepts `24,90`). Add flow: quick-add title → wish created → `?edit=<id>` details step (no extra route → no proxy 404 check needed). Archive/reopen = `setWishStatus`. Reads: `loadWishes` (`lib/wishes`) throws on error, one query (≤500 rows), search/status/group filter in memory (`filterWishes`, pure). View/filter via URL params (`status=archiv`, `q`, `group`), plain GET form, no JS needed. `updateTag(wishesTag(userId))` after each mutation = refresh trigger only (nothing cached). Wishes die w/ account via FK cascade (`deleteAccount` untouched; test `lib/account/wishes-deletion.test.ts`), not part of group retention. Datenschutz: `datenschutz.*` keys list wishes. Not visible to other members (#209 later), no link fetch (#210).
 
 **Assignment reveal (#155).** `MyAssignment` renders name only after tap (`RevealAssignment`, client, auto-hides 15 s); `draw_version > 1` → `assignment-redrawn` note.
 
@@ -219,7 +225,7 @@ Before writing or reviewing tests, read **`docs/testing.md`** — covers unit/in
 
 ## Out of scope
 
-Open registration, wishlists, draw scheduling, multi-language support, analytics, gift budget enforcement, multiple draws per group per year, decline-invite flow, cold invite emails.
+Open registration, wish reservation, draw scheduling, multi-language support, analytics, gift budget enforcement, multiple draws per group per year, decline-invite flow, cold invite emails.
 
 <!-- BEGIN:nextjs-agent-rules -->
 

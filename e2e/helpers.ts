@@ -60,6 +60,7 @@ function parseSetCookies(headers: Headers, baseUrl: string) {
 
 async function createFreshAuthedContext(
   browser: Browser,
+  opts: { withProfile?: boolean } = {},
 ): Promise<{ ctx: BrowserContext; email: string }> {
   const email = e2eFreshEmail(
     RUN_ID,
@@ -68,7 +69,7 @@ async function createFreshAuthedContext(
   const res = await fetch(`${BASE_URL}/api/test/auth`, {
     method: "POST",
     headers: testApiHeaders(),
-    body: JSON.stringify({ email }),
+    body: JSON.stringify({ email, withProfile: opts.withProfile }),
   });
   if (!res.ok)
     throw new Error(

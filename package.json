@@ -36,6 +36,8 @@
     "db:push:live": "node --env-file-if-exists=supabase/.env.local scripts/supabase-remote.mjs live db push",
     "db:migration": "supabase migration new",
     "db:config:push:staging": "node --env-file-if-exists=supabase/.env.local scripts/supabase-remote.mjs staging config push",
+    "seed:demo": "node --env-file-if-exists=.env.local --env-file-if-exists=supabase/.env.local scripts/seed-demo.mts seed",
+    "seed:login": "node --env-file-if-exists=.env.local --env-file-if-exists=supabase/.env.local scripts/seed-demo.mts login",
     "db:config:push:live": "node --env-file-if-exists=supabase/.env.local scripts/supabase-remote.mjs live config push"
   },
   "dependencies": {

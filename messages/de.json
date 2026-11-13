@@ -404,7 +404,8 @@
     "menu": "Menü öffnen",
     "account": "Konto",
     "logout": "Abmelden",
-    "signIn": "Anmelden"
+    "signIn": "Anmelden",
+    "wishes": "Wünsche"
   },
   "adminUsers": {
     "title": "Benutzer",
@@ -600,11 +601,11 @@
     },
     "dataCollected": {
       "heading": "Erhobene Daten",
-      "body": "Bei der Registrierung und Nutzung der Plattform werden folgende personenbezogene Daten verarbeitet: E-Mail-Adresse, Vorname und Nachname; Gruppeninhalte (Gruppenname, Jahr, Notiz, Budget-Hinweis, Mitgliedschaften und Rollen); Ausschlüsse (Paare, die nicht gegenseitig gelost werden sollen) und Auslosungsergebnisse (wer wen beschenkt). Beim Aufruf und bei der Anmeldung fallen zudem technisch bedingt IP-Adressen an (Anfrage-Protokolle bei Vercel und Supabase); für die Ratenbegrenzung bei Upstash werden IP-Adressen und pseudonymisierte Kennungen (Hash der E-Mail-Adresse, Konto-ID) verarbeitet. Der Nachname wird ausschließlich zur eindeutigen Anzeige innerhalb einer Gruppe erhoben und, falls nicht zur Unterscheidung nötig, anderen Teilnehmenden nicht angezeigt."
+      "body": "Bei der Registrierung und Nutzung der Plattform werden folgende personenbezogene Daten verarbeitet: E-Mail-Adresse, Vorname und Nachname; Gruppeninhalte (Gruppenname, Jahr, Notiz, Budget-Hinweis, Mitgliedschaften und Rollen); Ausschlüsse (Paare, die nicht gegenseitig gelost werden sollen) und Auslosungsergebnisse (wer wen beschenkt); persönliche Wünsche, die du freiwillig auf deiner Wunschliste einträgst (Titel, optional Link, Notiz, ungefährer Preis, optional Zuordnung zu einer deiner Gruppen, Status). Beim Aufruf und bei der Anmeldung fallen zudem technisch bedingt IP-Adressen an (Anfrage-Protokolle bei Vercel und Supabase); für die Ratenbegrenzung bei Upstash werden IP-Adressen und pseudonymisierte Kennungen (Hash der E-Mail-Adresse, Konto-ID) verarbeitet. Der Nachname wird ausschließlich zur eindeutigen Anzeige innerhalb einer Gruppe erhoben und, falls nicht zur Unterscheidung nötig, anderen Teilnehmenden nicht angezeigt."
     },
     "purpose": {
       "heading": "Zweck der Verarbeitung",
-      "body": "Die Daten werden verwendet, um Benutzerkonten zu verwalten, Gruppenmitgliedschaften zuzuordnen, die Wichtel-Auslosung durchzuführen und Benachrichtigungs-E-Mails zu versenden."
+      "body": "Die Daten werden verwendet, um Benutzerkonten zu verwalten, Gruppenmitgliedschaften zuzuordnen, die Wichtel-Auslosung durchzuführen und Benachrichtigungs-E-Mails zu versenden sowie deine persönliche Wunschliste zu führen."
     },
     "legalBasis": {
       "heading": "Rechtsgrundlagen",
@@ -634,7 +635,7 @@
     },
     "retentionActive": {
       "heading": "Speicherdauer",
-      "body": "Wir löschen Daten automatisch (täglicher Löschlauf). Gruppen samt Mitgliedschaften, Namensangaben, Auslosungsergebnissen, Ausschlüssen und Einladungslink werden sechs Monate nach dem 31. Dezember des Gruppenjahres gelöscht, eine Gruppe aus 2026 also am 1. Juli 2027. Du kannst eine Gruppe und dein Konto jederzeit früher löschen. Konten, bei denen sich drei Jahre lang niemand angemeldet und keiner Gruppe beigetreten ist, werden gelöscht; 30 Tage vorher erhältst du dazu eine Warnung per E-Mail an deine hinterlegte Adresse, die du durch eine Anmeldung abwenden kannst. Einträge im Protokoll der Administrationsaktionen (enthält die E-Mail-Adresse des Betreibers sowie Kennungen betroffener Konten und Gruppen) werden nach zwölf Monaten gelöscht. Bis dahin werden Daten gespeichert, solange das Konto bzw. die Gruppe besteht."
+      "body": "Wir löschen Daten automatisch (täglicher Löschlauf). Gruppen samt Mitgliedschaften, Namensangaben, Auslosungsergebnissen, Ausschlüssen und Einladungslink werden sechs Monate nach dem 31. Dezember des Gruppenjahres gelöscht, eine Gruppe aus 2026 also am 1. Juli 2027. Du kannst eine Gruppe und dein Konto jederzeit früher löschen. Konten, bei denen sich drei Jahre lang niemand angemeldet und keiner Gruppe beigetreten ist, werden gelöscht; 30 Tage vorher erhältst du dazu eine Warnung per E-Mail an deine hinterlegte Adresse, die du durch eine Anmeldung abwenden kannst. Einträge im Protokoll der Administrationsaktionen (enthält die E-Mail-Adresse des Betreibers sowie Kennungen betroffener Konten und Gruppen) werden nach zwölf Monaten gelöscht. Wünsche gehören zu deinem Konto, nicht zu einer Gruppe: Sie bleiben beim Löschen einer Gruppe erhalten (dann ohne Gruppenzuordnung) und werden zusammen mit deinem Konto gelöscht; du kannst sie jederzeit einzeln löschen. Bis dahin werden Daten gespeichert, solange das Konto bzw. die Gruppe besteht."
     },
     "retentionBackups": {
       "heading": "Sicherungskopien",
@@ -642,7 +643,7 @@
     },
     "retentionAfterDeletion": {
       "heading": "Speicherung nach Kontolöschung",
-      "body": "Wird ein Konto gelöscht, wird der Nutzer-Account entfernt. In Gruppen, die noch nicht ausgelost wurden, wird die Mitgliedschaft vollständig gelöscht; die Gruppen-Admins werden benachrichtigt. In bereits ausgelosten Gruppen wird die Zuordnung zum Nutzerkonto aufgehoben. Der zum Zeitpunkt der Löschung gespeicherte Name bleibt dort jedoch innerhalb bestehender Gruppen und Auslosungsergebnisse sichtbar, damit die Wichtel-Historie für andere Gruppenmitglieder nachvollziehbar bleibt, bis die Gruppe nach der oben genannten Frist gelöscht wird. Eine erneute Zuordnung zu einem Nutzerkonto findet nach der Löschung nicht mehr statt."
+      "body": "Wird ein Konto gelöscht, wird der Nutzer-Account entfernt. In Gruppen, die noch nicht ausgelost wurden, wird die Mitgliedschaft vollständig gelöscht; die Gruppen-Admins werden benachrichtigt. In bereits ausgelosten Gruppen wird die Zuordnung zum Nutzerkonto aufgehoben. Der zum Zeitpunkt der Löschung gespeicherte Name bleibt dort jedoch innerhalb bestehender Gruppen und Auslosungsergebnisse sichtbar, damit die Wichtel-Historie für andere Gruppenmitglieder nachvollziehbar bleibt, bis die Gruppe nach der oben genannten Frist gelöscht wird. Eine erneute Zuordnung zu einem Nutzerkonto findet nach der Löschung nicht mehr statt. Deine Wünsche werden bei der Kontolöschung vollständig gelöscht."
     },
     "cookies": {
       "heading": "Cookies",
@@ -677,7 +678,7 @@
     },
     "memberVisibility": {
       "heading": "Sichtbarkeit innerhalb einer Gruppe",
-      "body": "Mitglieder einer Gruppe sehen den Gruppennamen, die Notiz und den Budget-Hinweis, die Teilnehmerliste (Vornamen, bei Bedarf mit abgekürztem Nachnamen) sowie ihre eigene Zuweisung. In den E-Mails zur Auslosung, zur Löschung einer Gruppe und zur Entfernung aus einer Gruppe werden Name und E-Mail-Adresse des Gruppen-Admins angegeben, damit Teilnehmende ihn bei Rückfragen kontaktieren können. Gruppen-Admins sehen die vollständigen Namen der Teilnehmenden. Notiz und Budget-Hinweis sind nur für Mitglieder sichtbar; wer lediglich den Einladungslink kennt (auch nach der Auslosung), sieht nur den Gruppennamen."
+      "body": "Mitglieder einer Gruppe sehen den Gruppennamen, die Notiz und den Budget-Hinweis, die Teilnehmerliste (Vornamen, bei Bedarf mit abgekürztem Nachnamen) sowie ihre eigene Zuweisung. In den E-Mails zur Auslosung, zur Löschung einer Gruppe und zur Entfernung aus einer Gruppe werden Name und E-Mail-Adresse des Gruppen-Admins angegeben, damit Teilnehmende ihn bei Rückfragen kontaktieren können. Gruppen-Admins sehen die vollständigen Namen der Teilnehmenden. Notiz und Budget-Hinweis sind nur für Mitglieder sichtbar; wer lediglich den Einladungslink kennt (auch nach der Auslosung), sieht nur den Gruppennamen. Deine Wunschliste ist ausschließlich für dich sichtbar; auch Mitglieder deiner Gruppen und Gruppen-Admins können sie nicht einsehen."
     },
     "auditLog": {
       "heading": "Protokoll von Administrationsvorgängen",
@@ -699,5 +700,79 @@
     "inviteTitle": "Anmeldung bestätigen",
     "inviteMessage": "Mit Klick auf den Button meldest du dich in diesem Browser an und kannst danach der Gruppe beitreten.",
     "inviteSubmit": "Anmeldung bestätigen"
+  },
+  "wishes": {
+    "title": "Meine Wünsche",
+    "intro": "Deine persönliche Wunschliste – unabhängig von Gruppen und Jahren. Nur du siehst sie.",
+    "backToGroups": "Zurück zu den Gruppen",
+    "quickAdd": {
+      "label": "Neuer Wunsch",
+      "placeholder": "Was wünschst du dir?",
+      "submit": "Hinzufügen",
+      "submitting": "Wird hinzugefügt…"
+    },
+    "views": {
+      "label": "Ansicht",
+      "open": "Offen",
+      "archive": "Archiv"
+    },
+    "filter": {
+      "label": "Wünsche filtern",
+      "search": "Suche",
+      "searchPlaceholder": "Titel oder Notiz",
+      "group": "Gruppe",
+      "groupAll": "Alle Gruppen",
+      "groupNone": "Ohne Gruppe",
+      "apply": "Filtern",
+      "reset": "Zurücksetzen"
+    },
+    "list": {
+      "emptyOpen": "Noch keine offenen Wünsche. Füge oben deinen ersten Wunsch hinzu.",
+      "emptyArchive": "Noch nichts im Archiv. Erhaltene Wünsche landen hier.",
+      "emptyFiltered": "Keine Wünsche passen zu deinem Filter."
+    },
+    "item": {
+      "price": "ca. {price}",
+      "receivedOn": "Erhalten am {date}",
+      "link": "Link: {host}",
+      "linkNewTab": "(öffnet in neuem Tab)",
+      "edit": "Bearbeiten",
+      "markReceived": "Als erhalten markieren",
+      "reopen": "Wieder öffnen",
+      "delete": "Löschen"
+    },
+    "form": {
+      "hint": "Ergänze Details zu deinem Wunsch – alles außer dem Titel ist optional.",
+      "title": "Titel",
+      "url": "Link",
+      "urlPlaceholder": "https://…",
+      "price": "Ungefährer Preis in €",
+      "pricePlaceholder": "z. B. 25",
+      "note": "Notiz",
+      "group": "Gruppe",
+      "groupNone": "Keiner Gruppe zugeordnet",
+      "optional": "(optional)",
+      "save": "Speichern",
+      "saving": "Wird gespeichert…",
+      "cancel": "Abbrechen"
+    },
+    "delete": {
+      "confirmTitle": "Wunsch wirklich löschen?",
+      "confirmMessage": "Dieser Wunsch wird endgültig gelöscht.",
+      "confirm": "Endgültig löschen",
+      "deleting": "Wird gelöscht…",
+      "cancel": "Abbrechen"
+    },
+    "errors": {
+      "required": "Bitte gib einen Titel ein.",
+      "tooLong": "Maximal {max} Zeichen erlaubt.",
+      "invalidUrl": "Bitte gib einen gültigen Link mit http:// oder https:// an.",
+      "invalidPrice": "Bitte gib den Preis als Zahl an, z. B. 25 oder 24,90 (maximal 99999,99).",
+      "invalidGroup": "Diese Gruppe ist nicht verfügbar.",
+      "limitReached": "Du hast die maximale Anzahl von {max} Wünschen erreicht.",
+      "profileRequired": "Bitte lege zuerst unter „Konto“ deinen Namen an.",
+      "notFound": "Dieser Wunsch existiert nicht mehr.",
+      "generic": "Das hat leider nicht geklappt. Bitte versuche es erneut."
+    }
   }
 }

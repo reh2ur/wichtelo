@@ -2,7 +2,7 @@
 
 import { Menu } from "@base-ui/react/menu";
 import Link from "next/link";
-import { SignOutIcon, UserIcon } from "@phosphor-icons/react/ssr";
+import { GiftIcon, SignOutIcon, UserIcon } from "@phosphor-icons/react/ssr";
 import { signOut } from "@/lib/auth/sign-out";
 import { createIntlContext } from "@/lib/create-intl-context";
 
@@ -46,6 +46,13 @@ export function NavUserMenuClient({
             >
               <UserIcon className="size-4" />
               {t("account")}
+            </Menu.Item>
+            <Menu.Item
+              render={<Link href="/wuensche" />}
+              className="data-[highlighted]:bg-muted flex min-h-11 items-center gap-2 rounded-md px-2.5 py-1.5 outline-none md:min-h-8"
+            >
+              <GiftIcon className="size-4" />
+              {t("wishes")}
             </Menu.Item>
             <Menu.Item
               onClick={async () => {
