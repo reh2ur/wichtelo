@@ -405,7 +405,11 @@ export type Database = {
         }[];
       };
       demote_admin: {
-        Args: { p_group_id: string; p_membership_id: string };
+        Args: {
+          p_caller_membership_id: string;
+          p_group_id: string;
+          p_membership_id: string;
+        };
         Returns: string;
       };
       ghost_drawn_memberships: {
