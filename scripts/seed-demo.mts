@@ -195,7 +195,11 @@ async function seed(admin: Admin) {
     );
 
     check(
-      await admin.from("invite_tokens").insert({ group_id: group.id }),
+      await admin
+        .from("invite_tokens")
+        // Explicit token like the app (createToken): the column default uses
+        // encode(…, 'base64url'), unsupported on older Postgres.
+        .insert({ group_id: group.id, token: crypto.randomUUID() }),
       `invite token ${g.slug}`,
     );
 
