@@ -3,6 +3,7 @@ import { Suspense } from "react";
 import { notFound, redirect } from "next/navigation";
 import { getTranslations, getMessages } from "next-intl/server";
 import { resolveToken, type ResolvedInvite } from "@/lib/invite";
+import { inviteMetadata } from "@/lib/invite/metadata";
 import { createClient } from "@/lib/supabase/server";
 import { parseEmailLinkError } from "@/lib/auth/email-link";
 import {
@@ -18,9 +19,20 @@ import { InviteSkeleton } from "./invite-skeleton";
 // starts — this check is defense in depth for direct hits that bypass that.
 export const instant = false;
 
-export async function generateMetadata(): Promise<Metadata> {
+export async function generateMetadata(
+  props: PageProps<"/einladung/[token]">,
+): Promise<Metadata> {
   const t = await getTranslations("invite");
-  return { title: t("accept.title") };
+  const { token } = await props.params;
+  let group = null;
+  try {
+    group = (await resolveToken(token))?.group ?? null;
+  } catch {
+    // Lookup error → generic preview; the page itself surfaces the error.
+  }
+  return inviteMetadata(group, (key, values) =>
+    t(key as never, values as never),
+  );
 }
 
 export default async function EinladungPage(

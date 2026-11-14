@@ -355,6 +355,14 @@
     "groupLabel": "Gruppe",
     "tagline": "Du wurdest zu einer Wichtelrunde eingeladen.",
     "explanation": "Beim Wichteln zieht jeder eine Person und schenkt ihr ein Geschenk. Die Auslosung erfolgt zufällig.",
+    "meta": {
+      "title": "Tritt der Gruppe „{groupName}“ bei",
+      "description": "Du wurdest zu einer Wichtelrunde eingeladen. Tippe, um mitzumachen.",
+      "drawnTitle": "Wichtelrunde „{groupName}“",
+      "drawnDescription": "Die Auslosung hat bereits stattgefunden.",
+      "genericTitle": "Einladung zur Wichtelrunde",
+      "genericDescription": "Wichtelo organisiert deine Wichtelrunde."
+    },
     "notFoundTitle": "Ungültiger Einladungslink",
     "notFoundMessage": "Dieser Einladungslink ist ungültig oder abgelaufen.",
     "deadEnd": {
