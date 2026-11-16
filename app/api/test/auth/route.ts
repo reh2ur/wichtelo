@@ -8,11 +8,27 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Not found" }, { status: 404 });
   }
 
-  const { email } = await request.json();
+  const { email, withProfile } = await request.json();
   const admin = createAdminClient();
 
   // Ensure user exists — idempotent, ignores "already exists" error.
-  await admin.auth.admin.createUser({ email, email_confirm: true });
+  const { data: created } = await admin.auth.admin.createUser({
+    email,
+    email_confirm: true,
+  });
+
+  // Optional: profile row (FK target for account-level data such as wishes).
+  if (withProfile && created?.user) {
+    const { error: profileError } = await admin
+      .from("profiles")
+      .upsert({ id: created.user.id, first_name: "E2E", last_name: "Wunsch" });
+    if (profileError) {
+      return NextResponse.json(
+        { error: profileError.message },
+        { status: 500 },
+      );
+    }
+  }
 
   // Generate a fresh OTP without sending any email.
   const { data: linkData, error: linkError } =

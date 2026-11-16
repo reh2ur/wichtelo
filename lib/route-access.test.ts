@@ -6,6 +6,7 @@ describe("isProtectedRoute", () => {
     expect(isProtectedRoute("/gruppen")).toBe(true);
     expect(isProtectedRoute("/gruppen/abc-123")).toBe(true);
     expect(isProtectedRoute("/konto")).toBe(true);
+    expect(isProtectedRoute("/wuensche")).toBe(true);
     expect(isProtectedRoute("/admin")).toBe(true);
   });
 

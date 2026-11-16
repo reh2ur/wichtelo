@@ -31,9 +31,9 @@ vi.mock("@supabase/ssr", () => ({
 
 import { proxy } from "./proxy";
 
-function req(path: string) {
+function req(path: string, ua = "Mozilla/5.0 (Macintosh) Safari/605.1.15") {
   return new NextRequest(`http://localhost${path}`, {
-    headers: { "user-agent": "Mozilla/5.0 (Macintosh) Safari/605.1.15" },
+    headers: { "user-agent": ua },
   });
 }
 
@@ -54,5 +54,37 @@ describe("proxy: invite token 404", () => {
     const res = await proxy(req("/einladung/good-token"));
     expect(res).toBeInstanceOf(NextResponse);
     expect(res.headers.get("x-middleware-rewrite")).toBeNull();
+  });
+});
+
+describe("proxy: link-preview crawlers", () => {
+  const wa = "WhatsApp/2.23.20.0 A";
+  const fb =
+    "facebookexternalhit/1.1 (+http://www.facebook.com/externalhit_uatext.php)";
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    inviteTokenExists.mockResolvedValue(true);
+  });
+
+  it.each([wa, fb, "Slackbot-LinkExpanding 1.0", "Twitterbot/1.0"])(
+    "allows %s on the invite page and OG image",
+    async (ua) => {
+      expect((await proxy(req("/einladung/tok", ua))).status).not.toBe(403);
+      expect((await proxy(req("/opengraph-image-1a2b3c", ua))).status).not.toBe(
+        403,
+      );
+    },
+  );
+
+  it("still blocks bots elsewhere", async () => {
+    expect((await proxy(req("/gruppen", fb))).status).toBe(403);
+    expect((await proxy(req("/einladung/tok/magiclink", fb))).status).toBe(403);
+  });
+
+  it("bad token + crawler: real 404 rewrite", async () => {
+    inviteTokenExists.mockResolvedValue(false);
+    const res = await proxy(req("/einladung/bad", wa));
+    expect(res.headers.get("x-middleware-rewrite")).toContain("/__not_found__");
   });
 });

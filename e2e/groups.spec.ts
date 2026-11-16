@@ -331,4 +331,27 @@ test.describe("groups overview sections", () => {
       authedPage.locator("details a", { hasText: `Altgruppe ${pastYear}` }),
     ).toHaveCount(0);
   });
+  test("active group row shows its year below the name", async ({
+    authedPage,
+  }) => {
+    const year = new Date().getFullYear();
+    const name = `Jahr Anzeige ${Date.now()}`;
+
+    await authedPage.goto("/gruppen/neu");
+    await expect(authedPage.locator("#name")).toBeVisible();
+    if (await authedPage.locator("#firstName").isVisible()) {
+      await authedPage.locator("#firstName").fill("Test");
+      await authedPage.locator("#lastName").fill("Admin");
+    }
+    await authedPage.locator("#name").fill(name);
+    await authedPage.locator('button[type="submit"]').click();
+    await expect(authedPage).toHaveURL(/\/gruppen\/(?!neu$)[^/]+$/, {
+      timeout: 10_000,
+    });
+
+    await authedPage.goto("/gruppen");
+    const row = authedPage.locator("a", { hasText: name }).first();
+    await expect(row).toBeVisible();
+    await expect(row.getByTestId("group-year")).toHaveText(String(year));
+  });
 });

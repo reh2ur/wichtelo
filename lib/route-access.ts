@@ -30,6 +30,7 @@ const ROUTE_ACCESS = {
   "/gruppen": "protected",
   "/impressum": "public",
   "/konto": "protected",
+  "/wuensche": "protected",
 } as const satisfies Record<TopLevelRoute, Access>;
 
 // API and auth callback routes manage their own access — excluded from page-level guard.

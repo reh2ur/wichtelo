@@ -7,6 +7,7 @@ import { cn } from "@/lib/utils";
 import { SpeedInsights } from "@vercel/speed-insights/next";
 import { Nav } from "@/components/nav";
 import { Snow } from "@/components/snow";
+import { getSiteUrl } from "@/lib/site-url";
 import { Footer } from "@/components/footer";
 
 const manrope = Manrope({
@@ -19,6 +20,15 @@ export async function generateMetadata(): Promise<Metadata> {
   return {
     title: { default: t("name"), template: `%s – ${t("name")}` },
     description: t("description"),
+    metadataBase: new URL(await getSiteUrl()),
+    openGraph: {
+      siteName: t("name"),
+      locale: "de_DE",
+      type: "website",
+      title: t("name"),
+      description: t("description"),
+    },
+    twitter: { card: "summary_large_image" },
   };
 }
 
