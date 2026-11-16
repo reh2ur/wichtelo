@@ -245,23 +245,26 @@ function AddExclusionForm({
     if (state.status === "success") router.refresh();
   }, [state.status, router]);
 
+  // Pair added → clear both picks (render-phase reset, once per action result).
+  // Else stale picks form an excluded pair and keep filtering the other select.
+  const [seenState, setSeenState] = useState(state);
+  if (state !== seenState) {
+    setSeenState(state);
+    if (state.status === "success") {
+      setMemberA("");
+      setMemberB("");
+    }
+  }
+
   const memberIds = members.map((m) => m.id);
-  // Picks forming an already-excluded pair (list refreshed after add) count as
-  // empty — else stale state keeps filtering the other select's options.
-  const pairOk =
-    memberA && memberB
-      ? availablePartnerIds(memberIds, exclusions, memberA).includes(memberB)
-      : true;
-  const selA = pairOk ? memberA : "";
-  const selB = pairOk ? memberB : "";
-  const optionsA = new Set(availablePartnerIds(memberIds, exclusions, selB));
-  const optionsB = new Set(availablePartnerIds(memberIds, exclusions, selA));
+  const optionsA = new Set(availablePartnerIds(memberIds, exclusions, memberB));
+  const optionsB = new Set(availablePartnerIds(memberIds, exclusions, memberA));
   const pairable = new Set(pairableIds(memberIds, exclusions));
   const noPairs = pairable.size === 0;
   // Stale pick (other select changed / exclusion list refreshed) → treat as
   // empty so the select shows the placeholder and nothing invalid submits.
-  const valueA = optionsA.has(selA) && pairable.has(selA) ? selA : "";
-  const valueB = optionsB.has(selB) && pairable.has(selB) ? selB : "";
+  const valueA = optionsA.has(memberA) && pairable.has(memberA) ? memberA : "";
+  const valueB = optionsB.has(memberB) && pairable.has(memberB) ? memberB : "";
 
   const errorMsg =
     state.status === "error"
