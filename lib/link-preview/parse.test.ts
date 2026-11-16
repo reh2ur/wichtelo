@@ -159,4 +159,19 @@ describe("parseLinkPreview", () => {
       "Notizbuch A5",
     );
   });
+
+  it("cuts shop suffixes at the first spaced separator", () => {
+    const t = (c: string) =>
+      parseLinkPreview(`<meta property="og:title" content="${c}">`, BASE).title;
+    expect(t("Herren Langarmshirt in Navy - €59.99 - DILLING")).toBe(
+      "Herren Langarmshirt in Navy",
+    );
+    expect(t("NuPhy Air75 V2 | Low-Profile Keyboard")).toBe("NuPhy Air75 V2");
+    expect(t("Lampe – Shop")).toBe("Lampe");
+    // Unspaced hyphens stay; too-short heads fall back to the full title.
+    expect(t("T-Shirt Merino")).toBe("T-Shirt Merino");
+    expect(t("A | Sehr langer Produktname")).toBe(
+      "A | Sehr langer Produktname",
+    );
+  });
 });

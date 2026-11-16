@@ -50,3 +50,14 @@ const CHALLENGE_TITLE =
 export function isChallengeTitle(title: string): boolean {
   return CHALLENGE_TITLE.test(title.trim());
 }
+
+const TITLE_SEPARATOR = /\s+[-–—|·•]\s+/;
+
+/**
+ * Shop titles read "Product - €59.99 - Shop" or "Product | Shop": keep the
+ * part before the first spaced separator (unless that leaves almost nothing).
+ */
+export function trimTitleSuffix(title: string): string {
+  const first = title.split(TITLE_SEPARATOR)[0].trim();
+  return first.length >= 3 ? first : title;
+}

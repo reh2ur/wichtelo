@@ -1,5 +1,6 @@
 import {
   isChallengeTitle,
+  trimTitleSuffix,
   sanitizeImageUrl,
   sanitizeLinkTitle,
 } from "./sanitize";
@@ -183,7 +184,8 @@ export function parseLinkPreview(html: string, baseUrl: string): LinkPreview {
     sanitizeLinkTitle(meta.get("twitter:title")) ??
     sanitizeLinkTitle(titleTag(html));
   // Bot walls answer 200 with a generic title; prefilling it would be wrong.
-  const title = rawTitle && !isChallengeTitle(rawTitle) ? rawTitle : null;
+  const title =
+    rawTitle && !isChallengeTitle(rawTitle) ? trimTitleSuffix(rawTitle) : null;
 
   let imageUrl = sanitizeImageUrl(meta.get("og:image:secure_url"), baseUrl);
   imageUrl ??= sanitizeImageUrl(meta.get("og:image"), baseUrl);
