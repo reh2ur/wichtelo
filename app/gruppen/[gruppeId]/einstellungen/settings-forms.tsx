@@ -478,11 +478,13 @@ function DemoteConfirmPanel({
     state.status === "error"
       ? state.error === "last_admin"
         ? t("errors.lastAdminDemote")
-        : state.error === "not_admin"
-          ? t("errors.notAdmin")
-          : state.error === "group_not_found"
-            ? t("errors.groupNotFound")
-            : t("errors.generic")
+        : state.error === "self_demote"
+          ? t("errors.selfDemote")
+          : state.error === "not_admin"
+            ? t("errors.notAdmin")
+            : state.error === "group_not_found"
+              ? t("errors.groupNotFound")
+              : t("errors.generic")
       : null;
 
   return (
@@ -808,16 +810,18 @@ export function ParticipantsSection({
               </div>
               <div className="flex shrink-0 items-center gap-2">
                 {m.role === "admin" ? (
-                  <Button
-                    id={`demote-${m.id}`}
-                    type="button"
-                    variant="outline"
-                    size="xs"
-                    className="whitespace-nowrap"
-                    onClick={() => setDemotingId(m.id)}
-                  >
-                    {t("participants.demote")}
-                  </Button>
+                  m.id !== currentMembershipId && (
+                    <Button
+                      id={`demote-${m.id}`}
+                      type="button"
+                      variant="outline"
+                      size="xs"
+                      className="whitespace-nowrap"
+                      onClick={() => setDemotingId(m.id)}
+                    >
+                      {t("participants.demote")}
+                    </Button>
+                  )
                 ) : m.profile_id ? (
                   <Button
                     id={`promote-${m.id}`}
