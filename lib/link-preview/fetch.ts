@@ -61,7 +61,7 @@ const FETCH_DEFAULTS = {
 // Shops serve Open Graph tags to the WhatsApp link-preview crawler but show bot
 // walls to unknown clients. We identify as that crawler (same job: build a
 // link preview), which reaches e.g. Amazon; IP-checking shops still refuse us.
-const USER_AGENT = "WhatsApp/2.23.20.0 A"; WichteloLinkPreview/1.0)";
+const USER_AGENT = "WhatsApp/2.23.20.0 A";
 
 const defaultResolve: Resolver = async (hostname) =>
   lookup(hostname, { all: true, verbatim: true });
