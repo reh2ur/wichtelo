@@ -1,6 +1,7 @@
 "use server";
 
 import { updateTag } from "next/cache";
+import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
@@ -8,6 +9,14 @@ import { logger } from "@/lib/logger";
 import { wishesTag } from "@/lib/cache-tags";
 import { parseWishInput, WISH_LIMITS } from "@/lib/wishes/schema";
 import { ARCHIVE_PARAM } from "@/lib/wishes/filter";
+import { checkRateLimit, linkPreviewLimiter } from "@/lib/rate-limit";
+import { isTestBackdoorEnabled } from "@/lib/test-backdoor";
+import { loadLinkPreview } from "@/lib/link-preview";
+import {
+  sanitizeImageUrl,
+  sanitizeLinkBrand,
+  sanitizeLinkTitle,
+} from "@/lib/link-preview/sanitize";
 
 export type WishError =
   | "required"
@@ -188,6 +197,16 @@ export async function updateWish(
 
   const { supabase, userId } = await requireUserId();
   const { title, url, note, priceEstimate, groupId } = parsed.value;
+  // Link metadata comes from the client (prefill result) → re-sanitised, and
+  // dropped when there is no link (DB CHECK wishes_link_meta_needs_url).
+  const linkTitle = url ? sanitizeLinkTitle(str(formData, "linkTitle")) : null;
+  const linkImageUrl = url
+    ? sanitizeImageUrl(str(formData, "linkImageUrl"))
+    : null;
+  const linkBrand = url ? sanitizeLinkBrand(str(formData, "linkBrand")) : null;
+  const linkIconUrl = url
+    ? sanitizeImageUrl(str(formData, "linkIconUrl"))
+    : null;
   const { data, error } = await supabase
     .from("wishes")
     .update({
@@ -196,6 +215,10 @@ export async function updateWish(
       note,
       price_estimate: priceEstimate,
       group_id: groupId,
+      link_title: linkTitle,
+      link_image_url: linkImageUrl,
+      link_brand: linkBrand,
+      link_icon_url: linkIconUrl,
     })
     .eq("id", id)
     .eq("profile_id", userId)
@@ -216,6 +239,49 @@ export async function updateWish(
 
   updateTag(wishesTag(userId));
   redirect(view ? `/wuensche?status=${view}` : "/wuensche");
+}
+
+export type LinkPreviewState =
+  | {
+      status: "ok";
+      title: string | null;
+      imageUrl: string | null;
+      price: string | null;
+      brand: string | null;
+      iconUrl: string | null;
+    }
+  | { status: "none" }
+  | { status: "rate_limited" };
+
+/**
+ * Live prefill while the user enters a link (paste/blur): fetches the page
+ * once, server-side (SSRF-hardened, see lib/link-preview), and returns title /
+ * image URL / price. Best effort: every failure is `none`, never an error —
+ * the manual fields stay the source of truth. Login required, rate limited
+ * per account. The URL is never logged (may carry tokens in its query).
+ */
+export async function fetchLinkPreview(
+  rawUrl: string,
+): Promise<LinkPreviewState> {
+  const { userId } = await requireUserId();
+
+  const parsed = parseWishInput({ title: "x", url: String(rawUrl ?? "") });
+  if (!parsed.ok || !parsed.value.url) return { status: "none" };
+
+  if (!(await checkRateLimit(linkPreviewLimiter, userId))) {
+    return { status: "rate_limited" };
+  }
+
+  const result = await loadLinkPreview(parsed.value.url, {
+    allowInternal: isTestBackdoorEnabled(await headers()),
+  });
+  if (!result.ok) {
+    logger
+      .withMetadata({ reason: result.reason })
+      .info("wish.link_preview_none");
+    return { status: "none" };
+  }
+  return { status: "ok", ...result.preview };
 }
 
 /** Archive (`to = received`) or reopen (`to = open`) a wish. */

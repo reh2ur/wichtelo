@@ -198,6 +198,10 @@ describe("updateWish", () => {
       note: "Hardcover",
       price_estimate: 24.9,
       group_id: GROUP_ID,
+      link_title: null,
+      link_image_url: null,
+      link_brand: null,
+      link_icon_url: null,
     });
     expect(calls.eq).toEqual([
       ["id", WISH_ID],
@@ -224,7 +228,61 @@ describe("updateWish", () => {
       note: null,
       price_estimate: null,
       group_id: null,
+      link_title: null,
+      link_image_url: null,
+      link_brand: null,
+      link_icon_url: null,
     });
+  });
+
+  it("stores sanitised link metadata, only next to a link", async () => {
+    const calls = setup({});
+    const meta = {
+      linkTitle: "  Kaffee\nmühle ",
+      linkImageUrl: "https://cdn.example/a.jpg",
+      linkBrand: " Shop\n Name ",
+      linkIconUrl: "https://cdn.example/f.png",
+    };
+    await expect(
+      updateWish(
+        IDLE_FORM,
+        fd({ id: WISH_ID, title: "T", url: "https://shop.example/x", ...meta }),
+      ),
+    ).rejects.toThrow("NEXT_REDIRECT");
+    expect(calls.update).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        link_title: "Kaffee mühle",
+        link_image_url: "https://cdn.example/a.jpg",
+        link_brand: "Shop Name",
+        link_icon_url: "https://cdn.example/f.png",
+      }),
+    );
+
+    await expect(
+      updateWish(IDLE_FORM, fd({ id: WISH_ID, title: "T", ...meta })),
+    ).rejects.toThrow("NEXT_REDIRECT");
+    expect(calls.update).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        link_title: null,
+        link_brand: null,
+        link_icon_url: null,
+      }),
+    );
+
+    await expect(
+      updateWish(
+        IDLE_FORM,
+        fd({
+          id: WISH_ID,
+          title: "T",
+          url: "https://shop.example/x",
+          linkImageUrl: "http://insecure.example/a.jpg",
+        }),
+      ),
+    ).rejects.toThrow("NEXT_REDIRECT");
+    expect(calls.update).toHaveBeenLastCalledWith(
+      expect.objectContaining({ link_image_url: null }),
+    );
   });
 
   it("not_found when no row matched (foreign or deleted wish)", async () => {

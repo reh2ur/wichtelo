@@ -110,6 +110,9 @@ export const assignmentLookupLimiter = makeLimiter(
   "1 h",
 );
 export const exclusionAddLimiter = makeLimiter("exclusion-add", 30, "1 h");
+// Wish link preview: each call makes the server fetch a third-party URL, so cap
+// per user (keyed by account id, never the URL) to bound outbound traffic (#210).
+export const linkPreviewLimiter = makeLimiter("link-preview", 30, "1 h");
 export const accountDeletionLimiter = makeLimiter(
   "account-deletion",
   1,
