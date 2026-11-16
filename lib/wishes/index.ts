@@ -7,6 +7,8 @@ export interface Wish {
   title: string;
   url: string | null;
   note: string | null;
+  link_title: string | null;
+  link_image_url: string | null;
   price_estimate: number | null;
   group_id: string | null;
   status: "open" | "received";
@@ -27,7 +29,7 @@ export async function loadWishes(
   const { data, error } = await supabase
     .from("wishes")
     .select(
-      "id, title, url, note, price_estimate, group_id, status, received_at, created_at",
+      "id, title, url, note, link_title, link_image_url, price_estimate, group_id, status, received_at, created_at",
     )
     .eq("profile_id", userId)
     .order("created_at", { ascending: false });

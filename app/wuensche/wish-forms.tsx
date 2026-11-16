@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, useState } from "react";
+import { useActionState, useRef, useState } from "react";
 import type { Route } from "next";
 import Link from "next/link";
 import { Button, buttonVariants } from "@/components/ui/button";
@@ -14,6 +14,7 @@ import { CONFIRM_TITLE_CLASS, useConfirmFocus } from "@/lib/use-confirm-focus";
 import { WISH_LIMITS } from "@/lib/wishes/schema";
 import {
   addWish,
+  fetchLinkPreview,
   updateWish,
   setWishStatus,
   deleteWish,
@@ -96,6 +97,34 @@ export function QuickAddForm() {
   );
 }
 
+/**
+ * Hotlinked third-party image (#210): never `next/image` (needs a host
+ * allowlist), `no-referrer` so the shop learns nothing about this app, fixed
+ * aspect box, decorative (`alt=""`). A broken image just disappears.
+ */
+export function WishImage({ src }: { src: string }) {
+  const [failed, setFailed] = useState(false);
+  if (failed) return null;
+  return (
+    <div
+      className="bg-muted aspect-[4/3] w-24 shrink-0 overflow-hidden rounded-md"
+      data-testid="wish-image"
+    >
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img
+        src={src}
+        alt=""
+        loading="lazy"
+        referrerPolicy="no-referrer"
+        onError={() => setFailed(true)}
+        className="h-full w-full object-cover"
+      />
+    </div>
+  );
+}
+
+type PreviewHint = "loading" | "filled" | "none" | "limited" | null;
+
 export interface GroupOption {
   id: string;
   label: string;
@@ -113,6 +142,8 @@ export function WishEditForm({
     title: string;
     url: string | null;
     note: string | null;
+    linkTitle: string | null;
+    linkImageUrl: string | null;
     priceInput: string;
     groupId: string | null;
   };
@@ -133,6 +164,45 @@ export function WishEditForm({
   const errorId = `wish-error-${wish.id}`;
   const id = (name: string) => `${name}-${wish.id}`;
 
+  // Controlled so the link preview can prefill them (everything stays editable).
+  const [title, setTitle] = useState(v?.title ?? wish.title);
+  const [price, setPrice] = useState(v?.price ?? wish.priceInput);
+  const [meta, setMeta] = useState({
+    title: wish.linkTitle,
+    imageUrl: wish.linkImageUrl,
+  });
+  const [hint, setHint] = useState<PreviewHint>(null);
+  const titleTouched = useRef(false);
+  const lastUrl = useRef((v?.url ?? wish.url ?? "").trim());
+
+  async function previewFor(raw: string) {
+    const value = raw.trim();
+    if (value === lastUrl.current) return;
+    lastUrl.current = value;
+    setMeta({ title: null, imageUrl: null });
+    if (!value) {
+      setHint(null);
+      return;
+    }
+    setHint("loading");
+    let result: Awaited<ReturnType<typeof fetchLinkPreview>>;
+    try {
+      result = await fetchLinkPreview(value);
+    } catch {
+      result = { status: "none" };
+    }
+    if (lastUrl.current !== value) return; // URL changed meanwhile
+    if (result.status !== "ok") {
+      setHint(result.status === "rate_limited" ? "limited" : "none");
+      return;
+    }
+    setMeta({ title: result.title, imageUrl: result.imageUrl });
+    if (result.title && !titleTouched.current) setTitle(result.title);
+    if (result.price)
+      setPrice((p) => (p.trim() ? p : result.price!.replace(".", ",")));
+    setHint("filled");
+  }
+
   return (
     <form
       action={action}
@@ -142,6 +212,8 @@ export function WishEditForm({
     >
       <input type="hidden" name="id" value={wish.id} />
       {view && <input type="hidden" name="view" value={view} />}
+      <input type="hidden" name="linkTitle" value={meta.title ?? ""} />
+      <input type="hidden" name="linkImageUrl" value={meta.imageUrl ?? ""} />
       <p className="text-muted-foreground text-sm">{t("form.hint")}</p>
 
       <div className="space-y-1.5">
@@ -152,7 +224,11 @@ export function WishEditForm({
           id={id("title")}
           name="title"
           type="text"
-          defaultValue={v?.title ?? wish.title}
+          value={title}
+          onChange={(e) => {
+            titleTouched.current = true;
+            setTitle(e.target.value);
+          }}
           maxLength={WISH_LIMITS.title}
           required
           {...fieldProps(state, "title", errorId)}
@@ -174,8 +250,26 @@ export function WishEditForm({
           autoComplete="off"
           placeholder={t("form.urlPlaceholder")}
           defaultValue={v?.url ?? wish.url ?? ""}
+          onBlur={(e) => void previewFor(e.currentTarget.value)}
+          onPaste={(e) => {
+            const el = e.currentTarget;
+            setTimeout(() => void previewFor(el.value), 0);
+          }}
+          aria-describedby={`${id("url-hint")}`}
           {...fieldProps(state, "url", errorId)}
         />
+        <p
+          id={id("url-hint")}
+          role="status"
+          className="text-muted-foreground text-sm"
+          data-testid="link-preview-hint"
+        >
+          {hint === "loading" && t("preview.loading")}
+          {hint === "filled" && t("preview.filled")}
+          {hint === "none" && t("preview.none")}
+          {hint === "limited" && t("preview.limited")}
+        </p>
+        {meta.imageUrl && <WishImage key={meta.imageUrl} src={meta.imageUrl} />}
       </div>
 
       <div className="space-y-1.5">
@@ -191,7 +285,8 @@ export function WishEditForm({
           type="text"
           inputMode="decimal"
           placeholder={t("form.pricePlaceholder")}
-          defaultValue={v?.price ?? wish.priceInput}
+          value={price}
+          onChange={(e) => setPrice(e.target.value)}
           {...fieldProps(state, "price", errorId)}
         />
       </div>

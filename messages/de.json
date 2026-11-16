@@ -609,7 +609,7 @@
     },
     "dataCollected": {
       "heading": "Erhobene Daten",
-      "body": "Bei der Registrierung und Nutzung der Plattform werden folgende personenbezogene Daten verarbeitet: E-Mail-Adresse, Vorname und Nachname; Gruppeninhalte (Gruppenname, Jahr, Notiz, Budget-Hinweis, Mitgliedschaften und Rollen); Ausschlüsse (Paare, die nicht gegenseitig gelost werden sollen) und Auslosungsergebnisse (wer wen beschenkt); persönliche Wünsche, die du freiwillig auf deiner Wunschliste einträgst (Titel, optional Link, Notiz, ungefährer Preis, optional Zuordnung zu einer deiner Gruppen, Status). Beim Aufruf und bei der Anmeldung fallen zudem technisch bedingt IP-Adressen an (Anfrage-Protokolle bei Vercel und Supabase); für die Ratenbegrenzung bei Upstash werden IP-Adressen und pseudonymisierte Kennungen (Hash der E-Mail-Adresse, Konto-ID) verarbeitet. Der Nachname wird ausschließlich zur eindeutigen Anzeige innerhalb einer Gruppe erhoben und, falls nicht zur Unterscheidung nötig, anderen Teilnehmenden nicht angezeigt."
+      "body": "Bei der Registrierung und Nutzung der Plattform werden folgende personenbezogene Daten verarbeitet: E-Mail-Adresse, Vorname und Nachname; Gruppeninhalte (Gruppenname, Jahr, Notiz, Budget-Hinweis, Mitgliedschaften und Rollen); Ausschlüsse (Paare, die nicht gegenseitig gelost werden sollen) und Auslosungsergebnisse (wer wen beschenkt); persönliche Wünsche, die du freiwillig auf deiner Wunschliste einträgst (Titel, optional Link samt automatisch vorgeschlagenem Titel und Bild-Adresse, Notiz, ungefährer Preis, optional Zuordnung zu einer deiner Gruppen, Status). Beim Aufruf und bei der Anmeldung fallen zudem technisch bedingt IP-Adressen an (Anfrage-Protokolle bei Vercel und Supabase); für die Ratenbegrenzung bei Upstash werden IP-Adressen und pseudonymisierte Kennungen (Hash der E-Mail-Adresse, Konto-ID) verarbeitet. Der Nachname wird ausschließlich zur eindeutigen Anzeige innerhalb einer Gruppe erhoben und, falls nicht zur Unterscheidung nötig, anderen Teilnehmenden nicht angezeigt."
     },
     "purpose": {
       "heading": "Zweck der Verarbeitung",
@@ -688,6 +688,10 @@
       "heading": "Sichtbarkeit innerhalb einer Gruppe",
       "body": "Mitglieder einer Gruppe sehen den Gruppennamen, die Notiz und den Budget-Hinweis, die Teilnehmerliste (Vornamen, bei Bedarf mit abgekürztem Nachnamen) sowie ihre eigene Zuweisung. In den E-Mails zur Auslosung, zur Löschung einer Gruppe und zur Entfernung aus einer Gruppe werden Name und E-Mail-Adresse des Gruppen-Admins angegeben, damit Teilnehmende ihn bei Rückfragen kontaktieren können. Gruppen-Admins sehen die vollständigen Namen der Teilnehmenden. Notiz und Budget-Hinweis sind nur für Mitglieder sichtbar; wer lediglich den Einladungslink kennt (auch nach der Auslosung), sieht nur den Gruppennamen. Deine Wunschliste ist ausschließlich für dich sichtbar; auch Mitglieder deiner Gruppen und Gruppen-Admins können sie nicht einsehen."
     },
+    "linkPreview": {
+      "heading": "Link-Vorschau bei Wünschen",
+      "body": "Gibst du bei einem Wunsch einen Link ein, ruft unser Server die angegebene Internetadresse einmalig selbst ab, um Titel, ungefähren Preis und ein Vorschaubild vorzuschlagen. Dabei erhält die Zielseite die IP-Adresse unseres Servers (nicht deine) sowie die aufgerufene Adresse. Gespeichert werden nur der gefundene Titel und die Internetadresse des Bildes, nicht das Bild selbst. Das Vorschaubild wird beim Anzeigen deiner Wunschliste direkt von der Seite des jeweiligen Shops geladen; der Shop sieht dabei deine IP-Adresse, erhält aber keine Angabe zu unserer Seite (kein Referrer). Der Abruf findet nur statt, wenn du einen Link eingibst, und ist pro Konto mengenmäßig begrenzt (Art. 6 Abs. 1 lit. b und f DSGVO). Du kannst alle Angaben jederzeit ändern oder den Link entfernen."
+    },
     "auditLog": {
       "heading": "Protokoll von Administrationsvorgängen",
       "body": "Sperrt oder löscht der Plattformbetreiber ein Konto, wird dies in einem Protokoll der Administrationsvorgänge festgehalten. Dieses Protokoll enthält u. a. die E-Mail-Adresse des betroffenen Kontos. Es wird derzeit nicht automatisch gelöscht, sodass die E-Mail-Adresse auch nach einer Kontolöschung dort erhalten bleiben kann. Rechtsgrundlage ist Art. 6 Abs. 1 lit. f DSGVO (Nachweis- und Missbrauchsprävention). Du kannst die Löschung entsprechender Einträge über die unter „Kontakt“ genannte Adresse verlangen."
@@ -743,6 +747,7 @@
       "price": "ca. {price}",
       "receivedOn": "Erhalten am {date}",
       "link": "Link: {host}",
+      "linkTitled": "{title} ({host})",
       "linkNewTab": "(öffnet in neuem Tab)",
       "edit": "Bearbeiten",
       "markReceived": "Als erhalten markieren",
@@ -763,6 +768,12 @@
       "save": "Speichern",
       "saving": "Wird gespeichert…",
       "cancel": "Abbrechen"
+    },
+    "preview": {
+      "loading": "Link wird geprüft…",
+      "filled": "Titel, Preis und Bild wurden aus dem Link übernommen, soweit gefunden. Du kannst alles ändern.",
+      "none": "Zu diesem Link konnten keine Angaben geladen werden. Trage die Daten einfach selbst ein.",
+      "limited": "Zu viele Link-Abfragen in kurzer Zeit. Bitte trage die Daten selbst ein oder versuche es später erneut."
     },
     "delete": {
       "confirmTitle": "Wunsch wirklich löschen?",

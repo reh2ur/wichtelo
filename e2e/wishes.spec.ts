@@ -299,3 +299,79 @@ test.describe("wishes: validation + isolation", () => {
     }
   });
 });
+
+test.describe("wishes: link preview", () => {
+  // The app's own server fetches this URL, so it needs an absolute URL plus
+  // the E2E secret (as ?s=) and, on protected previews, the Vercel bypass.
+  function stubUrl(mode: string) {
+    const q = new URLSearchParams({ mode });
+    if (process.env.E2E_TEST_SECRET) q.set("s", process.env.E2E_TEST_SECRET);
+    if (process.env.VERCEL_AUTOMATION_BYPASS_SECRET) {
+      q.set(
+        "x-vercel-protection-bypass",
+        process.env.VERCEL_AUTOMATION_BYPASS_SECRET,
+      );
+    }
+    return `${BASE_URL}/api/test/link-stub?${q}`;
+  }
+
+  test("prefills title + price, persists metadata, image failure degrades; non-HTML / SSRF targets give a neutral hint", async ({
+    browser,
+  }) => {
+    const { ctx } = await createFreshAuthedContext(browser, {
+      withProfile: true,
+    });
+    const page = await ctx.newPage();
+    try {
+      await page.goto("/wuensche");
+      await quickAdd(page, "Kaffeemühle");
+      const form = page.getByTestId("wish-edit-form");
+      const hint = form.getByTestId("link-preview-hint");
+
+      // Golden path: OG + JSON-LD from the stub page.
+      await form.getByLabel("Link").fill(stubUrl("product"));
+      await form.getByLabel("Link").blur();
+      await expect(hint).toContainText("übernommen");
+      await expect(form.getByLabel("Titel")).toHaveValue("Stub Kaffeemühle");
+      await expect(form.getByLabel("Ungefährer Preis in €")).toHaveValue(
+        "39,90",
+      );
+      // Fields stay editable.
+      await form.getByLabel("Ungefährer Preis in €").fill("35");
+      // Unreachable image host → no broken image left in the DOM.
+      await expect(form.getByTestId("wish-image")).toHaveCount(0);
+
+      await saveDetails(page);
+      const item = page.getByTestId("wish-item").first();
+      await expect(item).toContainText("Stub Kaffeemühle");
+      await expect(item).toContainText("ca. 35,00");
+      await expect(item.getByTestId("wish-image")).toHaveCount(0);
+
+      // Reopen: persisted link title shown as link text.
+      await page.reload();
+      await expect(page.getByTestId("wish-item").first()).toContainText(
+        "Stub Kaffeemühle",
+      );
+
+      // Failure modes never block saving: neutral hint, manual entry.
+      await page.getByRole("link", { name: "Bearbeiten" }).click();
+      const edit = page.getByTestId("wish-edit-form");
+      const editHint = edit.getByTestId("link-preview-hint");
+      for (const url of [
+        stubUrl("json"),
+        "http://169.254.169.254/latest/meta-data/",
+        "http://127.0.0.1:22/",
+      ]) {
+        await edit.getByLabel("Link").fill(url);
+        await edit.getByLabel("Link").blur();
+        await expect(editHint).toContainText("keine Angaben");
+      }
+      await edit.getByLabel("Link").fill("example.com/manuell");
+      await saveDetails(page);
+      await expect(page).toHaveURL(/\/wuensche$/);
+      await expect(page.getByTestId("wish-item").first()).toBeVisible();
+    } finally {
+      await ctx.close();
+    }
+  });
+});
