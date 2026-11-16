@@ -106,6 +106,13 @@
     "revealAssignment": "Anzeigen",
     "hideAssignment": "Verbergen",
     "hiddenAssignment": "Name verborgen",
+    "recipientWishes": {
+      "title": "Wünsche",
+      "empty": "Noch keine Wünsche eingetragen.",
+      "price": "ca. {price}",
+      "link": "Link: {host}",
+      "linkNewTab": "(öffnet in neuem Tab)"
+    },
     "redrawnNote": "Neu ausgelost: Diese Zuteilung ersetzt die vorherige. Bereits gekaufte Geschenke passen eventuell nicht mehr.",
     "assignmentPending": "Deine Zuteilung entfällt gerade, weil ein Teilnehmer entfernt wurde. Der Admin lost neu aus, du bekommst dann eine E-Mail.",
     "waitingForDraw": "Die Auslosung steht noch aus. Du bekommst eine E-Mail, sobald ausgelost wurde.",
@@ -743,7 +750,7 @@
     },
     "memberVisibility": {
       "heading": "Sichtbarkeit innerhalb einer Gruppe",
-      "body": "Mitglieder einer Gruppe sehen den Gruppennamen, die Notiz und den Budget-Hinweis, die Teilnehmerliste (Vornamen, bei Bedarf mit abgekürztem Nachnamen) sowie ihre eigene Zuweisung. In den E-Mails zur Auslosung, zur Löschung einer Gruppe und zur Entfernung aus einer Gruppe werden Name und E-Mail-Adresse des Gruppen-Admins angegeben, damit Teilnehmende ihn bei Rückfragen kontaktieren können. Gruppen-Admins sehen die vollständigen Namen der Teilnehmenden. Notiz und Budget-Hinweis sind nur für Mitglieder sichtbar; wer lediglich den Einladungslink kennt (auch nach der Auslosung), sieht nur den Gruppennamen. Deine Wunschliste ist ausschließlich für dich sichtbar; auch Mitglieder deiner Gruppen und Gruppen-Admins können sie nicht einsehen."
+      "body": "Offene Wünsche, die du einer Gruppe zuordnest, sieht nach der Auslosung ausschließlich die Person, die dich in dieser Gruppe beschenkt (nicht andere Mitglieder und nicht der Gruppen-Admin); nicht zugeordnete oder bereits erhaltene Wünsche sieht nur du. Mitglieder einer Gruppe sehen den Gruppennamen, die Notiz und den Budget-Hinweis, die Teilnehmerliste (Vornamen, bei Bedarf mit abgekürztem Nachnamen) sowie ihre eigene Zuweisung. In den E-Mails zur Auslosung, zur Löschung einer Gruppe und zur Entfernung aus einer Gruppe werden Name und E-Mail-Adresse des Gruppen-Admins angegeben, damit Teilnehmende ihn bei Rückfragen kontaktieren können. Gruppen-Admins sehen die vollständigen Namen der Teilnehmenden. Notiz und Budget-Hinweis sind nur für Mitglieder sichtbar; wer lediglich den Einladungslink kennt (auch nach der Auslosung), sieht nur den Gruppennamen. Deine Wunschliste ist ausschließlich für dich sichtbar; auch Mitglieder deiner Gruppen und Gruppen-Admins können sie nicht einsehen."
     },
     "auditLog": {
       "heading": "Protokoll von Administrationsvorgängen",
@@ -768,7 +775,8 @@
   },
   "wishes": {
     "title": "Meine Wünsche",
-    "intro": "Deine persönliche Wunschliste – unabhängig von Gruppen und Jahren. Nur du siehst sie.",
+    "intro": "Deine persönliche Wunschliste – unabhängig von Gruppen und Jahren.",
+    "giverHint": "Offene Wünsche, die du einer Gruppe zuordnest, sieht nach der Auslosung die Person, die dich beschenkt. Alle anderen Wünsche sieht nur du.",
     "backToGroups": "Zurück zu den Gruppen",
     "quickAdd": {
       "label": "Neuer Wunsch",

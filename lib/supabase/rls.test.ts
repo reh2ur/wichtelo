@@ -1376,3 +1376,241 @@ describe.skipIf(!hasSupabase)("RLS: wishes", () => {
     }
   });
 });
+
+/**
+ * Wishes (#209): the giver of the wish owner reads the owner's OPEN wishes of
+ * that group — nobody else (other members, admins, owner's giver of another
+ * group). Access follows the current assignment row: re-draw, removed member
+ * and ghosted receiver all cut it off.
+ */
+describe.skipIf(!hasSupabase)("RLS: wishes visible to giver (#209)", () => {
+  const admin = hasSupabase ? createAdminClient() : (null as never);
+  const stamp = Date.now();
+  const emails = {
+    giver: `rls-wg-giver-${stamp}@example.com`,
+    owner: `rls-wg-owner-${stamp}@example.com`,
+    third: `rls-wg-third-${stamp}@example.com`,
+    admin: `rls-wg-admin-${stamp}@example.com`,
+  };
+  const ids = {} as Record<keyof typeof emails, string>;
+  const mem = {} as Record<keyof typeof emails, string>;
+  const clients = {} as Record<
+    keyof typeof emails,
+    ReturnType<typeof anonClient>
+  >;
+  let groupId: string;
+  let otherGroupId: string;
+  let openWishId: string;
+
+  function anonClient() {
+    return createSupabaseClient<Database>(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY!,
+    );
+  }
+
+  async function mkUser(email: string, first: string) {
+    const { data, error } = await admin.auth.admin.createUser({
+      email,
+      email_confirm: true,
+    });
+    if (error) throw error;
+    const { error: pe } = await admin
+      .from("profiles")
+      .insert({ id: data.user.id, first_name: first, last_name: "WG" });
+    if (pe) throw pe;
+    return data.user.id;
+  }
+
+  async function mkGroup(suffix: string) {
+    const { data, error } = await admin
+      .from("groups")
+      .insert({
+        name: `WG ${suffix}`,
+        slug: `wg-rls-${suffix}-${stamp}`,
+        year: 2099,
+        created_by: ids.admin,
+      })
+      .select("id")
+      .single();
+    if (error) throw error;
+    return data.id as string;
+  }
+
+  async function mkMember(
+    gid: string,
+    key: keyof typeof emails,
+    role: "participant" | "admin" = "participant",
+  ) {
+    const { data, error } = await admin
+      .from("memberships")
+      .insert({
+        group_id: gid,
+        profile_id: ids[key],
+        name_snapshot: key,
+        role,
+      })
+      .select("id")
+      .single();
+    if (error) throw error;
+    return data.id as string;
+  }
+
+  /** Overwrite the group's assignments with giver → receiver pairs. */
+  async function setRing(pairs: [keyof typeof emails, keyof typeof emails][]) {
+    await admin.from("assignments").delete().eq("group_id", groupId);
+    const { error } = await admin.from("assignments").insert(
+      pairs.map(([g, r]) => ({
+        group_id: groupId,
+        giver_id: mem[g],
+        receiver_id: mem[r],
+      })),
+    );
+    if (error) throw error;
+  }
+
+  async function titlesSeenBy(key: keyof typeof emails) {
+    const { data, error } = await clients[key]
+      .from("wishes")
+      .select("title")
+      .neq("profile_id", ids[key]);
+    expect(error).toBeNull();
+    return (data ?? []).map((w) => w.title).sort();
+  }
+
+  beforeAll(async () => {
+    for (const k of Object.keys(emails) as (keyof typeof emails)[]) {
+      ids[k] = await mkUser(emails[k], k);
+    }
+    groupId = await mkGroup("main");
+    otherGroupId = await mkGroup("other");
+    mem.admin = await mkMember(groupId, "admin", "admin");
+    mem.giver = await mkMember(groupId, "giver");
+    mem.owner = await mkMember(groupId, "owner");
+    mem.third = await mkMember(groupId, "third");
+    await mkMember(otherGroupId, "owner");
+    await mkMember(otherGroupId, "third");
+    // giver → owner → third → giver
+    await setRing([
+      ["giver", "owner"],
+      ["owner", "third"],
+      ["third", "giver"],
+    ]);
+
+    const wish = (extra: Record<string, unknown>) => ({
+      profile_id: ids.owner,
+      ...extra,
+    });
+    const rows = [
+      wish({ title: "open-in-group", group_id: groupId }),
+      wish({
+        title: "archived-in-group",
+        group_id: groupId,
+        status: "received",
+        received_at: new Date().toISOString(),
+      }),
+      wish({ title: "unassigned" }),
+      wish({ title: "other-group", group_id: otherGroupId }),
+    ];
+    const { data, error } = await admin
+      .from("wishes")
+      .insert(rows as never)
+      .select("id, title");
+    if (error) throw error;
+    openWishId = data!.find((w) => w.title === "open-in-group")!.id;
+
+    for (const k of Object.keys(emails) as (keyof typeof emails)[]) {
+      clients[k] = anonClient();
+      expect((await signInAs(clients[k], emails[k])).error).toBeNull();
+    }
+  });
+
+  afterAll(async () => {
+    await admin.from("groups").delete().in("id", [groupId, otherGroupId]);
+    for (const k of Object.keys(emails) as (keyof typeof emails)[]) {
+      await admin.auth.admin.deleteUser(ids[k]);
+    }
+  });
+
+  it("giver sees only the recipient's open wish of this group", async () => {
+    expect(await titlesSeenBy("giver")).toEqual(["open-in-group"]);
+  });
+
+  it("owner's own wishes stay visible to the owner", async () => {
+    const { data } = await clients.owner.from("wishes").select("title");
+    expect(data).toHaveLength(4);
+  });
+
+  it("other members, group admin and the owner's giver elsewhere see nothing", async () => {
+    expect(await titlesSeenBy("third")).toEqual([]);
+    expect(await titlesSeenBy("admin")).toEqual([]);
+  });
+
+  it("giver cannot modify the wish", async () => {
+    const upd = await clients.giver
+      .from("wishes")
+      .update({ title: "hijacked" })
+      .eq("id", openWishId)
+      .select("id");
+    expect(upd.data ?? []).toHaveLength(0);
+    const del = await clients.giver
+      .from("wishes")
+      .delete()
+      .eq("id", openWishId)
+      .select("id");
+    expect(del.data ?? []).toHaveLength(0);
+  });
+
+  it("archiving the wish hides it from the giver", async () => {
+    await admin
+      .from("wishes")
+      .update({ status: "received", received_at: new Date().toISOString() })
+      .eq("id", openWishId);
+    expect(await titlesSeenBy("giver")).toEqual([]);
+    await admin
+      .from("wishes")
+      .update({ status: "open", received_at: null })
+      .eq("id", openWishId);
+    expect(await titlesSeenBy("giver")).toEqual(["open-in-group"]);
+  });
+
+  it("re-draw: access follows the new assignment", async () => {
+    // giver → third, third → owner, owner → giver
+    await setRing([
+      ["giver", "third"],
+      ["third", "owner"],
+      ["owner", "giver"],
+    ]);
+    expect(await titlesSeenBy("giver")).toEqual([]);
+    expect(await titlesSeenBy("third")).toEqual(["open-in-group"]);
+  });
+
+  it("removed member: cascaded assignment row cuts access", async () => {
+    await setRing([["giver", "owner"]]);
+    expect(await titlesSeenBy("giver")).toEqual(["open-in-group"]);
+    await admin.from("assignments").delete().eq("giver_id", mem.giver);
+    expect(await titlesSeenBy("giver")).toEqual([]);
+  });
+
+  it("ghosted receiver (profile_id null) matches no wish owner", async () => {
+    await setRing([["giver", "owner"]]);
+    expect(await titlesSeenBy("giver")).toEqual(["open-in-group"]);
+    await admin
+      .from("memberships")
+      .update({ profile_id: null })
+      .eq("id", mem.owner);
+    expect(await titlesSeenBy("giver")).toEqual([]);
+  });
+
+  it("anon key still cannot call the helper or read wishes", async () => {
+    const anon = anonClient();
+    const { error } = await anon.rpc(
+      "is_giver_of_wish" as never,
+      {
+        p_group_id: groupId,
+        p_owner_id: ids.owner,
+      } as never,
+    );
+    expect(error).not.toBeNull();
+  });
+});
