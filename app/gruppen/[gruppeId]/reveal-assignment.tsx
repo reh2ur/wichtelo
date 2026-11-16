@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { EyeIcon, EyeSlashIcon } from "@phosphor-icons/react/ssr";
 import { Button } from "@/components/ui/button";
 
@@ -16,12 +16,15 @@ export function RevealAssignment({
   hiddenLabel,
   revealLabel,
   hideLabel,
+  children,
 }: {
   label: string;
   name: string;
   hiddenLabel: string;
   revealLabel: string;
   hideLabel: string;
+  /** Shown only while revealed, hides together with the name. */
+  children?: ReactNode;
 }) {
   const [revealed, setRevealed] = useState(false);
 
@@ -32,43 +35,46 @@ export function RevealAssignment({
   }, [revealed]);
 
   return (
-    <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-3">
-      <div className="min-w-0">
-        <p className="text-muted-foreground text-xs font-medium tracking-wide uppercase">
-          {label}
-        </p>
-        <p className="mt-1 text-xl font-bold break-words">
+    <div>
+      <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-3">
+        <div className="min-w-0">
+          <p className="text-muted-foreground text-xs font-medium tracking-wide uppercase">
+            {label}
+          </p>
+          <p className="mt-1 text-xl font-bold break-words">
+            {revealed ? (
+              <span data-testid="assignment-name">{name}</span>
+            ) : (
+              <>
+                <span
+                  aria-hidden="true"
+                  className="text-navy-soft tracking-[0.2em]"
+                  data-testid="assignment-masked"
+                >
+                  {MASK}
+                </span>
+                <span className="sr-only">{hiddenLabel}</span>
+              </>
+            )}
+          </p>
+        </div>
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          aria-expanded={revealed}
+          data-testid="assignment-toggle"
+          onClick={() => setRevealed((r) => !r)}
+        >
           {revealed ? (
-            <span data-testid="assignment-name">{name}</span>
+            <EyeSlashIcon size={16} aria-hidden="true" />
           ) : (
-            <>
-              <span
-                aria-hidden="true"
-                className="text-navy-soft tracking-[0.2em]"
-                data-testid="assignment-masked"
-              >
-                {MASK}
-              </span>
-              <span className="sr-only">{hiddenLabel}</span>
-            </>
+            <EyeIcon size={16} aria-hidden="true" />
           )}
-        </p>
+          {revealed ? hideLabel : revealLabel}
+        </Button>
       </div>
-      <Button
-        type="button"
-        variant="outline"
-        size="sm"
-        aria-expanded={revealed}
-        data-testid="assignment-toggle"
-        onClick={() => setRevealed((r) => !r)}
-      >
-        {revealed ? (
-          <EyeSlashIcon size={16} aria-hidden="true" />
-        ) : (
-          <EyeIcon size={16} aria-hidden="true" />
-        )}
-        {revealed ? hideLabel : revealLabel}
-      </Button>
+      {revealed && children}
     </div>
   );
 }
