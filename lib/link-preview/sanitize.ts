@@ -6,6 +6,7 @@
  */
 const LINK_PREVIEW_LIMITS = {
   title: 300,
+  brand: 100,
   imageUrl: 2000,
 } as const;
 
@@ -18,6 +19,15 @@ export function sanitizeLinkTitle(raw: unknown): string | null {
   if (!text) return null;
   return text.length > LINK_PREVIEW_LIMITS.title
     ? text.slice(0, LINK_PREVIEW_LIMITS.title).trimEnd()
+    : text;
+}
+
+/** Brand / site name: plain text, max 100 chars. */
+export function sanitizeLinkBrand(raw: unknown): string | null {
+  const text = sanitizeLinkTitle(raw);
+  if (!text) return null;
+  return text.length > LINK_PREVIEW_LIMITS.brand
+    ? text.slice(0, LINK_PREVIEW_LIMITS.brand).trimEnd()
     : text;
 }
 

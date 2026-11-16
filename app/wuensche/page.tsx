@@ -27,6 +27,7 @@ import { LoadingRegion } from "@/components/ui/loading-region";
 import {
   QuickAddForm,
   WishEditForm,
+  WishIcon,
   WishImage,
   WishRowActions,
   WishesProvider,
@@ -257,6 +258,8 @@ async function WuenscheContent({
                       note: wish.note,
                       linkTitle: wish.link_title,
                       linkImageUrl: wish.link_image_url,
+                      linkBrand: wish.link_brand,
+                      linkIconUrl: wish.link_icon_url,
                       priceInput: priceInput(wish.price_estimate),
                       groupId: groupLabel.has(wish.group_id ?? "")
                         ? wish.group_id

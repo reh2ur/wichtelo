@@ -61,6 +61,8 @@ describe("fetchLinkPreview", () => {
         title: "T",
         imageUrl: "https://c.example/i.jpg",
         price: "9.90",
+        brand: "Shop",
+        iconUrl: null,
       },
     });
     const out = await fetchLinkPreview("shop.example/x");
@@ -69,6 +71,8 @@ describe("fetchLinkPreview", () => {
       title: "T",
       imageUrl: "https://c.example/i.jpg",
       price: "9.90",
+      brand: "Shop",
+      iconUrl: null,
     });
     expect(loadLinkPreview).toHaveBeenCalledWith("https://shop.example/x", {
       allowInternal: false,

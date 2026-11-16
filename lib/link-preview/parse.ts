@@ -1,5 +1,6 @@
 import {
   isChallengeTitle,
+  sanitizeLinkBrand,
   trimTitleSuffix,
   sanitizeImageUrl,
   sanitizeLinkTitle,
@@ -10,6 +11,10 @@ export interface LinkPreview {
   imageUrl: string | null;
   /** Price in the form the wish form accepts ("24.90"), euro only. */
   price: string | null;
+  /** `og:site_name` or JSON-LD `Product.brand`. */
+  brand: string | null;
+  /** https favicon / touch icon (hotlinked, never stored by us). */
+  iconUrl: string | null;
 }
 
 const PRICE_MAX = 99999.99;
@@ -160,6 +165,51 @@ function jsonLdImage(image: unknown): unknown {
   return isObject(image) ? (image.url ?? image.contentUrl) : null;
 }
 
+/** "€ 59,99", "59.99 €", "EUR 1.299,00" → "59.99" etc. First match wins. */
+const TEXT_PRICE = [
+  /(?:€|EUR)\s?(\d{1,3}(?:[.,]\d{3})*(?:[.,]\d{1,2})?|\d+(?:[.,]\d{1,2})?)/i,
+  /(\d{1,3}(?:[.,]\d{3})*(?:[.,]\d{1,2})?|\d+(?:[.,]\d{1,2})?)\s?(?:€|EUR\b)/i,
+];
+
+function priceFromText(...texts: (string | null | undefined)[]): string | null {
+  for (const text of texts) {
+    if (!text) continue;
+    for (const re of TEXT_PRICE) {
+      const m = re.exec(text);
+      const price = m ? normalizePrice(m[1]) : null;
+      if (price) return price;
+    }
+  }
+  return null;
+}
+
+function brandName(brand: unknown): unknown {
+  return isObject(brand) ? brand.name : brand;
+}
+
+/** Best icon from `<link rel="…icon…">`; falls back to `/favicon.ico` of the page origin. */
+function findIcon(html: string, baseUrl: string): string | null {
+  let best: { href: string; rank: number } | null = null;
+  for (const m of html.matchAll(/<link\b([^>]*)>/gi)) {
+    const attrs = parseAttributes(m[1]);
+    const rel = attrs.rel?.toLowerCase().split(/\s+/) ?? [];
+    if (
+      !attrs.href ||
+      !rel.some((r) => r === "icon" || r === "apple-touch-icon")
+    )
+      continue;
+    const rank = rel.includes("apple-touch-icon") ? 2 : 1;
+    if (!best || rank > best.rank) best = { href: attrs.href, rank };
+  }
+  const found = best && sanitizeImageUrl(best.href, baseUrl);
+  if (found) return found;
+  try {
+    return sanitizeImageUrl(new URL("/favicon.ico", baseUrl).href);
+  } catch {
+    return null;
+  }
+}
+
 function titleTag(html: string): string | null {
   const m = /<title\b[^>]*>([\s\S]*?)<\/title\s*>/i.exec(html);
   return m ? decodeEntities(m[1]) : null;
@@ -206,5 +256,18 @@ export function parseLinkPreview(html: string, baseUrl: string): LinkPreview {
     price ??= offerPrice(p.offers);
   }
 
-  return { title, imageUrl, price };
+  // Fallback: a price written into title / description ("… - €59.99 - Shop").
+  price ??= priceFromText(
+    meta.get("og:title"),
+    titleTag(html),
+    meta.get("og:description"),
+    meta.get("description"),
+  );
+
+  let brand = sanitizeLinkBrand(meta.get("og:site_name"));
+  for (const p of products) {
+    brand ??= sanitizeLinkBrand(brandName(p.brand));
+  }
+
+  return { title, imageUrl, price, brand, iconUrl: findIcon(html, baseUrl) };
 }

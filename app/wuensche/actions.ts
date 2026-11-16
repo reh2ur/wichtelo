@@ -14,6 +14,7 @@ import { isTestBackdoorEnabled } from "@/lib/test-backdoor";
 import { loadLinkPreview } from "@/lib/link-preview";
 import {
   sanitizeImageUrl,
+  sanitizeLinkBrand,
   sanitizeLinkTitle,
 } from "@/lib/link-preview/sanitize";
 
@@ -202,6 +203,10 @@ export async function updateWish(
   const linkImageUrl = url
     ? sanitizeImageUrl(str(formData, "linkImageUrl"))
     : null;
+  const linkBrand = url ? sanitizeLinkBrand(str(formData, "linkBrand")) : null;
+  const linkIconUrl = url
+    ? sanitizeImageUrl(str(formData, "linkIconUrl"))
+    : null;
   const { data, error } = await supabase
     .from("wishes")
     .update({
@@ -212,6 +217,8 @@ export async function updateWish(
       group_id: groupId,
       link_title: linkTitle,
       link_image_url: linkImageUrl,
+      link_brand: linkBrand,
+      link_icon_url: linkIconUrl,
     })
     .eq("id", id)
     .eq("profile_id", userId)
@@ -240,6 +247,8 @@ export type LinkPreviewState =
       title: string | null;
       imageUrl: string | null;
       price: string | null;
+      brand: string | null;
+      iconUrl: string | null;
     }
   | { status: "none" }
   | { status: "rate_limited" };

@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { parseLinkPreview } from "./parse";
 
 const BASE = "https://shop.example/produkt/1";
+const ICON = "https://shop.example/favicon.ico";
 
 const og = `<html><head>
 <title>Fallback Title</title>
@@ -20,6 +21,8 @@ describe("parseLinkPreview", () => {
       title: "Wollsocken & Co",
       imageUrl: "https://shop.example/img/socks.jpg",
       price: "24.90",
+      brand: null,
+      iconUrl: ICON,
     });
   });
 
@@ -35,6 +38,8 @@ describe("parseLinkPreview", () => {
       title: "Kaffeemühle",
       imageUrl: "https://cdn.example/a.jpg",
       price: "39.99",
+      brand: null,
+      iconUrl: ICON,
     });
   });
 
@@ -47,6 +52,8 @@ describe("parseLinkPreview", () => {
       title: "OG Titel",
       imageUrl: "https://cdn.example/og.jpg",
       price: "12",
+      brand: null,
+      iconUrl: ICON,
     });
   });
 
@@ -70,6 +77,8 @@ describe("parseLinkPreview", () => {
       title: "Lampe",
       imageUrl: "https://cdn.example/l.png",
       price: "1299.90",
+      brand: null,
+      iconUrl: ICON,
     });
   });
 
@@ -106,11 +115,15 @@ describe("parseLinkPreview", () => {
       title: null,
       imageUrl: null,
       price: null,
+      brand: null,
+      iconUrl: ICON,
     });
     expect(parseLinkPreview("", BASE)).toEqual({
       title: null,
       imageUrl: null,
       price: null,
+      brand: null,
+      iconUrl: ICON,
     });
   });
 
@@ -173,5 +186,45 @@ describe("parseLinkPreview", () => {
     expect(t("A | Sehr langer Produktname")).toBe(
       "A | Sehr langer Produktname",
     );
+  });
+
+  it("reads brand (og:site_name, else JSON-LD brand) and the page icon", () => {
+    const html =
+      `<meta property="og:site_name" content="DILLING">` +
+      `<link rel="icon" href="/i16.png"><link rel="apple-touch-icon" href="/touch.png">`;
+    expect(parseLinkPreview(html, BASE)).toMatchObject({
+      brand: "DILLING",
+      iconUrl: "https://shop.example/touch.png",
+    });
+    const ldHtml = ld({
+      "@type": "Product",
+      name: "X",
+      brand: { name: "NuPhy" },
+    });
+    expect(parseLinkPreview(ldHtml, BASE).brand).toBe("NuPhy");
+    expect(
+      parseLinkPreview(
+        `<link rel="shortcut icon" href="http://x.example/a.ico">`,
+        BASE,
+      ).iconUrl,
+    ).toBe(ICON); // non-https icon rejected → origin favicon fallback
+  });
+
+  it("falls back to a price written into title / description", () => {
+    const p = (head: string) => parseLinkPreview(head, BASE).price;
+    expect(
+      p(`<meta property="og:title" content="Shirt - €59.99 - DILLING">`),
+    ).toBe("59.99");
+    expect(
+      p(`<meta name="description" content="Jetzt für 24,90 € sichern">`),
+    ).toBe("24.90");
+    expect(p(`<title>Kamera EUR 1.299,00</title>`)).toBe("1299.00");
+    expect(p(`<title>Kein Preis hier</title>`)).toBeNull();
+    // structured price still wins
+    expect(
+      p(
+        `<meta property="og:title" content="X - €1"><meta property="product:price:amount" content="5">`,
+      ),
+    ).toBe("5");
   });
 });

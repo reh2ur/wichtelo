@@ -123,6 +123,26 @@ export function WishImage({ src }: { src: string }) {
   );
 }
 
+/** Site icon (favicon) next to the link; hotlinked, hides itself on error. */
+export function WishIcon({ src }: { src: string }) {
+  const [failed, setFailed] = useState(false);
+  if (failed) return null;
+  return (
+    // eslint-disable-next-line @next/next/no-img-element
+    <img
+      src={src}
+      alt=""
+      width={16}
+      height={16}
+      loading="lazy"
+      referrerPolicy="no-referrer"
+      onError={() => setFailed(true)}
+      className="size-4 shrink-0 rounded-sm object-contain"
+      data-testid="wish-icon"
+    />
+  );
+}
+
 type PreviewHint = "loading" | "filled" | "none" | "limited" | null;
 
 export interface GroupOption {
@@ -144,6 +164,8 @@ export function WishEditForm({
     note: string | null;
     linkTitle: string | null;
     linkImageUrl: string | null;
+    linkBrand: string | null;
+    linkIconUrl: string | null;
     priceInput: string;
     groupId: string | null;
   };
@@ -170,6 +192,8 @@ export function WishEditForm({
   const [meta, setMeta] = useState({
     title: wish.linkTitle,
     imageUrl: wish.linkImageUrl,
+    brand: wish.linkBrand,
+    iconUrl: wish.linkIconUrl,
   });
   const [hint, setHint] = useState<PreviewHint>(null);
   const titleTouched = useRef(false);
@@ -179,7 +203,7 @@ export function WishEditForm({
     const value = raw.trim();
     if (value === lastUrl.current) return;
     lastUrl.current = value;
-    setMeta({ title: null, imageUrl: null });
+    setMeta({ title: null, imageUrl: null, brand: null, iconUrl: null });
     if (!value) {
       setHint(null);
       return;
@@ -196,7 +220,12 @@ export function WishEditForm({
       setHint(result.status === "rate_limited" ? "limited" : "none");
       return;
     }
-    setMeta({ title: result.title, imageUrl: result.imageUrl });
+    setMeta({
+      title: result.title,
+      imageUrl: result.imageUrl,
+      brand: result.brand,
+      iconUrl: result.iconUrl,
+    });
     if (result.title && !titleTouched.current) setTitle(result.title);
     if (result.price)
       setPrice((p) => (p.trim() ? p : result.price!.replace(".", ",")));
@@ -214,6 +243,8 @@ export function WishEditForm({
       {view && <input type="hidden" name="view" value={view} />}
       <input type="hidden" name="linkTitle" value={meta.title ?? ""} />
       <input type="hidden" name="linkImageUrl" value={meta.imageUrl ?? ""} />
+      <input type="hidden" name="linkBrand" value={meta.brand ?? ""} />
+      <input type="hidden" name="linkIconUrl" value={meta.iconUrl ?? ""} />
       <p className="text-muted-foreground text-sm">{t("form.hint")}</p>
 
       <div className="space-y-1.5">

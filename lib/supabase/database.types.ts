@@ -390,6 +390,8 @@ export type Database = {
           created_at: string;
           group_id: string | null;
           id: string;
+          link_brand: string | null;
+          link_icon_url: string | null;
           link_image_url: string | null;
           link_title: string | null;
           note: string | null;
@@ -405,6 +407,8 @@ export type Database = {
           created_at?: string;
           group_id?: string | null;
           id?: string;
+          link_brand?: string | null;
+          link_icon_url?: string | null;
           link_image_url?: string | null;
           link_title?: string | null;
           note?: string | null;
@@ -419,6 +423,8 @@ export type Database = {
           created_at?: string;
           group_id?: string | null;
           id?: string;
+          link_brand?: string | null;
+          link_icon_url?: string | null;
           link_image_url?: string | null;
           link_title?: string | null;
           note?: string | null;

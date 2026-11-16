@@ -200,6 +200,8 @@ describe("updateWish", () => {
       group_id: GROUP_ID,
       link_title: null,
       link_image_url: null,
+      link_brand: null,
+      link_icon_url: null,
     });
     expect(calls.eq).toEqual([
       ["id", WISH_ID],
@@ -228,6 +230,8 @@ describe("updateWish", () => {
       group_id: null,
       link_title: null,
       link_image_url: null,
+      link_brand: null,
+      link_icon_url: null,
     });
   });
 
@@ -236,6 +240,8 @@ describe("updateWish", () => {
     const meta = {
       linkTitle: "  Kaffee\nmühle ",
       linkImageUrl: "https://cdn.example/a.jpg",
+      linkBrand: " Shop\n Name ",
+      linkIconUrl: "https://cdn.example/f.png",
     };
     await expect(
       updateWish(
@@ -247,6 +253,8 @@ describe("updateWish", () => {
       expect.objectContaining({
         link_title: "Kaffee mühle",
         link_image_url: "https://cdn.example/a.jpg",
+        link_brand: "Shop Name",
+        link_icon_url: "https://cdn.example/f.png",
       }),
     );
 
@@ -254,7 +262,11 @@ describe("updateWish", () => {
       updateWish(IDLE_FORM, fd({ id: WISH_ID, title: "T", ...meta })),
     ).rejects.toThrow("NEXT_REDIRECT");
     expect(calls.update).toHaveBeenLastCalledWith(
-      expect.objectContaining({ link_title: null, link_image_url: null }),
+      expect.objectContaining({
+        link_title: null,
+        link_brand: null,
+        link_icon_url: null,
+      }),
     );
 
     await expect(
