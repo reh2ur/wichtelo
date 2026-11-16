@@ -183,7 +183,8 @@
       "unsolvableWarning": "Mit diesen Ausschlüssen ist keine Auslosung mehr möglich. Bitte entferne einen Ausschluss.",
       "tooComplexWarning": "Ob mit diesen Ausschlüssen eine Auslosung möglich ist, konnte nicht geprüft werden (zu komplex). Bitte entferne einzelne Ausschlüsse.",
       "personA": "Person A",
-      "personB": "Person B"
+      "personB": "Person B",
+      "allPairsExcluded": "Alle möglichen Paare sind bereits ausgeschlossen."
     },
     "participants": {
       "section": "Teilnehmer",

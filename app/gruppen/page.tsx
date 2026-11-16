@@ -1,8 +1,8 @@
 import type { Metadata } from "next";
 import { Suspense } from "react";
 import { getTranslations } from "next-intl/server";
-import { StateBadge } from "@/components/state-badge";
 import Link from "next/link";
+import { GroupListItem } from "./group-list-item";
 import { CaretRightIcon, GiftIcon, PlusIcon } from "@phosphor-icons/react/ssr";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
@@ -92,27 +92,17 @@ async function GruppenPageContent() {
             ) : (
               <ul className="space-y-2">
                 {active.map((m) => (
-                  <li key={m.group_id}>
-                    <Link
-                      href={`/gruppen/${m.groups.slug}`}
-                      className="border-border bg-card hover:bg-muted/50 flex items-center justify-between rounded-lg border px-4 py-3 transition-colors"
-                    >
-                      <div className="flex min-w-0 items-center gap-3">
-                        <span className="min-w-0 font-medium break-words">
-                          {m.groups.name}
-                        </span>
-                        {m.role === "admin" && (
-                          <span className="text-muted-foreground text-xs">
-                            {t("adminBadge")}
-                          </span>
-                        )}
-                      </div>
-                      <StateBadge
-                        state={m.groups.state}
-                        labels={stateBadgeTitles}
-                      />
-                    </Link>
-                  </li>
+                  <GroupListItem
+                    key={m.group_id}
+                    slug={m.groups.slug}
+                    name={m.groups.name}
+                    year={m.groups.year}
+                    state={m.groups.state}
+                    stateLabels={stateBadgeTitles}
+                    adminLabel={
+                      m.role === "admin" ? t("adminBadge") : undefined
+                    }
+                  />
                 ))}
               </ul>
             )}
@@ -129,34 +119,22 @@ async function GruppenPageContent() {
               </summary>
               <ul className="mt-3 space-y-2">
                 {past.map((m) => (
-                  <li key={m.group_id}>
-                    <Link
-                      href={`/gruppen/${m.groups.slug}`}
-                      className="border-border bg-card hover:bg-muted/50 flex items-center justify-between rounded-lg border px-4 py-3 transition-colors"
-                    >
-                      <div className="min-w-0 space-y-0.5">
-                        <div className="flex items-center gap-2">
-                          <span className="min-w-0 font-medium break-words">
-                            {m.groups.name}
-                          </span>
-                          <span className="text-muted-foreground text-xs">
-                            {m.groups.year}
-                          </span>
-                        </div>
-                        {receiversByGroup[m.group_id] && (
-                          <p className="text-muted-foreground text-sm">
-                            {t("gaveTo", {
-                              name: receiversByGroup[m.group_id],
-                            })}
-                          </p>
-                        )}
-                      </div>
-                      <StateBadge
-                        state={m.groups.state}
-                        labels={stateBadgeTitles}
-                      />
-                    </Link>
-                  </li>
+                  <GroupListItem
+                    key={m.group_id}
+                    slug={m.groups.slug}
+                    name={m.groups.name}
+                    year={m.groups.year}
+                    state={m.groups.state}
+                    stateLabels={stateBadgeTitles}
+                    adminLabel={
+                      m.role === "admin" ? t("adminBadge") : undefined
+                    }
+                    extraLine={
+                      receiversByGroup[m.group_id]
+                        ? t("gaveTo", { name: receiversByGroup[m.group_id] })
+                        : undefined
+                    }
+                  />
                 ))}
               </ul>
             </details>
