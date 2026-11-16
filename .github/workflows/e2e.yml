@@ -7,20 +7,51 @@ jobs:
   e2e:
     name: Playwright E2E (Vercel preview)
     runs-on: ubuntu-latest
-    timeout-minutes: 45
-    # All PR previews share one staging Supabase: serialize runs (queued run
-    # waits, finished one is never cancelled mid-test). GitHub keeps only the
-    # newest pending run per group, so an older queued push is superseded.
+    timeout-minutes: 150
+    # All PR previews share one staging Supabase, so runs must not overlap.
+    # `concurrency` can't queue (GitHub keeps ONE pending run per group and
+    # cancels older pending ones, so busy branches starved other PRs). Instead:
+    # per-PR group cancels only superseded pushes of the same PR, and the
+    # "Wait for turn" step below queues across PRs in run-id order.
     # Fixture users are additionally scoped per run (E2E_RUN_ID).
     concurrency:
-      group: e2e-staging
-      cancel-in-progress: false
+      group: e2e-pr-${{ github.event.pull_request.number }}
+      cancel-in-progress: true
     permissions:
       contents: read
       deployments: read
       pull-requests: write
+      actions: read
 
     steps:
+      # FIFO queue across PRs. Waits while any older run (lower run id) of this
+      # workflow still has its staging job (this job) queued or running.
+      # Cancelled/finished runs drop out, so a dead run never blocks. Runs
+      # before checkout/install so a waiting job costs almost nothing.
+      - name: Wait for turn (shared staging)
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+          RUN_ID: ${{ github.run_id }}
+          JOB_NAME: Playwright E2E (Vercel preview)
+        run: |
+          while true; do
+            AHEAD=""
+            for STATUS in queued in_progress waiting pending requested; do
+              IDS=$(gh api "/repos/$REPO/actions/workflows/e2e.yml/runs?status=$STATUS&per_page=100" \
+                --jq ".workflow_runs[] | select(.id < $RUN_ID) | .id")
+              for ID in $IDS; do
+                BUSY=$(gh api "/repos/$REPO/actions/runs/$ID/jobs?per_page=100" \
+                  --jq "[.jobs[] | select(.name == \"$JOB_NAME\" and .status != \"completed\")] | length")
+                if [ "$BUSY" != "0" ]; then AHEAD="$AHEAD $ID"; fi
+              done
+            done
+            if [ -z "$AHEAD" ]; then break; fi
+            echo "Staging busy, waiting for run(s):$AHEAD ..."
+            sleep 30
+          done
+          echo "Our turn."
+
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - uses: pnpm/action-setup@73e46992e05b19abd31f2f3c20e0e7370d762115 # v6.1.1

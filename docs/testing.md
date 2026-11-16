@@ -32,7 +32,7 @@ Each spec must cover:
 
 ## Parallel runs, shared staging DB
 
-PR E2E runs share one staging Supabase. Job `e2e` has `concurrency: e2e-staging` (serialized, no cancel of running). Fixture users carry run id: `e2e+r<runId>-worker-<workerIndex>@test.local` (`lib/e2e-run.ts`; `runId` = `GITHUB_RUN_ID`+attempt in CI, random locally; `playwright.config.ts` exports `E2E_RUN_ID` so workers + teardown agree). Never PID. Teardown `DELETE /api/test/cleanup {runId}` removes only that run's prefix + any `e2e+` user older than 6h (crashed-run leftovers); specs' ad-hoc `e2e+...-${Date.now()}` users get swept by that age rule. User listing paginated (`lib/test-users.ts`). Cleanup failure → CI warning, not red.
+PR E2E runs share one staging Supabase. Job `e2e` serialized across PRs by FIFO `Wait for turn` step (polls older runs' staging job, run-id order) — `concurrency` can't queue: 1 pending/group, newer push cancels older pending → busy branch starved other PRs. Per-PR `concurrency` group cancels only superseded pushes of same PR. Fixture users carry run id: `e2e+r<runId>-worker-<workerIndex>@test.local` (`lib/e2e-run.ts`; `runId` = `GITHUB_RUN_ID`+attempt in CI, random locally; `playwright.config.ts` exports `E2E_RUN_ID` so workers + teardown agree). Never PID. Teardown `DELETE /api/test/cleanup {runId}` removes only that run's prefix + any `e2e+` user older than 6h (crashed-run leftovers); specs' ad-hoc `e2e+...-${Date.now()}` users get swept by that age rule. User listing paginated (`lib/test-users.ts`). Cleanup failure → CI warning, not red.
 
 ## Test backdoors
 
