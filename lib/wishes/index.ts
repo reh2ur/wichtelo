@@ -34,3 +34,40 @@ export async function loadWishes(
   if (error) throw new Error(`[loadWishes] failed: ${error.message}`);
   return data ?? [];
 }
+
+export type RecipientWish = Pick<
+  Wish,
+  "id" | "title" | "url" | "note" | "price_estimate"
+>;
+
+/**
+ * Open wishes the viewer's recipient linked to `groupId` (#209). RLS
+ * (`is_giver_of_wish`) already limits other people's wishes to the giver of
+ * the owner in that group; `neq profile_id` drops the viewer's OWN wishes,
+ * which the owner policy would also return. Throws on a DB error — never
+ * `[]` — so a failure cannot read as "no wishes yet".
+ */
+export async function loadRecipientWishes(
+  supabase: UserClient,
+  groupId: string,
+  viewerId: string,
+): Promise<RecipientWish[]> {
+  const { data, error } = await supabase
+    .from("wishes")
+    .select("id, title, url, note, price_estimate")
+    .eq("group_id", groupId)
+    .eq("status", "open")
+    .neq("profile_id", viewerId)
+    .order("created_at", { ascending: false });
+  if (error) throw new Error(`[loadRecipientWishes] failed: ${error.message}`);
+  return data ?? [];
+}
+
+/** Display host of a wish link (no `www.`); raw string if unparsable. */
+export function hostOf(url: string): string {
+  try {
+    return new URL(url).hostname.replace(/^www\./, "");
+  } catch {
+    return url;
+  }
+}

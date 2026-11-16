@@ -11,7 +11,7 @@ import {
 import { createClient } from "@/lib/supabase/server";
 import { requireUser } from "@/lib/auth/require-auth";
 import { loadMembershipsWithGroups } from "@/lib/group-reads";
-import { loadWishes, type Wish } from "@/lib/wishes";
+import { hostOf, loadWishes, type Wish } from "@/lib/wishes";
 import {
   ARCHIVE_PARAM,
   filterWishes,
@@ -70,7 +70,13 @@ export default async function WuenschePage({
         </Link>
       </div>
       <h1 className="mb-2 text-2xl font-bold">{t("title")}</h1>
-      <p className="text-muted-foreground mb-8 text-sm">{t("intro")}</p>
+      <p className="text-muted-foreground mb-2 text-sm">{t("intro")}</p>
+      <p
+        className="text-muted-foreground mb-8 text-sm"
+        data-testid="wishes-giver-hint"
+      >
+        {t("giverHint")}
+      </p>
 
       <Suspense fallback={<WishesSkeleton />}>
         <WuenscheContent searchParams={searchParams} />
@@ -290,14 +296,6 @@ async function WuenscheContent({
       </div>
     </WishesProvider>
   );
-}
-
-function hostOf(url: string): string {
-  try {
-    return new URL(url).hostname.replace(/^www\./, "");
-  } catch {
-    return url;
-  }
 }
 
 function WishItem({
