@@ -27,3 +27,14 @@ export function rateLimitKey(email: string): string {
     .update(`rate-limit-email:${email.trim().toLowerCase()}`)
     .digest("base64url");
 }
+
+/**
+ * Keyed hash of a domain-separated message under the same server secret.
+ * Output is stable per input and unpredictable without the secret; callers
+ * pick a unique `domain` so values from different uses never collide.
+ */
+export function hmacWithServerSecret(domain: string, message: string): string {
+  return createHmac("sha256", getSecret())
+    .update(`${domain}:${message}`)
+    .digest("base64url");
+}

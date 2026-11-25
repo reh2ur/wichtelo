@@ -340,6 +340,15 @@ async function AssignmentSection({
           redrawn={drawVersion > 1}
         />
         <AdminOracle slug={slug} members={members} />
+        <Link
+          href={`/gruppen/${slug}/verteilung`}
+          className="border-border bg-card hover:bg-muted/50 block rounded-lg border px-4 py-3 transition-colors"
+        >
+          <span className="text-sm font-bold">{t("checkDistribution")}</span>
+          <span className="text-muted-foreground block text-sm">
+            {t("checkDistributionHint")}
+          </span>
+        </Link>
         <RedrawButton slug={slug} groupId={groupId} />
       </div>
     );

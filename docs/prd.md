@@ -97,6 +97,8 @@ Secret Santa is a German-language web app that lets a group admin create a Grupp
 53. As any user, I want the landing page to have a subtle, CSS-only snow animation, so that it immediately conveys the festive mood.
 54. As any user, I want the design to use a warm Christmas palette (deep red, pine green, cream, gold accents) with a rounded, friendly font, so that the experience feels cosy and seasonal.
 55. As any user, I want the UI to be clean and uncluttered with no visual distractions, so that I can find what I need quickly.
+56. As a Gruppe admin, I want a pseudonymised overview of the whole draw (two lists, arrows, "Person A…") with rule checks, so that I and the participants can trust that everyone gives and receives exactly once, nobody draws themselves and no mutual pairs or exclusions are violated.
+57. As a Gruppe admin, I want to reveal single names in that overview via an eye button with 3 s cancelable delay, so that I can help individuals without exposing the whole draw or revealing by accident.
 
 ## Implementation Decisions
 
@@ -230,6 +232,7 @@ On confirmation, the user's `auth.users` record and `profiles` record are delete
 - Account deletion: user initiates → confirms via email link → account gone, name preserved in assignments
 - Invite link dead-end: visit invite link after draw → see friendly message
 - Admin oracle: admin selects participant → confirms → sees single assignment
+- Distribution check: admin opens `/gruppen/[slug]/verteilung` → sees pseudonymised arrows + passed checks → reveals one name (3 s countdown, cancelable)
 
 **Prior art:** This is a greenfield project. Test structure follows Vitest defaults with co-located test files (`*.test.ts`) for unit tests and a top-level `e2e/` directory for Playwright specs.
 
@@ -252,6 +255,6 @@ On confirmation, the user's `auth.users` record and `profiles` record are delete
 - Super-admin back-office exists (`/admin`, `SUPER_ADMIN_EMAIL`, audit log) — see `docs/admin-dashboard.md`.
 - Supabase's EU (Frankfurt) region ensures personal data does not leave the EU, simplifying the GDPR transfer assessment.
 - The `name_snapshot` field in memberships means the draw history is self-contained and does not break if users delete their accounts — but this must be clearly disclosed in the privacy policy before any data is collected.
-- The admin oracle feature (individual assignment lookup) must be disclosed in the Datenschutzerklärung as it constitutes access to personal data by a third party (the admin).
+- The admin oracle feature (individual assignment lookup) and the pseudonymised distribution view (name reveal per person) must be disclosed in the Datenschutzerklärung as it constitutes access to personal data by a third party (the admin).
 - CSS-only snow animation on the landing page avoids any JavaScript bundle cost and works with server rendering.
 - Turbopack is the default bundler in Next.js 16 for both dev and build — no webpack fallback is needed.

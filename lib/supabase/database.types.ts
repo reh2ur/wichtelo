@@ -70,6 +70,7 @@ export type Database = {
           actor_profile_id: string | null;
           group_id: string;
           id: string;
+          kind: string;
           looked_up_at: string;
           target_membership_id: string | null;
         };
@@ -78,6 +79,7 @@ export type Database = {
           actor_profile_id?: string | null;
           group_id: string;
           id?: string;
+          kind?: string;
           looked_up_at?: string;
           target_membership_id?: string | null;
         };
@@ -85,6 +87,7 @@ export type Database = {
           actor_profile_id?: string | null;
           group_id?: string;
           id?: string;
+          kind?: string;
           looked_up_at?: string;
           target_membership_id?: string | null;
         };

@@ -8,6 +8,7 @@ import type { SupabaseClient, User } from "@supabase/supabase-js";
 
 const GROUP_DETAIL_RE = /^\/gruppen\/([^/]+)$/;
 const GROUP_SETTINGS_RE = /^\/gruppen\/([^/]+)\/einstellungen$/;
+const GROUP_DISTRIBUTION_RE = /^\/gruppen\/([^/]+)\/verteilung$/;
 
 function isBanned(user: Pick<User, "banned_until">): boolean {
   if (!user.banned_until) return false;
@@ -102,7 +103,8 @@ export async function updateSession(request: NextRequest) {
     // lets Next's own (already-correct) 404 handling take over.
     const slug =
       GROUP_DETAIL_RE.exec(pathname)?.[1] ??
-      GROUP_SETTINGS_RE.exec(pathname)?.[1];
+      GROUP_SETTINGS_RE.exec(pathname)?.[1] ??
+      GROUP_DISTRIBUTION_RE.exec(pathname)?.[1];
     if (slug && slug !== "neu") {
       const notFoundRewrite = () =>
         withSessionCookies(
@@ -126,11 +128,15 @@ export async function updateSession(request: NextRequest) {
         const membership = (
           found as { memberships: { id: string; role: string }[] } | null
         )?.memberships?.[0];
-        // Detail needs membership; settings needs admin membership. Non-admin
+        // Detail needs membership; settings and distribution need admin membership. Non-admin
         // members and non-members get the same 404 as an unknown slug, so the
         // response never reveals whether a slug exists.
         if (!membership) return notFoundRewrite();
-        if (GROUP_SETTINGS_RE.test(pathname) && membership.role !== "admin") {
+        if (
+          (GROUP_SETTINGS_RE.test(pathname) ||
+            GROUP_DISTRIBUTION_RE.test(pathname)) &&
+          membership.role !== "admin"
+        ) {
           return notFoundRewrite();
         }
       } catch {
