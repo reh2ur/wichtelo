@@ -92,6 +92,8 @@
   },
   "groupDetail": {
     "pageTitle": "Gruppe",
+    "checkDistribution": "Verteilung prüfen",
+    "checkDistributionHint": "Alle Zuweisungen pseudonymisiert prüfen: schenkt und erhält jede Person genau einmal?",
     "backToGroups": "Meine Gruppen",
     "participants": "Teilnehmer",
     "budget": "Budget-Hinweis",
@@ -107,7 +109,7 @@
     "redrawnNote": "Neu ausgelost: Diese Zuteilung ersetzt die vorherige. Bereits gekaufte Geschenke passen eventuell nicht mehr.",
     "assignmentPending": "Deine Zuteilung entfällt gerade, weil ein Teilnehmer entfernt wurde. Der Admin lost neu aus, du bekommst dann eine E-Mail.",
     "waitingForDraw": "Die Auslosung steht noch aus. Du bekommst eine E-Mail, sobald ausgelost wurde.",
-    "adminLookupNotice": "Hinweis: Der Admin dieser Gruppe kann bei Bedarf einzelne Zuordnungen einsehen, z. B. für Rückfragen.",
+    "adminLookupNotice": "Hinweis: Der Admin dieser Gruppe kann bei Bedarf einzelne Zuordnungen einsehen, z. B. für Rückfragen. Außerdem kann er die Verteilung pseudonymisiert auf Vollständigkeit und Regelverstöße prüfen.",
     "inviteLink": {
       "copy": "Link kopieren",
       "copied": "Kopiert!",
@@ -296,6 +298,59 @@
     "errors": {
       "notAdmin": "Nur Admins können Zuweisungen nachschlagen.",
       "notFound": "Zuweisung nicht gefunden.",
+      "rateLimited": "Zu viele Abfragen. Bitte warte einen Moment und versuche es erneut.",
+      "generic": "Etwas ist schiefgelaufen. Bitte versuche es erneut."
+    }
+  },
+  "distribution": {
+    "title": "Verteilung prüfen",
+    "backToGroup": "Zur Gruppe",
+    "intro": "Alle Teilnehmenden sind pseudonymisiert. Du kannst prüfen, ob jede Person genau einmal schenkt und beschenkt wird, ohne die Zuordnung im Klartext zu sehen. Namen kannst du einzeln aufdecken; das wird protokolliert.",
+    "notDrawn": "Die Gruppe wurde noch nicht ausgelost. Sobald die Auslosung stattgefunden hat, kannst du die Verteilung hier prüfen.",
+    "person": "Person {label}",
+    "you": "du",
+    "ghost": "Konto gelöscht",
+    "giversTitle": "Schenkt",
+    "receiversTitle": "Wird beschenkt",
+    "viewArrows": "Pfeile",
+    "viewList": "Liste",
+    "viewLabel": "Ansicht",
+    "missingArrow": "keine Zuweisung",
+    "summaryOk": "Alle Prüfungen bestanden.",
+    "summaryFailed": "Mindestens eine Prüfung ist fehlgeschlagen. Bitte die Auslosung prüfen und gegebenenfalls neu auslosen.",
+    "gives": "beschenkt {label}",
+    "highlightHint": "Tippe auf eine Person, um ihre Pfeile hervorzuheben.",
+    "reveal": {
+      "show": "Name von {label} aufdecken",
+      "cancel": "Aufdecken von {label} abbrechen",
+      "hide": "Name von {label} verdecken",
+      "loading": "Name von {label} wird geladen",
+      "countdown": "Name von {label} wird in {seconds} Sekunden aufgedeckt. Klicke erneut auf das Auge, um abzubrechen.",
+      "cancelled": "Aufdecken abgebrochen."
+    },
+    "checks": {
+      "title": "Prüfung",
+      "ok": "erfüllt",
+      "failed": "verletzt",
+      "allGive": "Jede Person schenkt genau einmal",
+      "allReceive": "Jede Person wird genau einmal beschenkt",
+      "noSelf": "Niemand beschenkt sich selbst",
+      "noMutual": "Keine Kreuze (A beschenkt B und B beschenkt A)",
+      "exclusions": "Ausschlüsse eingehalten ({count})",
+      "exclusionsNone": "Ausschlüsse eingehalten (keine definiert)",
+      "unknown": "Alle Zuweisungen gehören zu Gruppenmitgliedern",
+      "missingGiver": "Ohne ausgehende Zuweisung: {list}",
+      "multipleGiver": "Mehrfach schenkend: {list}",
+      "missingReceiver": "Niemand beschenkt: {list}",
+      "multipleReceiver": "Mehrfach beschenkt: {list}",
+      "selfAssigned": "Beschenkt sich selbst: {list}",
+      "mutualPairs": "Kreuz: {list}",
+      "exclusionViolations": "Ausschluss verletzt: {list}",
+      "unknownCount": "{count} Zuweisung(en) mit unbekannter Person"
+    },
+    "errors": {
+      "notAdmin": "Nur Admins können Namen aufdecken.",
+      "notFound": "Name nicht gefunden.",
       "rateLimited": "Zu viele Abfragen. Bitte warte einen Moment und versuche es erneut.",
       "generic": "Etwas ist schiefgelaufen. Bitte versuche es erneut."
     }
@@ -664,7 +719,7 @@
     },
     "oracleAccess": {
       "heading": "Einsicht durch Gruppen-Admins",
-      "body": "Der Admin einer Gruppe kann für einzelne Teilnehmende die zugeloste Empfängerin bzw. den zugelosten Empfänger einsehen. Diese Funktion dient der Unterstützung bei Rückfragen und wird ausschließlich auf gezielte Auswahl der Teilnehmenden hin ausgeführt. Jede Einsicht wird mit Zeitpunkt, einsehendem Admin und betroffener Teilnehmerin bzw. betroffenem Teilnehmer protokolliert; das Protokoll wird mit der Gruppe gelöscht."
+      "body": "Der Admin einer Gruppe kann für einzelne Teilnehmende die zugeloste Empfängerin bzw. den zugelosten Empfänger einsehen. Diese Funktion dient der Unterstützung bei Rückfragen und wird ausschließlich auf gezielte Auswahl der Teilnehmenden hin ausgeführt. Jede Einsicht wird mit Zeitpunkt, einsehendem Admin und betroffener Teilnehmerin bzw. betroffenem Teilnehmer protokolliert; das Protokoll wird mit der Gruppe gelöscht. Zusätzlich kann der Admin eine pseudonymisierte Gesamtübersicht der Verteilung einsehen (Teilnehmende erscheinen als „Person A“, „Person B“ usw.), um zu prüfen, ob jede Person genau einmal schenkt und beschenkt wird und die Regeln der Auslosung eingehalten wurden. Echte Namen kann der Admin dort einzeln aufdecken; jede Aufdeckung wird wie oben protokolliert."
     },
     "rights": {
       "heading": "Rechte der Benutzer",

@@ -109,6 +109,10 @@ export const assignmentLookupLimiter = makeLimiter(
   10,
   "1 h",
 );
+// Distribution view: revealing the name behind a pseudonym. Two reveals expose
+// one pairing, so 20/h per admin and group (separate bucket from the lookup,
+// #223).
+export const identityRevealLimiter = makeLimiter("identity-reveal", 20, "1 h");
 export const exclusionAddLimiter = makeLimiter("exclusion-add", 30, "1 h");
 export const accountDeletionLimiter = makeLimiter(
   "account-deletion",
