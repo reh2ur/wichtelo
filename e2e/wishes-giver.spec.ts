@@ -94,6 +94,8 @@ test.describe("wishes: giver visibility (#209)", () => {
     authedPage,
     browser,
   }) => {
+    // Three OTP sign-ins, three wishes, a draw and three reveals.
+    test.setTimeout(120_000);
     const { slug, inviteUrl } = await setupGroup(authedPage, "Wunsch Sichtbar");
     const ctxB = await browser.newContext(guestContextOptions());
     const ctxC = await browser.newContext(guestContextOptions());
