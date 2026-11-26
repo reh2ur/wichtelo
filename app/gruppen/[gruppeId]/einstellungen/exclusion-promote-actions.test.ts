@@ -247,8 +247,26 @@ describe("demoteAdmin (#156)", () => {
     expect(rpc).toHaveBeenCalledWith("demote_admin", {
       p_group_id: "g1",
       p_membership_id: "m-target",
+      p_caller_membership_id: "m-admin",
     });
     expect(updateTag).toHaveBeenCalledWith(groupTag("familie"));
+  });
+
+  it("rejects self-demote before calling the RPC", async () => {
+    const rpc = withRpc("ok");
+    const res = await demoteAdmin(
+      { status: "idle" },
+      fd({ ...input, membershipId: "m-admin" }),
+    );
+    expect(res).toEqual({ status: "error", error: "self_demote" });
+    expect(rpc).not.toHaveBeenCalled();
+    expect(updateTag).not.toHaveBeenCalled();
+  });
+
+  it("maps RPC self_demote (defense in depth)", async () => {
+    withRpc("self_demote");
+    const res = await demoteAdmin({ status: "idle" }, fd(input));
+    expect(res).toEqual({ status: "error", error: "self_demote" });
   });
 
   it("blocks the last live admin", async () => {
