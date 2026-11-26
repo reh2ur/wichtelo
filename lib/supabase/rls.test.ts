@@ -1497,8 +1497,12 @@ describe.skipIf(!hasSupabase)("RLS: wishes visible to giver (#209)", () => {
       ["third", "giver"],
     ]);
 
+    // Bulk insert with differing keys sends null (not the column default)
+    // for missing ones, so status/received_at are explicit on every row.
     const wish = (extra: Record<string, unknown>) => ({
       profile_id: ids.owner,
+      status: "open",
+      received_at: null,
       ...extra,
     });
     const rows = [
