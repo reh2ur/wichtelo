@@ -49,7 +49,7 @@
     "@sentry/nextjs": "^11.15.0",
     "@supabase/ssr": "^0.12.7",
     "@supabase/supabase-js": "^2.119.2",
-    "@tanstack/react-table": "^9.3.1",
+    "@tanstack/react-table": "^8.21.3",
     "@upstash/ratelimit": "^2.2.1",
     "@upstash/redis": "^1.41.0",
     "@vercel/speed-insights": "^2.1.0",
@@ -93,7 +93,7 @@
     "shadcn": "^4.23.0",
     "supabase": "^3.2.0",
     "tailwindcss": "^4",
-    "typescript": "^7",
+    "typescript": "^6",
     "vite": "^8.3.8",
     "vitest": "^5.1.1"
   }
