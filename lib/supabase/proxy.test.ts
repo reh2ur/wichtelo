@@ -150,6 +150,21 @@ describe("updateSession", () => {
     expect(res.headers.get("location")).toBeNull();
   });
 
+  it("guards the distribution view like settings: admin only, same 404", async () => {
+    setLookup({ id: "m1", role: "participant" });
+    const member = await updateSession(req("/gruppen/abc/verteilung"));
+    setLookup(null);
+    const stranger = await updateSession(req("/gruppen/weg/verteilung"));
+    expect(isNotFoundRewrite(member)).toBe(true);
+    expect(isNotFoundRewrite(stranger)).toBe(true);
+  });
+
+  it("lets an admin through to the distribution view", async () => {
+    const res = await updateSession(req("/gruppen/abc/verteilung"));
+    expect(isNotFoundRewrite(res)).toBe(false);
+    expect(res.headers.get("location")).toBeNull();
+  });
+
   it("passes the original path as next on the login redirect", async () => {
     userResult = null;
     const res = await updateSession(req("/gruppen/abc?x=1"));
