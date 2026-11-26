@@ -209,7 +209,7 @@ export function DistributionClient({
                 return (
                   <li
                     key={n.label}
-                    className="grid min-h-12 grid-cols-[1fr_auto_1fr] items-center gap-2"
+                    className="grid min-h-12 grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-2"
                   >
                     {renderPerson(n.label, "left")}
                     <ArrowRightIcon aria-hidden="true" size={16} />
@@ -366,7 +366,7 @@ function ArrowsView({
 
   return (
     <div data-testid="distribution-arrows">
-      <div className="grid grid-cols-[1fr_3rem_1fr] gap-x-0 sm:grid-cols-[1fr_8rem_1fr]">
+      <div className="grid grid-cols-[minmax(0,1fr)_3rem_minmax(0,1fr)] gap-x-0 sm:grid-cols-[minmax(0,1fr)_8rem_minmax(0,1fr)]">
         <h3 className="text-muted-foreground pb-2 text-xs font-semibold uppercase">
           {t("giversTitle")}
         </h3>
@@ -375,7 +375,7 @@ function ArrowsView({
           {t("receiversTitle")}
         </h3>
 
-        <ol className="m-0 list-none p-0">
+        <ol className="m-0 min-w-0 list-none p-0">
           {view.nodes.map((n) => (
             <li key={n.label}>
               {renderPerson(n.label, "left")}
@@ -421,7 +421,7 @@ function ArrowsView({
           </svg>
         </div>
 
-        <ol className="m-0 list-none p-0">
+        <ol className="m-0 min-w-0 list-none p-0">
           {view.nodes.map((n) => (
             <li key={n.label}>{renderPerson(n.label, "right")}</li>
           ))}
