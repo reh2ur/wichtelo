@@ -10,6 +10,7 @@ import { createClient } from "@/lib/supabase/server";
 import { getUser } from "@/lib/auth/get-user";
 import { getOrCreateToken } from "@/lib/invite";
 import { loadMyReceiverId } from "@/lib/group-reads";
+import { hostOf, loadRecipientWishes } from "@/lib/wishes";
 import { buildInviteUrl, getSiteUrl } from "@/lib/site-url";
 import { buildDisplayNameMap } from "@/lib/member-display-names";
 import { CopyInviteLink } from "./copy-invite-link";
@@ -408,6 +409,18 @@ async function MyAssignment({
   const receiverDisplay = displayNames.get(receiverId);
   if (!receiverDisplay) return null;
 
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  const wishes = user
+    ? await loadRecipientWishes(supabase, groupId, user.id)
+    : [];
+  const priceFormat = new Intl.NumberFormat("de-DE", {
+    style: "currency",
+    currency: "EUR",
+  });
+
   return (
     <section className="mb-6 space-y-2">
       <div className="border-crimson/40 bg-card relative overflow-hidden rounded-lg border px-5 pt-5 pb-4">
@@ -418,7 +431,60 @@ async function MyAssignment({
           hiddenLabel={t("hiddenAssignment")}
           revealLabel={t("revealAssignment")}
           hideLabel={t("hideAssignment")}
-        />
+        >
+          <section
+            className="border-border mt-4 border-t pt-4"
+            data-testid="recipient-wishes"
+          >
+            <h3 className="text-sm font-bold">{t("recipientWishes.title")}</h3>
+            {wishes.length === 0 ? (
+              <p
+                className="text-muted-foreground mt-2 text-sm"
+                data-testid="recipient-wishes-empty"
+              >
+                {t("recipientWishes.empty")}
+              </p>
+            ) : (
+              <ul className="mt-2 space-y-2">
+                {wishes.map((w) => (
+                  <li
+                    key={w.id}
+                    data-testid="recipient-wish"
+                    className="bg-muted/30 rounded-md px-3 py-2 text-sm"
+                  >
+                    <p className="font-medium break-words">{w.title}</p>
+                    {w.note && (
+                      <p className="text-muted-foreground mt-0.5 break-words whitespace-pre-line">
+                        {w.note}
+                      </p>
+                    )}
+                    {w.price_estimate !== null && (
+                      <p className="text-muted-foreground mt-0.5">
+                        {t("recipientWishes.price", {
+                          price: priceFormat.format(w.price_estimate),
+                        })}
+                      </p>
+                    )}
+                    {w.url && (
+                      <a
+                        href={w.url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-navy mt-0.5 inline-block break-all underline underline-offset-4 hover:no-underline"
+                      >
+                        {t("recipientWishes.link", { host: hostOf(w.url) })}
+                        <span className="sr-only">
+                          {" "}
+                          {t("recipientWishes.linkNewTab")}
+                        </span>
+                      </a>
+                    )}
+                  </li>
+                ))}
+              </ul>
+            )}
+          </section>
+        </RevealAssignment>
         {redrawn && (
           <p
             className="text-muted-foreground mt-2 text-xs"

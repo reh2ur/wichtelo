@@ -80,7 +80,8 @@ Secret Santa is a German-language web app that lets a group admin create a Grupp
 58. As a user, I want link to at most one of my own groups per wish, so that wish can be assigned to current Wichtel group. Group deleted → wish stays, unassigned.
 59. As a user, I want mark wish received → archive, reopen later, so that open list stays short.
 60. As a user, I want filter by status + text search (+ group / unassigned), so that I find wish fast.
-61. As a user, I want wishes visible only to me (group visibility = #209, link preview = #210), deleted with my account, not part of group retention.
+61. As a user, I want wishes visible only to me, except open wishes assigned to group → visible after draw to my giver in that group only (#209; not members, not admins), link preview = #210. Deleted with my account, not part of group retention.
+    61a. As a giver, I want see recipient's open wishes of this group next to assignment (behind reveal tap), so that I pick fitting gift.
 
 ### Legal & Compliance
 
@@ -158,7 +159,7 @@ Ten tables in Supabase PostgreSQL. Row Level Security enforced on all tables.
 - **assignments** — one row per giver/receiver pair per group. Overwritten entirely on re-draw.
 - **exclusions** — bidirectional exclusion pairs per group. Canonical ordering (`member_a < member_b`) enforced via check constraint to prevent duplicates.
 - **invite_tokens** — one active token per group. Invalidated logically once group state becomes `drawn`.
-- **wishes** — account-level wish list. `profile_id` (cascade w/ account), `group_id` (nullable, at most one, `ON DELETE SET NULL`; DB trigger: owner must be member), `title`, `url?` (http/https), `note?`, `price_estimate?`, `status` (`open` | `received`), `received_at?`. CHECK constraints mirror zod. Cap 500 per account (trigger, `54000`). Owner-only RLS, user-JWT writes (update: column grants, `profile_id` immutable).
+- **wishes** — account-level wish list. `profile_id` (cascade w/ account), `group_id` (nullable, at most one, `ON DELETE SET NULL`; DB trigger: owner must be member), `title`, `url?` (http/https), `note?`, `price_estimate?`, `status` (`open` | `received`), `received_at?`. CHECK constraints mirror zod. Cap 500 per account (trigger, `54000`). Owner-only RLS (+ giver read of open group wishes, #209), user-JWT writes (update: column grants, `profile_id` immutable).
 - **draw_mail_failures**, **assignment_lookups**, **admin_audit_log** — service-role bookkeeping: latest draw-mail partial failure, admin oracle audit trail, super-admin action log.
 
 RLS rules: participants + admins read only own assignment row (admin lookup = audited action, service role); profiles readable by owner only; user JWT writes only profile names, own wishes + `create_group` RPC.
@@ -239,7 +240,7 @@ On confirmation, the user's `auth.users` record and `profiles` record are delete
 ## Out of Scope
 
 - **Open registration** — the site is invite-only; strangers cannot sign up without a group invite link
-- **Wish reservation** — Wichtel group has exactly one giver per person; only relevant for e.g. birthday lists (backlog). Group visibility of wishes = #209, link metadata fetch = #210
+- **Wish reservation** — Wichtel group has exactly one giver per person; only relevant for e.g. birthday lists (backlog). Link metadata fetch = #210
 - **Draw scheduling** — admins trigger draws manually; no date-based automation
 - **Multi-language support** — German only for the foreseeable future
 - **Analytics or usage tracking** — excluded for privacy/compliance; Vercel Speed Insights (performance monitoring only, no cookies/profiles) not covered by this exclusion, see Legal section
