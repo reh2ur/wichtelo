@@ -12,6 +12,13 @@ updates:
       npm-weekly:
         patterns: ["*"]
     open-pull-requests-limit: 1
+    # Held back: typescript-eslint lacks TS 7 support; react-table 9 drops
+    # the v8 API (needs code migration). Remove each rule once ready.
+    ignore:
+      - dependency-name: "typescript"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "@tanstack/react-table"
+        update-types: ["version-update:semver-major"]
   - package-ecosystem: "github-actions"
     directory: "/"
     schedule:
