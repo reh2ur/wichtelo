@@ -3,7 +3,8 @@ import type { Route } from "next";
 type Access = "protected" | "public" | "guest-only";
 
 // Keep only bare page paths — strip search/hash variants, API/auth handler
-// routes, and /einladung (manages its own access, see NON_PAGE_PREFIXES).
+// routes, /einladung (manages its own access, see NON_PAGE_PREFIXES) and
+// /sentry-tunnel (route handler @sentry/nextjs generates on Vercel builds).
 type PageRoute = Exclude<
   Extract<Route, `/${string}`>,
   | `${string}?${string}`
@@ -11,6 +12,7 @@ type PageRoute = Exclude<
   | `/api${string}`
   | `/auth${string}`
   | `/einladung${string}`
+  | `/sentry-tunnel${string}`
 >;
 
 // Helper generic forces distributive evaluation over each union member.
