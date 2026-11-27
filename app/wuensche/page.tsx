@@ -27,6 +27,8 @@ import { LoadingRegion } from "@/components/ui/loading-region";
 import {
   QuickAddForm,
   WishEditForm,
+  WishIcon,
+  WishImage,
   WishRowActions,
   WishesProvider,
   type GroupOption,
@@ -260,6 +262,10 @@ async function WuenscheContent({
                       title: wish.title,
                       url: wish.url,
                       note: wish.note,
+                      linkTitle: wish.link_title,
+                      linkImageUrl: wish.link_image_url,
+                      linkBrand: wish.link_brand,
+                      linkIconUrl: wish.link_icon_url,
                       priceInput: priceInput(wish.price_estimate),
                       groupId: groupLabel.has(wish.group_id ?? "")
                         ? wish.group_id
@@ -314,35 +320,45 @@ function WishItem({
   editHref: Route;
 }) {
   return (
-    <>
-      <p className="font-medium break-words">{wish.title}</p>
-      <div className="text-muted-foreground mt-1 flex flex-wrap gap-x-3 gap-y-1 text-sm">
-        {price && <span>{t("item.price", { price })}</span>}
-        {groupName && <span>{groupName}</span>}
-        {receivedOn && (
-          <span>{t("item.receivedOn", { date: receivedOn })}</span>
+    <div className="flex items-start gap-3">
+      {wish.url && wish.link_image_url && (
+        <WishImage key={wish.link_image_url} src={wish.link_image_url} />
+      )}
+      <div className="min-w-0 flex-1">
+        <p className="font-medium break-words">{wish.title}</p>
+        <div className="text-muted-foreground mt-1 flex flex-wrap gap-x-3 gap-y-1 text-sm">
+          {price && <span>{t("item.price", { price })}</span>}
+          {groupName && <span>{groupName}</span>}
+          {receivedOn && (
+            <span>{t("item.receivedOn", { date: receivedOn })}</span>
+          )}
+        </div>
+        {wish.url && (
+          <p className="mt-1 text-sm break-all">
+            <a
+              href={wish.url}
+              target="_blank"
+              rel="noopener noreferrer nofollow"
+              className="text-navy inline-flex items-center gap-1 underline underline-offset-4 hover:no-underline"
+            >
+              {wish.link_title
+                ? t("item.linkTitled", {
+                    title: wish.link_title,
+                    host: hostOf(wish.url),
+                  })
+                : t("item.link", { host: hostOf(wish.url) })}
+              <ArrowSquareOutIcon aria-hidden="true" size={14} />
+              <span className="sr-only">{t("item.linkNewTab")}</span>
+            </a>
+          </p>
         )}
+        {wish.note && (
+          <p className="text-muted-foreground mt-2 text-sm break-words whitespace-pre-line">
+            {wish.note}
+          </p>
+        )}
+        <WishRowActions id={wish.id} status={wish.status} editHref={editHref} />
       </div>
-      {wish.url && (
-        <p className="mt-1 text-sm break-all">
-          <a
-            href={wish.url}
-            target="_blank"
-            rel="noopener noreferrer nofollow"
-            className="text-navy inline-flex items-center gap-1 underline underline-offset-4 hover:no-underline"
-          >
-            {t("item.link", { host: hostOf(wish.url) })}
-            <ArrowSquareOutIcon aria-hidden="true" size={14} />
-            <span className="sr-only">{t("item.linkNewTab")}</span>
-          </a>
-        </p>
-      )}
-      {wish.note && (
-        <p className="text-muted-foreground mt-2 text-sm break-words whitespace-pre-line">
-          {wish.note}
-        </p>
-      )}
-      <WishRowActions id={wish.id} status={wish.status} editHref={editHref} />
-    </>
+    </div>
   );
 }

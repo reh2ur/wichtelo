@@ -18,7 +18,8 @@ const csp = [
   "default-src 'self'",
   `script-src 'self' 'unsafe-inline' ${process.env.NODE_ENV === "development" ? "'unsafe-eval' " : ""}https://va.vercel-scripts.com`,
   "style-src 'self' 'unsafe-inline'",
-  "img-src 'self' data: blob:",
+  // https: = wish link-preview images hotlinked from shops (#210, no-referrer).
+  "img-src 'self' data: blob: https:",
   "font-src 'self' data:",
   "connect-src 'self' https://*.supabase.co wss://*.supabase.co https://va.vercel-scripts.com https://vitals.vercel-insights.com",
   "frame-ancestors 'none'",
